@@ -90,7 +90,7 @@
     function robotPhase(){if(robot.awake)return'awake';if(robot.phase==='dig')return'dig';const i=robotFocus();return i<0?'assemble':robotPieces[i].dug?(i===1?'wake':'assemble'):'search';}
     function robotFeedback(){robot.nudge=2;idle=7;sound('select');}
     function scan(){if(robot.awake){friendlyRobot();return;}if(robot.phase==='dig')return;robot.phase=robotPhase();robot.nudge=2;idle=0;sound('scan');}
-    function dig(i){if(robot.awake){friendlyRobot();return;}const q=robotPieces[i];if(!q||robot.phase==='dig'||q.attached)return;if(q.dug){chooseRobot(i);return;}robot.phase='dig';robot.time=0;robot.digIndex=i;selectedRobot=-1;dog.activityTargetX=robotMoundXs[i];dog.activityMode='sniff';dog.dig=0;idle=0;sound('dig');}
+    function dig(i){if(robot.awake){friendlyRobot();return;}const q=robotPieces[i];if(!q||robot.phase==='dig'||q.attached)return;if(q.dug){chooseRobot(i);return;}robot.phase='dig';robot.time=0;robot.walk=0;robot.digIndex=i;selectedRobot=-1;dog.activityTargetX=robotMoundXs[i];dog.activityMode='sniff';dog.dig=0;idle=0;sound('dig');}
     function chooseRobot(i){const q=robotPieces[i];if(!q||!q.dug||q.attached||q.install)return;selectedRobot=i;q.pop=.35;robot.nudge=0;idle=0;sound('select');}
     const robotInstallPoint=new T.Vector3();
     function attachRobot(i){
@@ -116,9 +116,9 @@
       if(robot.phase==='scan'&&nearby(70,12))scan();const focus=robotFocus();
       if(!robot.awake&&nearby(70,15)&&!dog.locked){const q=robotPieces[focus],target=robot.phase==='dig'?robotMoundXs[robot.digIndex]-.76:q&&!q.dug?q.home.x-1.05:q?q.home.x-1.2:robotX-1.1;dog.activityTargetX=target;dog.activityMode=robot.phase==='dig'?'dig':q&&q.dug?'look':'sniff';dog.emote='curious';dog.lookX=.3;dog.lookY=q&&q.dug?.25:-.65;}else if(robot.phase!=='dig'&&!dog.locked){dog.activityTargetX=undefined;dog.activityMode=undefined;dog.emote='';dog.lookX=dog.lookY=0;}
       dish.rotation.y=Math.sin(elapsed*.8)*.3;
-      if(robot.phase==='dig'){const i=robot.digIndex,q=robotPieces[i],arrived=Math.abs(dog.x-(q.home.x-.76))<.55&&dog.grounded;if(arrived)robot.time+=dt;dog.activityMode=arrived?'dig':'sniff';dog.activityTargetX=q.home.x-.76;const u=M.clamp(robot.time/2.3,0,1);mounds[i].g.scale.y=1-u*.94;
+      if(robot.phase==='dig'){const i=robot.digIndex,q=robotPieces[i],arrived=Math.abs(dog.x-(q.home.x-.76))<.55&&dog.grounded;robot.walk=(robot.walk||0)+dt;if(arrived||robot.walk>1.4)robot.time+=dt;dog.activityMode=arrived?'dig':'sniff';dog.activityTargetX=q.home.x-.76;const u=M.clamp(robot.time/1.5,0,1);mounds[i].g.scale.y=1-u*.94;
         if(arrived&&Math.floor(robot.time*7)!==Math.floor((robot.time-dt)*7))burst(q.home.x,ground(q.home.x)+.22,C.sand,2);
-        if(u>=1){q.dug=true;mounds[i].g.visible=false;q.g.visible=true;q.pop=.5;robot.phase=i===1?'wake':'assemble';dog.dig=0;sound('reveal');burst(q.home.x,q.home.y,C.gold,10);idle=0;}
+        if(u>=1){q.dug=true;mounds[i].g.visible=false;q.g.visible=true;q.pop=.5;robot.phase=i===1?'wake':'assemble';robot.walk=0;dog.dig=0;sound('reveal');burst(q.home.x,q.home.y,C.gold,10);idle=0;attachRobot(i);}
       }
       robotPieces.forEach((q,i)=>{q.peek.visible=!q.dug&&robot.phase!=='dig';if(q.install){const a=q.install;a.time+=dt;const u=M.clamp(a.time/.75,0,1),v=u*u*(3-2*u);q.g.position.set(a.from.x+(q.slot.x-a.from.x)*v,a.from.y+(q.slot.y-a.from.y)*v+Math.sin(u*Math.PI)*.75,a.from.z+(q.slot.z-a.from.z)*v);if(u>=1){q.g.position.set(q.slot.x,q.slot.y,q.slot.z);q.install=null;q.pop=.25;robot.phase=robotPhase();}}
         if(q.dug&&!q.attached&&(!drag||drag.kind!=='robot'||drag.i!==i)){q.g.position.copy(q.home);q.g.position.y+=Math.sin(elapsed*1.8+i)*.06;}
@@ -410,8 +410,9 @@
     [-.62,.62].forEach(z=>{tube([-1.72,.12,z],[.95,.12,z],.1,C.silver,sled);tube([.95,.12,z],[1.35,.5,z],.1,C.silver,sled);});
     box([-.25,.43,0],[3.1,.3,1.4],C.orange,sled);box([-1.67,.8,0],[.18,.75,1.4],C.teal,sled);const pawCanvas=document.createElement('canvas');pawCanvas.width=pawCanvas.height=64;const pc=pawCanvas.getContext('2d');pc.fillStyle='#fff4d9';pc.beginPath();pc.ellipse(32,41,13,11,0,0,Math.PI*2);pc.fill();for(const [px,py]of [[14,26],[25,17],[40,17],[51,26]]){pc.beginPath();pc.ellipse(px,py,6,8,(px-32)*.02,0,Math.PI*2);pc.fill();}const pawTexture=new T.CanvasTexture(pawCanvas);pawTexture.colorSpace=T.SRGBColorSpace;mesh(new T.PlaneGeometry(.38,.38),new T.MeshStandardMaterial({map:pawTexture,transparent:true,depthWrite:false,roughness:.8}),[-.1,.43,.711],null,sled);
     const iceRings=[],iceToys=[];
-    [288,296,303,312,319,327,334,341,346].forEach((x,i)=>{
-      const landmark=i===2||i===5||i===8,y=ground(x)+(landmark?1.65:i%2?3.0:2.05),kind=landmark?['prism','waterwheel','aurora'][Math.floor(i/3)]:'snowflake';
+    // 4 yaş için kısa kızak: 1 kar tanesi + 3 buz keşfi + buz kapısı (toplam 5 dokunuş).
+    [288,303,327,346].forEach((x,i)=>{
+      const landmark=i>0,y=ground(x)+(landmark?1.65:2.05),kind=landmark?['prism','waterwheel','aurora'][i-1]:'snowflake';
       const ring=hoop([x,y,-2.35],landmark?.76:1.2,C.gold),inner=hoop([x,y,-2.35],landmark?.96:1.4,C.blue);
       ring.visible=inner.visible=false;const q={ring,inner,x,y,taken:false,kind};iceRings.push(q);
       if(!landmark){star(root,x,y+1.85,.05,.3,C.gold);return;}
@@ -736,13 +737,13 @@
       updateCaravan(dt);
       // Finish the visible opening / dig frame before consuming its reserved tap.
       flushRouteIntent();
-      gateWorkshop.update(dt,slideState.phase==='slide'&&sledPlay.nextIndex()===9);
+      gateWorkshop.update(dt,slideState.phase==='slide'&&sledPlay.nextIndex()===iceRings.length-1);
       if(slideState.phase==='slide'){
         slideState.time+=dt;sledPlay.advance(dt);slideState.vy-=5.5*dt;slideState.lift+=slideState.vy*dt;if(slideState.lift<0){slideState.lift=0;slideState.vy=0;}
         const dir=slideState.to>slideState.from?1:-1,y=ground(slideState.x)+.12+slideState.lift;sled.position.set(slideState.x,y,-1.1);sled.rotation.z=-slideState.vy*.035*dir;seats('slide');player.x=seatP.x;player.y=seatP.y;player.z=seatP.z;player.mode='slide';player.facing=dir;player.vx=slideState.speed||0;player.grounded=slideState.lift<.03;player.vy=slideState.vy;dog.x=seatD.x;dog.y=seatD.y;dog.z=seatD.z;dog.vx=player.vx;dog.mode='slide';dog.facing=dir;dog.grounded=player.grounded;dog.vy=player.vy;
-        jumpCue.scale.setScalar(1+Math.sin(elapsed*4)*.05);if(sledPlay.nextIndex()===9)call('frameActivity',Math.min(slideState.x-2.7,348.3),356.7,ground(352)+1.95,.96);else call('setCameraTarget',slideState.x+4*dir,y+1.8,1,1);
+        jumpCue.scale.setScalar(1+Math.sin(elapsed*4)*.05);if(sledPlay.nextIndex()===iceRings.length-1)call('frameActivity',Math.min(slideState.x-2.7,348.3),356.7,ground(352)+1.95,.96);else call('setCameraTarget',slideState.x+4*dir,y+1.8,1,1);
         sledPlay.update(dt,elapsed,y);
-        if(sledPlay.finished()){jumpCue.visible=false;sled.rotation.z=0;slideState.x=slideState.to;beginTransit('exit','slide');note('Altı kar tanesi ve üç buz keşfi kamp yolunu aydınlattı!');}
+        if(sledPlay.finished()){jumpCue.visible=false;sled.rotation.z=0;slideState.x=slideState.to;beginTransit('exit','slide');note('Kar tanesi ve üç buz keşfi kamp yolunu aydınlattı!');}
 
       }
       iceRings.forEach((q,i)=>{q.ring.rotation.z=elapsed*.25+i;q.inner.rotation.z=-elapsed*.2;});
@@ -772,7 +773,7 @@
     },13);
     lesson('mars-sled',()=>slideState.phase==='slide'?slideState.x:282,'sled',()=>done[2],()=>!done[2]&&mission.garden&&(slideState.phase==='ready'||slideState.phase==='slide'),step=>{
       if(slideState.phase==='ready'){tapStep(step,slideState.x,ground(slideState.x)+1,-1);step.sourceIcon='footsteps';return true;}
-      const q=sledPlay.target();if(!q)return false;step.progress=sledPlay.state().collected;step.total=10;step.sourceIcon=q.kind==='snowflake'?'snowflake':q.kind==='prism'?'crystal':q.kind==='waterwheel'?'waterwheel':'handle';step.goalIcon=q.kind==='snowflake'?'snowflakes':q.kind==='prism'?'light':q.kind==='waterwheel'?'water':q.kind==='aurora'?'aurora':'ice-gate';
+      const q=sledPlay.target();if(!q)return false;step.progress=sledPlay.state().collected;step.total=iceRings.length;step.sourceIcon=q.kind==='snowflake'?'snowflake':q.kind==='prism'?'crystal':q.kind==='waterwheel'?'waterwheel':'handle';step.goalIcon=q.kind==='snowflake'?'snowflakes':q.kind==='prism'?'light':q.kind==='waterwheel'?'water':q.kind==='aurora'?'aurora':'ice-gate';
       if(q.kind==='gate'){step.action='drag';step.demoObject=gateWorkshop.demoSources[q.index];step.from.set(q.sourceX,q.sourceY,q.sourceZ);step.to.set(q.toX,q.toY,q.toZ);step.sourceIcon='ice';step.goalIcon='ice-gate';}
       else{tapStep(step,q.x,q.y,q.z||0);const toy=iceRings[sledPlay.nextIndex()];step.demoObject=toy?.control||null;if(q.kind==='aurora'){step.action='press';step.to.x+=.208;step.to.y-=.340;}}return true;
     },13);

@@ -26,7 +26,7 @@
  const keys=new Set(),pointers=new Map(),raycaster=new T.Raycaster(),ndc=new T.Vector2(),plane=new T.Plane(new T.Vector3(0,0,1),0),hit=new T.Vector3();
  let viewportWidth=0,viewportHeight=0,displayDensity=0,densityQuery=null;
  let tabletPixels=1450000,windowTime=0,windowFrames=0,lateFrames=0,timelyFrames=0,slowWindows=0;
- let steer=0,activeWalk=null,cameraX=11,cameraY=2.2,lookX=11,lookY=2.2,cameraZoom=1,resizeNeeded=true,landedAt=-10,headBob=0,endingShown=false,endingDelay=0,endingDuration=0;
+ let steer=0,activeWalk=null,jumpWalkId=null,jumpWalkAt=0,cameraX=11,cameraY=2.2,lookX=11,lookY=2.2,cameraZoom=1,resizeNeeded=true,landedAt=-10,headBob=0,endingShown=false,endingDelay=0,endingDuration=0;
  const workshop={life:0,x:0,dogX:null,z:1.45,facing:1};
  // A quiet step to the side keeps the actual child and the touched object visible.
  // Normal walking and jumping immediately take precedence over the suggestion.
@@ -43,7 +43,7 @@
  const particleMat=new T.ShaderMaterial({vertexColors:true,transparent:true,depthWrite:false,uniforms:{uRatio:{value:1}},vertexShader:'attribute float aSize; varying vec3 vColor; uniform float uRatio; void main(){vColor=color;vec4 v=modelViewMatrix*vec4(position,1.);gl_PointSize=aSize*uRatio*(160./max(1.,-v.z));gl_Position=projectionMatrix*v;}',fragmentShader:'varying vec3 vColor;void main(){float d=length(gl_PointCoord-.5);float a=smoothstep(.5,.06,d);if(a<.01)discard;gl_FragColor=vec4(vColor,a*.8);}',blending:T.AdditiveBlending});
  const points=new T.Points(particleGeo,particleMat);points.frustumCulled=false;points.visible=false;scene.add(points);
  M.celebrate=function(x,y){points.visible=true;if(!Number.isFinite(x))x=player.x;if(!Number.isFinite(y))y=player.y+1;let count=0;for(const p of particles){if(p.life>0)continue;p.x=x;p.y=y;p.z=.5;p.max=p.life=1.3+Math.random()*.7;const a=Math.random()*Math.PI*2,s=1+Math.random()*2;p.vx=Math.cos(a)*s;p.vy=1+Math.random()*3;p.vz=(Math.random()-.5)*1.2;if(++count>=24)break;}state.celebrate=1;};
- function clearInput(){guide?.clearContact();keys.clear();discoveries?.pointer?.('cancel',hit,null);if(activities)activities.pointer('cancel',hit,null);for(const id of pointers.keys()){try{if(canvas.hasPointerCapture(id))canvas.releasePointerCapture(id);}catch(_){}}pointers.clear();activeWalk=null;steer=0;jumpHeld=false;jumpBuffer=0;$('jump-button').classList.remove('pressed');}
+ function clearInput(){guide?.clearContact();keys.clear();discoveries?.pointer?.('cancel',hit,null);if(activities)activities.pointer('cancel',hit,null);for(const id of pointers.keys()){try{if(canvas.hasPointerCapture(id))canvas.releasePointerCapture(id);}catch(_){}}pointers.clear();activeWalk=null;steer=0;jumpWalkId=null;jumpHeld=false;jumpBuffer=0;$('jump-button').classList.remove('pressed');}
  function setPhase(p){
   phase=p;prev=renderSlot=lastDisplayTick=displayPeriod=0;resetPacingWindow();measuredFrames.length=0;perfT=0;
   $('hud').classList.toggle('hidden',p!=='play');
@@ -104,10 +104,10 @@
  function jump(){if(disposed||phase!=='play'||graphicsLost)return;M.audio.start();if(player.locked){activities?.jump?.();return;}jumpBuffer=.20;jumpHeld=true;}
  function uiAction(id,fn){$(id).addEventListener(id==='jump-button'?'pointerdown':'click',e=>{e.preventDefault();e.stopPropagation();fn(e);});}
  uiAction('pause-button',pause);uiAction('resume',()=>setPhase('play'));uiAction('restart',reset);uiAction('again',reset);uiAction('home-button',M.dock);uiAction('pause-home',M.dock);uiAction('end-home',M.dock);
- uiAction('jump-button',e=>{jump();$('jump-button').classList.add('pressed');try{e.target.setPointerCapture(e.pointerId);}catch(_){};});
+ uiAction('jump-button',e=>{jump();jumpWalkId=e.pointerId;jumpWalkAt=performance.now();$('jump-button').classList.add('pressed');try{e.target.setPointerCapture(e.pointerId);}catch(_){};});
  // Keyboard and assistive switches activate buttons through click, without a pointer.
  $('jump-button').addEventListener('click',e=>{if(e.detail===0){jump();jumpHeld=false;}});
- for(const type of ['pointerup','pointercancel','lostpointercapture'])$('jump-button').addEventListener(type,()=>{jumpHeld=false;$('jump-button').classList.remove('pressed');});
+ for(const type of ['pointerup','pointercancel','lostpointercapture'])$('jump-button').addEventListener(type,()=>{jumpHeld=false;jumpWalkId=null;if(activeWalk==='jump'){activeWalk=null;steer=0;}$('jump-button').classList.remove('pressed');});
  function soundToggle(){M.audio.setMuted(!M.muted);M.rememberPreference('muted',M.muted);updateSound();}function updateSound(){const toggle=$('sound-toggle');toggle.textContent=M.muted?'Kapalı':'Açık';toggle.setAttribute('aria-pressed',String(!M.muted));}
  uiAction('captions-toggle',()=>M.setCaptions(!M.captions));
  uiAction('sound-toggle',soundToggle);updateSound();
@@ -285,6 +285,8 @@
  }
  function update(dt){
   if(phase==='play')time+=dt;
+  // A child holding the big jump button in the bottom-right corner wants to go right: jump once, then walk.
+  if(phase==='play'&&jumpWalkId!==null&&activeWalk===null&&performance.now()-jumpWalkAt>350){activeWalk='jump';steer=1;}
   if(phase==='play'){
    const n=Math.max(1,Math.ceil(dt/.012));for(let i=0;i<n;i++)physics(dt/n);
    if(walkStartX!==walkStartX)walkStartX=player.x;

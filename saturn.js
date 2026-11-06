@@ -995,7 +995,7 @@
       function touch(p) {
         if(player.locked)return false;
         for(let i=0;i<blooms.length;i++){
-          const b=blooms[i];
+          const b=blooms[i];if(b.opened)continue; // an open flower must not swallow a tap meant for the taxi beside it
           if(Math.abs(player.x-b.x)<14&&Math.abs(p.x-b.x)<1.55&&Math.abs(p.y-b.flower.position.y)<1.5)return bloom(i);
         }
         return false;
@@ -1923,7 +1923,7 @@
     }
     // Otomatik yardım (4 yaş): yakındaki mini oyunda 16 sn ilerleme ve dokunuş yoksa
     // sıradaki adımı oyun kendisi yapar; sonra her 2,2 sn'de bir adım daha.
-    let helpKey='',helpT=0,helpInputAt=-99,helping=false;
+    let helpKey='',helpT=0,helpInputAt=-99,helping=false,stuckT=0;
     function helpTarget(){
       if(ride||sails.riding||player.locked)return '';
       if(!tasks[0]&&close(harpX,12))return 'harp'+view.chimes;
@@ -1937,11 +1937,13 @@
     }
     function autoHelp(dt){
       const key=helpTarget();view.help=key;
-      if(key!==helpKey){helpKey=key;if(!key)helping=false;helpT=helping&&key?13.8:0;return;}
+      if(key!==helpKey){helpKey=key;stuckT=0;if(!key)helping=false;helpT=helping&&key?13.8:0;return;}
       if(!key||held.size||flight?.id!=null||spinPointer!==null)return;
-      if(clock-helpInputAt<4){helpT=Math.min(helpT,12);helping=false;}
+      // Many unsuccessful touches must not block help forever: after ~24 s on one step it helps anyway.
+      stuckT+=dt*(window.SATURN_HELP_FAST?12:1);
+      if(clock-helpInputAt<4&&stuckT<24){helpT=Math.min(helpT,12);helping=false;}
       helpT+=dt*(window.SATURN_HELP_FAST?12:1);
-      if(helpT>16){helpT=13.8;helping=true;if(key.startsWith('garden'))garden.help();else if(key==='wheel')impulse(1);else if(key==='eclipse')eclipse.help();else if(key.startsWith('nursery'))nursery.help();else interact();}
+      if(helpT>16){helpT=13.8;stuckT=Math.min(stuckT,20);helping=true;if(key.startsWith('garden'))garden.help();else if(key==='wheel')impulse(1);else if(key==='eclipse')eclipse.help();else if(key.startsWith('nursery'))nursery.help();else interact();}
     }
     function interact(){
       if(!ride&&sails.interact())return true;

@@ -149,7 +149,8 @@
         part(g,shapes.cyl,mats.ink,0,.12,-.30,1.68,.24,.78);
         part(g,shapes.cyl,mats.brass,0,.28,-.30,1.51,.10,.66);
         for(const side of [-1,1])strut(g,[side*1.37,.25,-.35],[side*1.09,1.83,-.35],.075,mats.steel);
-        const bearing=part(g,shapes.sphere,mats.petrol,0,1.70,-.30,.50,.48,.18);
+        // The hub only belongs behind the winch; on drag stops it read as a second dark 'moon'.
+        if(def.kind==='winch')part(g,shapes.sphere,mats.petrol,0,1.70,-.30,.50,.48,.18);
         const lamp=part(g,shapes.sphere,mats.milk,0,.46,.40,.18,.18,.11);
         const q={...def,leg,root:g,y,done:false,amount:0,target:0,selected:false,owner:null,dragged:false,angle:0,visual:0,lamp};
         if(def.kind==='winch'){
@@ -459,7 +460,12 @@
           }
         }else if(s.phase==='dock'){
           s.root.position.set(s.x,ground(s.x)+.31+.035*Math.sin(s.clock*1.7),parkDepth());
+          // An unfinished crossing cannot be walked past: stepping onto (or
+          // over) the docked sail climbs aboard, so no long walk back later.
+          const px=player.x,crossed=s.lastPX!==undefined&&(s.lastPX-s.x)*(px-s.x)<0&&Math.abs(px-s.lastPX)<3;
+          if(!s.visited&&!riding&&!player.locked&&(Math.abs(px-s.x)<.9||crossed))board(s);
         }
+        s.lastPX=player.x;
         const pulling=s===riding&&(s.phase==='sail'||s.phase==='moor'),charge=pulling?Math.max(s.phase==='moor'?.23:s.boost>.03?.48:0,Math.abs(s.v)/6.4):0;
         s.lights=M.damp(s.lights,charge,4.3,dt);
         s.wing.rotation.z=.10*Math.sin(s.clock*.82)+s.lights*s.dir*.16;
@@ -485,7 +491,7 @@
       if(type==='cancel'){stopPointer(type,p,e);if(!e||id===inputId){inputId=null;heldDir=0;if(!e)downKeys.clear();}return false;}
       if(riding){
         const s=riding;if(s.phase==='moor'&&stopPointer(type,p,e))return true;
-        if(type==='down'&&(s.phase==='sail'||s.phase==='moor')&&Math.abs(p.x-s.x)<1.04&&p.y>s.root.position.y-.42&&p.y<s.root.position.y+.46){disembark(s);return true;}
+        if(type==='down'&&(s.phase==='sail'||s.phase==='moor')&&s.stops.every(q=>q.done)&&Math.abs(p.x-s.x)<1.04&&p.y>s.root.position.y-.42&&p.y<s.root.position.y+.46){disembark(s);return true;}
         return false;
       }
       if(type!=='down'||player.locked)return false;
@@ -509,7 +515,8 @@
     // Keep keyboard interaction separate from this deliberately narrow hook.
     function jump(){
       if(!riding)return false;
-      disembark(riding);return true;
+      // Mid-crossing the jump button cannot strand the pair before the stops.
+      if(riding.stops.every(q=>q.done))disembark(riding);return true;
     }
     // Keyboard travel parallels left/right touches. Only consume keys while
     // sitting on a sail; normal shared walking/pause handling stays intact.
@@ -523,7 +530,7 @@
     addEventListener('blur',()=>{downKeys.clear();heldDir=0;inputId=null;});
     for(let i=0;i<ships.length;i++){
       const ship=ships[i],point=new T.Vector3();lessons.push({id:'saturn-sail-'+i+'-board',x:()=>ship.x,y:()=>ship.root.getWorldPosition(point).y,goal:'boat',completed:()=>ship.visited||ship.phase!=='dock',enabled:()=>!ship.visited&&!riding&&!player.locked,describe(step){if(riding||player.locked||ship.visited||Math.abs(player.x-ship.x)>5.5)return false;ship.root.localToWorld(step.from.set(.15,.36,.45));step.to.copy(step.from);step.action='tap';step.sourceIcon='footsteps';step.goalIcon='boat';step.progress=0;step.total=1;return true;}});
-      for(let j=0;j<ship.stops.length;j++){const q=ship.stops[j];lessons.push({id:'saturn-sail-'+i+'-stop-'+j,x:q.x,y:q.y+1.2,goal:q.kind==='winch'?'ice-gate':q.kind==='lantern'?'light':'boat',completed:()=>q.done,enabled:()=>riding?.stop===q,describe(step){if(q.done||riding?.stop!==q)return false;step.progress=0;step.total=1;if(q.kind==='winch'){const turn=(q.turnDirection||-1)*2.4*(1-q.amount);q.handle.localToWorld(step.from.set(.91,0,.03));q.handle.localToWorld(step.to.set(Math.cos(turn)*.91,Math.sin(turn)*.91,.03));if(step.pivot?.isVector3){q.handle.getWorldPosition(step.pivot);step.startAngle=Math.atan2(step.from.y-step.pivot.y,step.from.x-step.pivot.x);step.endAngle=Math.atan2(step.to.y-step.pivot.y,step.to.x-step.pivot.x);}step.action='turn';step.sourceIcon='wheel';step.goalIcon='ice-gate';}else{q.token.getWorldPosition(step.from);q.receiver.getWorldPosition(step.to);step.action='drag';step.sourceIcon=q.kind==='lantern'?'light':'moon';step.goalIcon=q.kind==='lantern'?'light':'boat';}return true;}});}
+      for(let j=0;j<ship.stops.length;j++){const q=ship.stops[j];lessons.push({id:'saturn-sail-'+i+'-stop-'+j,x:q.x,y:q.y+1.2,goal:q.kind==='winch'?'ice-gate':q.kind==='lantern'?'lantern':'moon-socket',completed:()=>q.done,enabled:()=>riding?.stop===q,describe(step){if(q.done||riding?.stop!==q)return false;step.progress=0;step.total=1;if(q.kind==='winch'){const turn=(q.turnDirection||-1)*2.4*(1-q.amount);q.handle.localToWorld(step.from.set(.91,0,.03));q.handle.localToWorld(step.to.set(Math.cos(turn)*.91,Math.sin(turn)*.91,.03));if(step.pivot?.isVector3){q.handle.getWorldPosition(step.pivot);step.startAngle=Math.atan2(step.from.y-step.pivot.y,step.from.x-step.pivot.x);step.endAngle=Math.atan2(step.to.y-step.pivot.y,step.to.x-step.pivot.x);}step.action='turn';step.sourceIcon='wheel';step.goalIcon='ice-gate';}else{q.token.getWorldPosition(step.from);q.receiver.getWorldPosition(step.to);step.action='drag';step.sourceIcon=q.kind==='lantern'?'light':'moon';step.goalIcon=q.kind==='lantern'?'lantern':'moon-socket';}return true;}});}
     }
     return {lessons,update,pointer,interact,jump,
       get riding(){return !!riding;},get phase(){return riding?.phase||'shore';},

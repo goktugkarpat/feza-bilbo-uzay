@@ -1705,6 +1705,12 @@
       attr.setXYZ(0,-2.55,.91,-.16);
       for(let i=0;i<4;i++){const u=(i+1)/4,v=i<loom.step?loom.points[Math.min(i,2)]:null;if(gardenGoals.loom)attr.setXYZ(i+1,mix(-1.72,gardenKite.group.position.x,u),mix(.91,gardenKite.group.position.y-.98,u)-.24*Math.sin(u*Math.PI),mix(.26,gardenKite.group.position.z+.08,u));else attr.setXYZ(i+1,v?v[0]:loom.shuttleX,v?v[1]:loom.shuttleY,.26);}attr.needsUpdate=true;
       loom.rings.forEach((ring,i)=>{ring.visible=i<=loom.step;ring.scale.setScalar(M.playGuideActive?.8:i<loom.step?.8:1.2+.1*Math.sin(t*3));ring.rotation.y=.09*Math.sin(t+i);});
+      // Own gentle help: after ~16 s near an unfinished shell or loom, the drop/shuttle finds its home.
+      for(const prop of [dew,loom]){
+        const goal=prop===dew?gardenGoals.dew:gardenGoals.loom;
+        if(!goal&&prop.group.visible&&freeGame()&&near(prop.x,6)&&!drag){prop.wait=(prop.wait||0)+dt;if(prop.wait>16){prop.wait=0;const v=prop===dew?[1.23,.81]:loom.points[loom.step];if(v){drag={scope:'garden',prop};moveGardenHandle({x:prop.x+v[0],y:prop.y+v[1]});clearDrag();}}}
+        else if(drag?.prop===prop)prop.wait=Math.min(prop.wait||0,8);
+      }
       if(pump.phase==='board'){
         pump.clock+=dt;const u=clamp(pump.clock/1.35,0,1),v=ease(u);
         [player,dog].forEach((a,i)=>{
@@ -1820,6 +1826,7 @@
         if(finaleState.flow>=6){finaleState.phase='pull';helpElapsed=0;}
       }else if(phase==='pull'){
         player.mode='dig';dog.mode='dig';dog.emote='happy';
+        finaleState.wait=(finaleState.wait||0)+dt;if(finaleState.wait>16&&!drag)moveFinalHandle({x:finale,y:finaleY+2.27-Math.min(1,finaleState.pull+dt*.6)*1.23});
         if(!drag)setSwipeGuide(finale-.08,finaleY+2.27-finaleState.pull*1.23,finale-.08,finaleY+1.01);
         else setGuide(finale-.08,finaleY+1.01);
       }else if(phase==='release'){
@@ -2023,7 +2030,7 @@
     function forkPositions(t){
       previewTail.rotation.x=.5+.25*Math.sin(t*2.8);swimWhale(previewPuppet,t,.2);
       const xx=ride.x+ride.dir*3.85,y=ship.position.y;
-      choices.forEach((v,i)=>{v.visible=true;v.position.set(xx,y+(i?1.38:4.20)+Math.sin(t*2+i)*.10,-.28);v.rotation.z=.05*Math.sin(t*1.9+i);v.scale.setScalar(i?.98:1.06);});
+      choices.forEach((v,i)=>{v.visible=true;v.position.set(xx,y+(i?1.38:3.75)+Math.sin(t*2+i)*.10,-.28);v.rotation.z=.05*Math.sin(t*1.9+i);v.scale.setScalar(i?.98:1.06);});
     }
     function recall(dx){
       // If a child went ahead on foot, the brass arrival bell calls the same airship to that dock.
@@ -2065,7 +2072,7 @@
           else if(ride.route){const next=journey.completed.findIndex(v=>!v);if(next>=0&&ride.u>=journeyStops[next]){ride.u=journeyStops[next];beginJourneyStop(next);}}
         }
         ride.x=mix(ride.from,ride.to,ride.u);positionShip(t);seat(player,0);seat(dog,1);
-        M.setCameraTarget(ride.x+ride.dir*1.7,ship.position.y+2.0,.85,1);
+        M.setCameraTarget(ride.x+ride.dir*1.7,ship.position.y+(ride.phase==='choice'?3.5:2.0),.85,1);
         if(ride.phase==='choice'){
           forkPositions(t);if(helpElapsed>1.2){const q=choices[Math.floor(helpElapsed/2)%2];setGuide(q.position.x,q.position.y);}
         }
@@ -2314,7 +2321,7 @@
       describe(step){return lessonStep(step,'drag',dew.x+dew.dropX,dew.y+dew.dropY,.24,dew.x+1.23,dew.y+.81,.15,0,1);}});
     lessons.push({id:'neptune-weave-kite',x:()=>loom.group.position.x,y:()=>loom.group.position.y+1.4,goal:'kite',
       enabled:()=>freeGame()&&loom.group.visible&&near(loom.x,10),completed:()=>gardenGoals.loom,
-      describe(step){const p=loom.points[loom.step];if(!p)return false;return lessonStep(step,'drag',loom.x+loom.shuttleX,loom.y+loom.shuttleY,.40,loom.x+p[0],loom.y+p[1],.17,loom.step,3);}});
+      describe(step){const p=loom.points[loom.step];if(!p)return false;return lessonStep(step,'drag',loom.x+loom.shuttleX,loom.y+loom.shuttleY,.40,loom.x+p[0],loom.y+p[1],.17,0,1);}});
     lessons.push({id:'neptune-bilbo-bellows',x:()=>pump.phase==='work'?pump.x+1.35:pump.group.position.x-1.62,y:()=>pump.group.position.y+(pump.phase==='work'?1.4:.43),goal:'boat',
       enabled:()=>pump.group.visible&&(freeGame()&&near(pump.x,10)||pump.phase==='work'),completed:()=>gardenGoals.pump,
       describe(step){if(pump.phase==='board')return false;if(pump.phase!=='work')return lessonStep(step,'tap',pump.x-1.62,pump.y+.28,.35,pump.x-1.62,pump.y+.28,.35,0,2);const a=.1095+pump.lever*.93;const ok=lessonStep(step,'turn',pump.x+.63+Math.cos(a)*.916,pump.y+1.01+Math.sin(a)*.916,0,pump.x+1.094,pump.y+1.80,0,1,2);step.centerX=pump.x+.63;step.centerY=pump.y+1.01;if(step.pivot)step.pivot.set(step.centerX,step.centerY,0);step.radius=.916;step.startAngle=a;step.endAngle=1.0395;return ok;}});

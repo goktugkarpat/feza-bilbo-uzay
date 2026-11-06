@@ -271,7 +271,7 @@
         for(let i=0;i<members.length;i++){const t=members[i];if(t.done()){done++;continue;}if(canUse(t)&&(!choice||selectedTarget===t||focusedTarget===t||dragTarget===t))choice=t;}
         if(!choice)return false;choice.pickNode.getWorldPosition(step.from);if(choice.endNode)choice.endNode.getWorldPosition(step.to);else step.to.copy(step.from);
         if(choice.mode==='rotate'&&step.pivot?.isVector3){choice.control.getWorldPosition(step.pivot);step.startAngle=Math.atan2(step.from.y-step.pivot.y,step.from.x-step.pivot.x);step.endAngle=Math.atan2(step.to.y-step.pivot.y,step.to.x-step.pivot.x);step.radius=Math.hypot(step.from.x-step.pivot.x,step.from.y-step.pivot.y);}
-        step.action=choice.mode==='tap'?'tap':choice.mode==='rotate'?'turn':choice.press?'press':'drag';step.demoObject=step.action==='drag'?choice.control:null;step.progress=done;step.total=members.length;step.sourceIcon=choice.sourceIcon||'';step.goalIcon=choice.goalIcon||goal;step.targetId=choice.id;
+        step.action='tap';step.demoObject=null;step.to.copy(step.from);let own=0,ownDone=0;for(let i=0;i<members.length;i++){if(members[i].available===chainOff)continue;own++;if(members[i].done())ownDone++;}step.progress=ownDone;step.total=Math.max(1,own);step.sourceIcon=choice.sourceIcon||'';step.goalIcon=choice.goalIcon||goal;step.targetId=choice.id;
         return Number.isFinite(step.from.x+step.from.y+step.from.z+step.to.x+step.to.y+step.to.z);
       }};
       for(let i=0;i<members.length;i++)members[i].lesson=record;lessons.push(record);return record;
@@ -590,6 +590,17 @@
     registerLesson('jupiter-europa-float-lab',buoyStation,'float',['europa-buoy-pump-0','europa-buoy-pump-1','europa-buoy-pump-2'],()=>all(goals.buoys));
     registerLesson('jupiter-museum-displays',museum,'museum',['museum-crate-0','museum-artifact-0','museum-crate-1','museum-artifact-1','museum-crate-2','museum-artifact-2','museum-together'],()=>finale.complete,()=>!recovery);
     registerLesson('jupiter-museum-delivery',service,'delivery',['museum-service'],()=>!missingStage(),()=>!recovery&&!!missingStage());
+    // Tur 2 (4 yaş): her istasyonda daha az görev. Bir dokunuş, eşini kendiliğinden tamamlar
+    // (kısa arayla, görsel neden-sonuç). Eş hedefler halka/el göstermez (available=false).
+    const chainNext=new Map(),chainQueue=[];function chainOff(){return false;}
+    function chainLink(ids){for(let k=0;k+1<ids.length;k++){const a=targetById.get(ids[k]),b=targetById.get(ids[k+1]);if(!a||!b)continue;chainNext.set(a,b);b.available=chainOff;const f=a.fire;a.fire=()=>{const r=f();if(r!==false&&!chainQueue.some(q=>q.t===b))chainQueue.push({t:b,wait:.5});return r;};}}
+    chainLink(['dock-solar','dock-dish','dock-ramp']);
+    for(let r=0;r<2;r++)for(let s=0;s<3;s++)chainLink(['ride-'+r+'-stop-'+s+'-0','ride-'+r+'-stop-'+s+'-1']);
+    chainLink(['io-lava-valve-0','io-lava-valve-1','io-lava-valve-2']);chainLink(['io-window-0','io-window-1']);chainLink(['io-filter-0','io-filter-1']);
+    chainLink(['europa-weight-0','europa-weight-1','europa-hatch-crank','europa-hatch-latch']);chainLink(['europa-sub-lamp-0','europa-sub-lamp-1']);
+    chainLink(['europa-buoy-pump-0','europa-buoy-pump-1','europa-buoy-pump-2']);for(let i=0;i<3;i++)chainLink(['museum-crate-'+i,'museum-artifact-'+i]);
+    goals.ioSamples[2]=true;goals.sub[2]=true;
+    function chainStep(dt){for(let k=chainQueue.length-1;k>=0;k--){const q=chainQueue[k];q.wait-=dt;if(q.wait>0)continue;chainQueue.splice(k,1);if(!q.t.done()){if(dragTarget===q.t)dragTarget=null;commit(q.t);helpClock=time;}}}
     for(let i=0;i<targets.length;i++){const t=targets[i];if(t.id.startsWith('dock-'))t.sourceIcon='sun';if(t.id.endsWith('-board'))t.sourceIcon='footsteps';if(t.id.includes('-stop-0-'))t.sourceIcon='light';if(t.id.includes('-stop-2-'))t.sourceIcon=t.mode==='rotate'?'wheel':'plank';if(t.id.startsWith('io-lava-valve-'))t.sourceIcon='wheel';if(t.id.startsWith('io-window-')){t.sourceIcon='handle';t.goalIcon='hot-cold-rocks';}if(t.id.startsWith('europa-sub-site-'))t.sourceIcon='submarine';if(t.id.startsWith('europa-sub-lamp-')){t.sourceIcon='handle';t.goalIcon='light';}if(t.id.startsWith('europa-buoy-pump-')){t.press=true;t.sourceIcon='bellows';}if(t.id.startsWith('io-filter-')){t.sourceIcon='wheel';t.goalIcon='camera';}if(t.id==='io-photo'){t.press=true;t.sourceIcon='camera';}if(t.id.startsWith('europa-weight-'))t.sourceIcon='ballast';if(t.id==='europa-hatch-crank')t.sourceIcon='wheel';if(t.id==='europa-hatch-latch')t.sourceIcon='handle';if(t.id.startsWith('museum-crate-')||t.id.startsWith('museum-artifact-'))t.sourceIcon='delivery';if(t.id==='museum-together')t.sourceIcon='footsteps';if(t.id==='museum-service')t.sourceIcon='museum';if(t.id.includes('-stop-1-'))t.sourceIcon=t.id.endsWith('-0')?'moon':'handle';}
     const registeredTargetCount=targets.reduce((count,t)=>count+(t.lesson?1:0),0);
     const completionCount=completionLamps.reduce((n,q)=>n+q.lamps.length,0),completionBatch=new T.InstancedMesh(new T.SphereGeometry(1,8,5),new T.MeshBasicMaterial({color:0xffffff}),completionCount),completionPose=new T.Object3D(),completionColour=new T.Color(),completionPoint=new T.Vector3();completionBatch.instanceMatrix.setUsage(T.DynamicDrawUsage);completionBatch.frustumCulled=false;completionBatch.castShadow=completionBatch.receiveShadow=false;root.add(completionBatch);for(let i=0;i<completionCount;i++){completionPose.scale.setScalar(0);completionPose.updateMatrix();completionBatch.setMatrixAt(i,completionPose.matrix);completionBatch.setColorAt(i,completionColour.setHex(0xe58c4a));}
@@ -665,7 +676,7 @@
       subModel.rotation.z=Math.sin(time*1.2)*.035;for(let i=0;i<3;i++)seaSpecimenCases[i].visible=goals.sub[i];
     }
     function gameUpdate(dt,t){
-      dt=clamp(Number(dt)||0,0,.06);time=Number.isFinite(t)?t:time+dt;idle+=dt;if(Math.abs(player.vx||0)>.3&&!player.locked)idle=0;if(dragTarget||(Math.abs(player.vx||0)>.3&&!player.locked)||helpClock>time)helpClock=time;if(time-helpClock>16){helpClock=time;for(const h of targets){if(h.mode==='tap'||h.id==='museum-together')continue;targetPosition(h);if(canUse(h)&&Math.abs(h.x-player.x)<(activeRide?10:7)){commit(h);break;}}}
+      dt=clamp(Number(dt)||0,0,.06);time=Number.isFinite(t)?t:time+dt;chainStep(dt);idle+=dt;if(Math.abs(player.vx||0)>.3&&!player.locked)idle=0;if(dragTarget||(Math.abs(player.vx||0)>.3&&!player.locked)||helpClock>time)helpClock=time;if(time-helpClock>16){helpClock=time;for(const h of targets){if(h.mode==='tap'||h.id==='museum-together')continue;targetPosition(h);if(canUse(h)&&Math.abs(h.x-player.x)<(activeRide?10:7)){commit(h);break;}}}
       dockWing.rotation.z=damp(dockWing.rotation.z,goals.dock[0]?0:1.05,3,dt);dockDish.rotation.z=damp(dockDish.rotation.z,goals.dock[1]?0:-.8,3,dt);ramp.rotation.z=damp(ramp.rotation.z,goals.dock[2]?0:-.45,3,dt);
       for(const r of rides)rideUpdate(r,dt);
       updateArm(dt);updateSub(dt);printedObservation.visible=goals.lens[2];printedObservation.position.y=damp(printedObservation.position.y,goals.lens[2]?1.65:1.08,3,dt);

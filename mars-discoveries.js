@@ -250,7 +250,7 @@
       survey.active=next;survey.fromX=craft.position.x;survey.fromY=craft.position.y;survey.fromZ=craft.position.z;flightStart=clock;M.sfx('rotor');
     }
     function fly(dt){
-      const flying=survey.active>=0,t=clock-flightStart,u=flying?Math.min(1,t/6):1,air=flying?Math.sin(Math.PI*u)**2:0;
+      const flying=survey.active>=0,t=clock-flightStart,u=flying?Math.min(1,t/3.6):1,air=flying?Math.sin(Math.PI*u)**2:0;
       rotorAngle=(rotorAngle+dt*(flying?39:1.4))%tau;
       rotors[0].rotation.y=rotorAngle;rotors[1].rotation.y=-rotorAngle+.8;
       if(flying){
@@ -378,6 +378,8 @@ stemGroups.push(plant);flowerGroups.push(bloom);
     function plantSeed(i){
       if(seedsPlanted[i])return;
       seedsPlanted[i]=true;if(seedGesture.index===i&&seedGesture.moved)seedFlight[i]=1;selectedSeed=-1;hintedSeed=-1;seedHint=0;seedReturns[i].age=1;M.sfx('snap');
+      // 4 yaş: tek tohum yeter, diğer ikisi kendiliğinden saksılarına uçar.
+      for(let j=0;j<3;j++)if(!seedsPlanted[j]){seedsPlanted[j]=true;seedReturns[j].age=1;}
     }
     function releaseSeed(){
       if(seedGesture.index>=0&&seedGesture.moved&&!seedsPlanted[seedGesture.index]){
@@ -386,13 +388,13 @@ stemGroups.push(plant);flowerGroups.push(bloom);
       seedGesture.owner=null;seedGesture.index=-1;seedGesture.moved=false;
     }
     function water(){
-      if(clock-pumpedAt<.44)return;pumpedAt=clock;watered=Math.min(3,watered+1);
+      if(clock-pumpedAt<.44)return;pumpedAt=clock;watered=3;
       M.sfx(watered===3&&growth<.96?'bloom':'water');
     }
     function gardenTouch(point){
       if(player.locked||mission.garden||Math.abs(player.x-gardenX)>11)return false;
       const x=point?point.x-gardenX:0,y=point?point.y-garden.position.y:0;
-      if(!point){const i=seedsPlanted.indexOf(false);if(i>=0){if(selectedSeed===i){seedsPlanted[i]=true;selectedSeed=-1;M.sfx('snap');}else{selectedSeed=i;M.sfx('select');}return true;}if(watered<3){water();return true;}if(!shadeOpen){shadeOpen=true;M.sfx('select');return true;}water();return true;}
+      if(!point){const i=seedsPlanted.indexOf(false);if(i>=0){if(selectedSeed===i){plantSeed(i);}else{selectedSeed=i;M.sfx('select');}return true;}if(watered<3){water();return true;}if(!shadeOpen){shadeOpen=true;M.sfx('select');return true;}water();return true;}
       for(let i=0;i<3;i++)if(!seedsPlanted[i]&&Math.abs(x-(-4.7+i*.8))<.40&&Math.abs(y-.65)<.65){selectedSeed=i;hintedSeed=-1;seedHint=0;M.sfx('select');return true;}
       for(let i=0;i<3;i++)if(!seedsPlanted[i]&&Math.abs(x-(1.25+(i-1)*.87))<.43&&Math.abs(y-.68)<.8){
         if(selectedSeed===i)plantSeed(i);
@@ -403,7 +405,7 @@ stemGroups.push(plant);flowerGroups.push(bloom);
       return false;
     }
     function grow(dt){
-      seedHint=Math.max(0,seedHint-dt);
+      seedHint=Math.max(0,seedHint-dt);if(watered===3&&!shadeOpen&&clock-pumpedAt>.6)shadeOpen=true;
       growth=M.damp(growth,shadeOpen?watered/3:watered/9,2.7,dt);shadeAmount=M.damp(shadeAmount,shadeOpen?1:0,3,dt);shade.rotation.z=0;awning.scale.y=Math.max(.035,1-shadeAmount*.97);awning.position.z=-.82*shadeAmount;crank.rotation.z=shadeAmount*3.6;gardenSun.scale.setScalar(1+shadeAmount*.06);
       if(seedsPlanted.every(Boolean)&&watered===3&&shadeOpen)complete('garden',gardenX);
       const since=clock-pumpedAt,stroke=since<.45?Math.sin(Math.PI*since/.45):0;
@@ -653,9 +655,9 @@ stemGroups.push(plant);flowerGroups.push(bloom);
       const i=surveyTargets.findIndex(q=>!q.seen);if(i<0)return false;step.sourceIcon='rock';step.progress=surveyTargets.filter(q=>q.seen).length;step.total=3;surveyTargets[i].g.getWorldPosition(step.from);step.from.y+=.85;step.to.copy(step.from);if(survey.active>=0)step.action='wait';return true;
     });
     lesson('mars-greenhouse',garden,'flowers',()=>mission.garden,step=>{
-      const i=seedsPlanted.indexOf(false);step.progress=seedsPlanted.filter(Boolean).length+watered+Number(shadeOpen);step.total=7;
+      const i=seedsPlanted.indexOf(false);step.progress=(seedsPlanted.every(Boolean)?1:0)+(watered?1:0);step.total=2;
       if(i>=0){step.action='drag';step.demoObject=seedObjects[i];step.sourceIcon='seed';seedObjects[i].getWorldPosition(step.from);garden.localToWorld(step.to.set(1.25+(i-1)*.87,.68,.5));}
-      else if(watered<3){step.action='press';step.sourceIcon='pump';handle.getWorldPosition(step.from);step.to.copy(step.from);step.to.y-=.32;}
+      else if(watered<3||!shadeOpen){step.action=watered<3?'press':'wait';step.sourceIcon='pump';handle.getWorldPosition(step.from);step.to.copy(step.from);step.to.y-=.32;}
       else{step.sourceIcon='valve';crank.getWorldPosition(step.from);step.to.copy(step.from);}return true;
     });
     lesson('mars-constellation',projector,'stars',()=>mission.constellation,step=>{
