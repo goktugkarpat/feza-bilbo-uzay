@@ -131,6 +131,15 @@
   }
   M.createSaturn=function({scene,player,dog}){
     const root=group(scene),rand=seeded(),panorama=sky(scene),lessons=[];
+    // Magical layer over the painted vista: twinkling stars, a giant ring arc
+    // cutting the sky, Titan and little Enceladus, one slow shooting star now and then.
+    let spaceSky=null;
+    try{spaceSky=M.createSpaceSky&&M.createSpaceSky({scene,preset:'saturn',
+      dome:{overlay:true,nebulaAmount:.18,glow:false},
+      stars:{count:650,brightness:.9,size:1,twinkle:1.2,parallax:.3},
+      shooting:{every:[18,34],duration:2.6,color:'#fff4dc'},
+      arc:{y:.18,rise:.45,width:.085,tilt:-.1,opacity:.36,colors:['#f3e2bd','#a9c9d8']},
+      bodies:[{preset:'titan',screen:[.34,.10],size:.07,light:[1,.3]},{preset:'enceladus',screen:[.46,.06],size:.032,light:[1,.3]}]});}catch(err){spaceSky=null;}
     const skyBody=putPlanet(root);
     const hemi=new T.HemisphereLight(0xffe8d7,0x6d748e,1.95);
     const key=new T.DirectionalLight(0xffdcad,2.25);key.position.set(-8,15,10);
@@ -696,7 +705,7 @@
           return false;
         }
         if(type==='down'){
-          if(seen||owner!==null||Math.abs(player.x-x)>8.1||!project(p)||
+          if(seen||owner!==null||Math.abs(player.x-x)>10.5||!project(p)||
               Math.abs(hit.x-position)>.86||Math.abs(hit.y-solarY-.095*Math.min(1,Math.abs(position)/travel))>.90)return false;
           demonstration=-1;invited=true;target=position;
           owner=id;from=hit.x;at=position;dragged=false;attention=4.5;return true;
@@ -707,15 +716,14 @@
           if(Math.abs(delta)>.08)dragged=true;
           if(dragged){
             const value=clamp(at+delta,-travel,travel);
-            target=Math.abs(value)<.24?0:value;
+            target=Math.abs(value)<.36?0:value;
           }
         }
         if(type==='up'){
-          if(!dragged){
-            if(Math.abs(from)>1.02&&Math.abs(from-at)>.84){
-              lastDirection=Math.sign(from);target=lastDirection*travel;M.sfx('saturn-magnet');
-            }else toggle();
-          }else if(Math.abs(target)<.42)target=0;
+          // A tap only nudges the moon a little towards the sun; sliding it
+          // there is the experiment. Released near the middle, it settles in.
+          if(!dragged){target=Math.abs(position)<.6?0:position*.8;M.sfx('saturn-magnet');}
+          else if(Math.abs(target)<.62)target=0;
           owner=null;
         }
         return true;
@@ -757,11 +765,11 @@
         moonMat.color.setRGB(lit*.85+.009,lit*.91+.011,lit+.014);
         uniforms.moonX.value=position;uniforms.alignment.value=alignment;uniforms.seconds.value=t;
         const total=Math.abs(position)<.095;
-        if(total&&!wasTotal){seen=true;M.sfx('saturn-cradle');}
+        if(total&&!wasTotal){if(!seen)M.celebrate(x,baseY+1.2);seen=true;M.sfx('saturn-cradle');}
         wasTotal=total;
       }
       update(0,0);
-      return {pointer,update,describe(step){if(seen||player.locked||Math.abs(player.x-x)>8.1)return false;moon.getWorldPosition(step.from);const cam=M.camera?.position,parallax=cam?.z ? .505/(cam.z-z-.065):0;step.to.set(cam?(cam.x-x)*parallax:0,solarY+(cam?cam.y-baseY-solarY:0)*parallax,.57);theatre.localToWorld(step.to);step.action='drag';step.progress=0;step.total=1;step.sourceIcon='moon';step.goalIcon='eclipse';return true;},help(){if(seen)return false;if(Math.abs(target)>.22||Math.abs(position)<.22)toggle();return true;},interact(){if(seen||Math.abs(player.x-x)>4.7)return false;toggle();return true;},
+      return {pointer,update,describe(step){if(seen||player.locked||Math.abs(player.x-x)>10.5)return false;moon.getWorldPosition(step.from);const cam=M.camera?.position,parallax=cam?.z ? .505/(cam.z-z-.065):0;step.to.set(cam?(cam.x-x)*parallax:0,solarY+(cam?cam.y-baseY-solarY:0)*parallax,.57);theatre.localToWorld(step.to);step.action='drag';step.progress=0;step.total=1;step.sourceIcon='moon';step.goalIcon='eclipse';return true;},help(){if(seen)return false;if(Math.abs(target)>.22||Math.abs(position)<.22)toggle();return true;},interact(){if(seen||Math.abs(player.x-x)>4.7)return false;toggle();return true;},
         get state(){return wasTotal?'total':alignment>.03?'partial':'open';},get seen(){return seen;},get watching(){return attention>0;},get moonPosition(){return x+position;}};
     }
     const eclipse=createEclipseTheatre(eclipseX);
@@ -830,7 +838,7 @@
     });
     sparks.boundingSphere=wheelBounds;
     const twinkles=new T.Points(sparks,scintillation);wheel.mobile.add(twinkles);
-    let wheelAngle=0,spin=.20,shine=.07,spinPointer=null,dragAngle=0,lastX=0,lastY=0,lastStamp=0,dragDistance=0,jumpRose=false,wheelTurned=false;
+    let wheelTurn=0,wheelAngle=0,spin=.20,shine=.07,spinPointer=null,dragAngle=0,lastX=0,lastY=0,lastStamp=0,dragDistance=0,jumpRose=false,wheelTurned=false;
     const wheelRay=new T.Raycaster(),wheelNdc=new T.Vector2(),wheelPlane=new T.Plane(),wheelLocal=new T.Vector3();
     const wheelInverse=new T.Matrix4(),wheelNormal=new T.Matrix3(),wheelOrigin=new T.Vector3(),wheelVector=new T.Vector3();
     function onRing(e,p){
@@ -853,10 +861,13 @@
       wheelInverse.copy(wheel.mount.matrixWorld).invert();wheelLocal.applyMatrix4(wheelInverse);
       return true;
     }
-    function impulse(direction){
-      const sign=direction||1;spin=sign*Math.min(7,Math.max(4.3,Math.abs(spin)+2.8));
-      shine=1;wheelTurned=true;M.sfx('ring');
+    // A tap gives a small push; turning it about half way round (by finger or
+    // a flick that coasts) wakes the ring model. Help/keyboard push harder.
+    function impulse(direction,strong=true){
+      const sign=direction||1;spin=sign*Math.min(7,Math.max(strong?4.3:2.2,Math.abs(spin)+(strong?2.8:1.2)));
+      shine=1;if(strong)wheelTurned=true;M.sfx('ring');
     }
+    function addTurn(a){if(wheelTurned)return;const before=wheelTurn;wheelTurn+=a;if(Math.floor(before/1.05)<Math.floor(wheelTurn/1.05))M.sfx('saturn-magnet');if(wheelTurn>3.0){wheelTurned=true;shine=1;M.sfx('saturn-cradle');M.celebrate(wheelX,ground(wheelX)+3.2);}}
     function grabWheel(id,e,p){
       if(spinPointer!==null||Math.abs(player.x-wheelX)>7.8||!onRing(e,p))return false;
       if(wheelLocal.x*wheelLocal.x+wheelLocal.y*wheelLocal.y>3.0*3.0)return false;
@@ -870,15 +881,14 @@
       // Across the central ice piece a straight swipe turns the same wheel.
       if(x*x+y*y<.52||lastX*lastX+lastY*lastY<.52)change=-dx*.94+dy*.36;
       const stamp=e?.timeStamp??performance.now(),dt=clamp((stamp-lastStamp)/1000,.012,.12);
-      dragDistance+=Math.hypot(dx,dy);change=clamp(change,-.85,.85);wheelAngle+=change;
-      if(dragDistance>.65)wheelTurned=true;
+      dragDistance+=Math.hypot(dx,dy);change=clamp(change,-.85,.85);wheelAngle+=change;addTurn(Math.abs(change));
       spin=M.lerp(spin,clamp(change/dt,-8.7,8.7),.54);shine=Math.min(1,shine+Math.abs(change)*.48);
       lastX=x;lastY=y;dragAngle=angle;lastStamp=stamp;
     }
     function releaseWheel(e,cancelled){
       if(spinPointer===null)return;
       if(cancelled){spin=0;}
-      else if(dragDistance<.14){impulse(lastX<-.15?-1:1);}
+      else if(dragDistance<.14){impulse(lastX<-.15?-1:1,false);}
       else if((e?.timeStamp??performance.now())-lastStamp>180){spin*=.25;}
       spinPointer=null;
     }
@@ -886,7 +896,7 @@
       if(spinPointer===null){
         const quiet=Math.abs(spin)<.24;
         spin=quiet?M.damp(spin,.185,.52,dt):spin*Math.exp(-.79*dt);
-        wheelAngle=(wheelAngle+spin*dt)%TAU;
+        wheelAngle=(wheelAngle+spin*dt)%TAU;if(Math.abs(spin)>1.2)addTurn(Math.abs(spin*dt)*.8);
       }
       shine=M.damp(shine,Math.min(1,.065+Math.abs(spin)*.14),2.1,dt);
       wheel.mobile.rotation.z=wheelAngle;
@@ -974,7 +984,7 @@
         const icePaint=new T.MeshStandardMaterial({color:0xc8f4ff,transparent:true,opacity:.42,roughness:.15,metalness:.08,depthWrite:false});
         const ice=mesh(root,shapes.sphere,icePaint,x,y+1.55,z+.015);ice.scale.set(.47,.72,.36);ice.name='Dokununca çözülen çiçek buzu '+i;
         const seams=group(ice);for(const a of [-.42,.38]){const seam=mesh(seams,shapes.rod,mats.porcelain,Math.sin(a)*.25,.04,.91);seam.scale.set(.012,.72,.012);seam.rotation.z=a;}
-        blooms.push({x,y,flower,petals,heart,ice,icePaint,tint:new T.Color(hues[i]),opened:false,openness:0,age:3,wave:0,receiver:i});
+        blooms.push({x,y,flower,petals,heart,ice,icePaint,tint:new T.Color(hues[i]),opened:false,openness:0,age:3,wave:0,receiver:i,melt:0});
       });
       const g=new T.BufferGeometry(),attr=new T.BufferAttribute(positions,3).setUsage(T.DynamicDrawUsage);
       g.setAttribute('position',attr);
@@ -992,13 +1002,23 @@
         M.sfx('saturn-chime-'+i);
         return true;
       }
-      function touch(p) {
+      // A warm finger resting (or rubbing) on the frozen bud melts its ice
+      // in about a second; lifting early keeps the melt already made.
+      let melting=null;
+      function touch(p,id) {
         if(player.locked)return false;
         for(let i=0;i<blooms.length;i++){
           const b=blooms[i];if(b.opened)continue; // an open flower must not swallow a tap meant for the taxi beside it
-          if(Math.abs(player.x-b.x)<14&&Math.abs(p.x-b.x)<1.55&&Math.abs(p.y-b.flower.position.y)<1.5)return bloom(i);
+          if(Math.abs(player.x-b.x)<14&&Math.abs(p.x-b.x)<1.55&&Math.abs(p.y-b.flower.position.y)<1.5){
+            melting={i,id,x:p.x,y:p.y};b.melt=Math.max(b.melt,.12);b.wave=.5;M.sfx('saturn-chime-'+i);return true;
+          }
         }
         return false;
+      }
+      function rub(type,p,id){
+        if(!melting||melting.id!==id)return;
+        if(type==='move'&&p){const b=blooms[melting.i];b.melt=Math.min(1,b.melt+Math.hypot(p.x-melting.x,p.y-melting.y)*.16);melting.x=p.x;melting.y=p.y;}
+        else if(type==='up'||type==='cancel')melting=null;
       }
       function interact() {
         if(player.locked)return false;
@@ -1007,6 +1027,7 @@
       }
       function update(dt,time) {
         let count=0;
+        if(melting){const b=blooms[melting.i];if(b.opened)melting=null;else{b.melt=Math.min(1,b.melt+dt/1.0);if(b.melt>=1){melting=null;bloom(blooms.indexOf(b));}}}
         for(let i=0;i<blooms.length;i++){
           const b=blooms[i];
           // The crystal opens only after its own visible touch.
@@ -1017,7 +1038,7 @@
           head.rotation.set(.035*sway,.04*Math.sin(time*.86+i),.045*Math.sin(time*.69+i));
           for(let j=0;j<7;j++){const angle=M.lerp(.16*Math.sin(j*2.4),j*TAU/7,open);petalPose.position.set(-Math.sin(angle)*.34,Math.cos(angle)*.34-.08,.045*Math.cos(j*2.4)*(1-open));petalPose.rotation.set(0,0,angle);petalPose.scale.set(.21,.47,.105);petalPose.updateMatrix();b.petals.setMatrixAt(j,petalPose.matrix);}b.petals.instanceMatrix.needsUpdate=true;
           b.heart.scale.setScalar(.10+.07*open);b.heart.position.y=.30*(1-open);
-          b.ice.visible=open<.93;b.icePaint.opacity=.42*(1-open);b.ice.scale.set(.47+open*.16,.72+open*.10,.36+open*.10);
+          const m=b.opened?0:b.melt,quiver=m>0&&!b.opened?.025*Math.sin(time*30):0;b.ice.visible=open<.93;b.icePaint.opacity=.42*(1-open)*(1-.55*m);b.ice.scale.set((.47+open*.16)*(1-.38*m)+quiver,(.72+open*.10)*(1-.42*m),(.36+open*.10)*(1-.38*m));b.ice.position.y=b.y+1.55-.18*m;
           if(b.age>=1.55)continue;
           const receiver=blooms[b.receiver];
           if(previous<1.07&&b.age>=1.07)receiver.wave=.72;
@@ -1036,8 +1057,8 @@
         if(count){g.setDrawRange(0,count);attr.needsUpdate=true;g.attributes.color.needsUpdate=true;}
       }
       update(0,0);
-      const lessons=blooms.map((b,i)=>({id:'saturn-ice-flower-'+i,x:b.x,y:b.y,goal:'flowers',sourceIcon:'bud',range:14,completed:()=>b.opened,enabled:()=>!player.locked,describe(step){if(b.opened||player.locked||Math.abs(player.x-b.x)>=14)return false;b.flower.localToWorld(step.from.set(0,.30*(1-b.openness),.15));step.to.copy(step.from);step.action='tap';step.progress=0;step.total=1;step.sourceIcon='bud';step.goalIcon='flowers';return true;}}));
-      return {lessons,touch,interact,update,help(){const i=blooms.findIndex(b=>!b.opened);return i>=0&&bloom(i);},park(){if(collected===3||player.locked||Math.abs(player.x-xs[1])>=6.6)return;const parkX=player.x>168.2?168.65:164.95;M.parkForActivity(parkX,parkX-2.95,1);M.frameActivity(xs[0]-4.2,xs[2]+2.0,ground(xs[1])+1.75,1.20);},get collected(){return collected;},get nextX(){return blooms.find(b=>!b.opened)?.x??null;}};
+      const lessons=blooms.map((b,i)=>({id:'saturn-ice-flower-'+i,x:b.x,y:b.y,goal:'flowers',sourceIcon:'bud',range:14,completed:()=>b.opened,enabled:()=>!player.locked,describe(step){if(b.opened||player.locked||Math.abs(player.x-b.x)>=14)return false;b.flower.localToWorld(step.from.set(0,.30*(1-b.openness),.15));step.to.copy(step.from);step.action='press';step.progress=0;step.total=1;step.sourceIcon='bud';step.goalIcon='flowers';return true;}}));
+      return {lessons,touch,rub,interact,update,help(){const i=blooms.findIndex(b=>!b.opened);return i>=0&&bloom(i);},park(){if(collected===3||player.locked||Math.abs(player.x-xs[1])>=6.6)return;const parkX=player.x>168.2?168.65:164.95;M.parkForActivity(parkX,parkX-2.95,1);M.frameActivity(xs[0]-4.2,xs[2]+2.0,ground(xs[1])+1.75,1.20);},get collected(){return collected;},get nextX(){return blooms.find(b=>!b.opened)?.x??null;}};
     }
     const garden=createIceGarden();
     const harp=[],offsets=[-2.48,0,2.48],heights=[2.34,2.62,2.32],moonHeights=[3.55,3.82,3.55],moonLights=[];
@@ -1174,11 +1195,27 @@
       beam(eyeX+dx,eyeY+.3,-.6,eyeX+dx*.79,eyeY+1.7,-.6,.13,mats.brass);
     }
     const lens=group(root,eyeX,eyeY+1.87,-.68);
-    const body=mesh(lens,shapes.box,mats.porcelain);body.scale.set(1.70,1.22,.91);
-    const cap=mesh(lens,shapes.cyl,mats.petrol,.05,.06,.54);cap.scale.set(.48,.32,.48);cap.rotation.x=Math.PI/2;
+    // Rounded enamel camera: soft bevelled body, brass bands, stepped lens
+    // barrel, round coral shutter button, a little viewfinder and a star badge.
+    const camShape=new T.Shape(),cw=.85,ch=.61,cr=.2;
+    camShape.moveTo(-cw+cr,-ch);camShape.lineTo(cw-cr,-ch);camShape.quadraticCurveTo(cw,-ch,cw,-ch+cr);camShape.lineTo(cw,ch-cr);camShape.quadraticCurveTo(cw,ch,cw-cr,ch);
+    camShape.lineTo(-cw+cr,ch);camShape.quadraticCurveTo(-cw,ch,-cw,ch-cr);camShape.lineTo(-cw,-ch+cr);camShape.quadraticCurveTo(-cw,-ch,-cw+cr,-ch);
+    const camG=new T.ExtrudeGeometry(camShape,{depth:.72,bevelEnabled:true,bevelThickness:.09,bevelSize:.07,bevelSegments:3,curveSegments:6});camG.center();
+    const body=mesh(lens,camG,mats.porcelain);
+    for(const by of [-.36,.36]){const band=mesh(lens,shapes.box,mats.brass,0,by,0);band.scale.set(1.86,.07,.96);}
+    const barrelG=new T.LatheGeometry([[.50,0],[.50,.08],[.44,.10],[.44,.22],[.40,.24],[.40,.34],[.36,.36],[0,.36]].map(([r,y])=>new T.Vector2(r,y)),32);
+    const cap=mesh(lens,barrelG,mats.petrol,.05,.06,.42);cap.rotation.x=Math.PI/2;
+    const brassBarrel=mesh(lens,shapes.ring,mats.brass,.05,.06,.53);brassBarrel.scale.setScalar(.47);
     const glass=mesh(lens,shapes.sphere,mats.gem[0],.05,.06,.76);glass.scale.set(.36,.36,.10);
-    const frontRing=mesh(lens,shapes.ring,mats.milk,.05,.06,.84);frontRing.scale.setScalar(.39);
-    piece(shapes.box,mats.coral,eyeX-.55,eyeY+2.56,-.69,.37,.21,.41);
+    const frontRing=mesh(lens,shapes.ring,mats.milk,.05,.06,.80);frontRing.scale.setScalar(.39);
+    const finder=mesh(lens,shapes.cyl,mats.ink,.55,.50,.10);finder.scale.set(.17,.12,.17);finder.rotation.x=Math.PI/2;
+    const finderRim=mesh(lens,shapes.ring,mats.brass,.55,.50,.17);finderRim.scale.setScalar(.18);
+    const starBadgeShape=new T.Shape();for(let i=0;i<10;i++){const a=Math.PI/2+i*Math.PI/5,r=i%2?.42:1;i?starBadgeShape.lineTo(Math.cos(a)*r,Math.sin(a)*r):starBadgeShape.moveTo(Math.cos(a)*r,Math.sin(a)*r);}
+    const starBadgeG=new T.ExtrudeGeometry(starBadgeShape,{depth:.2,bevelEnabled:true,bevelThickness:.08,bevelSize:.08,bevelSegments:1});starBadgeG.center();
+    const badge=mesh(lens,starBadgeG,mats.brass,-.58,-.18,.47);badge.scale.setScalar(.11);
+    const buttonG=new T.LatheGeometry([[.0,.14],[.12,.13],[.18,.08],[.20,0],[0,0]].map(([r,y])=>new T.Vector2(r,y)),20);
+    piece(buttonG,mats.coral,eyeX-.55,eyeY+2.60,-.69,1,1,1);
+    piece(shapes.cyl,mats.brass,eyeX-.55,eyeY+2.585,-.69,.23,.03,.23);
     piece(shapes.box,mats.ink,eyeX,eyeY+.75,-.47,1.75,.21,.65);
     const photo=group(root,eyeX,eyeY+.81,.21);
     const border=mesh(photo,shapes.box,mats.porcelain);border.scale.set(1.85,1.45,.095);
@@ -1396,7 +1433,11 @@
       if(!nursery.complete)return nurseryX;
       return eyeX;
     }
+    // The robot taxi is only a real return journey (a missed stop far back).
+    // A nearby missed stop is reached on foot; no hop-on/hop-off rides.
+    function taxiFar(from){return Math.abs(nextStop()-from)>30;}
     function showTaxi(){
+      if(!taxiFar(eyeX)&&!taxiOn){gleam=1;M.sfx('ring');return;}
       const besideCamera=taxiOn&&Math.abs(taxiX-eyeX)<5;
       if(besideCamera){boardTaxi();return;}
       taxiX=eyeX-2.65;taxiOn=true;taxi.visible=true;signBounce=1;M.sfx('robot');
@@ -1404,7 +1445,7 @@
     function boardTaxi(){
       if(ride||!taxiOn)return;
       const stop=nextStop();
-      if(Math.abs(taxiX-stop)<6.6){signBounce=1;M.sfx('ring');return;}
+      if(Math.abs(taxiX-stop)<6.6||!taxiFar(taxiX)){signBounce=1;M.sfx('ring');return;}
       const landingX=stop+(stop===eyeX?-2.65:4.65),dir=Math.sign(landingX-taxiX);
       ride={phase:'board',elapsed:0,start:taxiX,end:landingX,duration:2+Math.abs(landingX-taxiX)/16,dir,
         px:player.x,py:player.y,pz:player.z||0,dx:dog.x,dy:dog.y,dz:dog.z??.3};
@@ -1427,7 +1468,7 @@
       gardenMark.visible=!needSail&&target===garden.nextX;eclipseMark.visible=!needSail&&target===eclipseX;nurseryMark.visible=!needSail&&target===nurseryX;
       const signDir=target<taxiX?-1:1;direction.scale.x=-signDir;direction.position.x=signDir*(.97+.07*Math.sin(clock*3));
       const y=ground(taxiX)+.34+.042*Math.sin(clock*2.15);
-      taxi.position.set(taxiX,y,-.10);ticket.visible=!ride&&Math.abs(taxiX-target)>6.6;
+      taxi.position.set(taxiX,y,-.10);ticket.visible=!ride&&Math.abs(taxiX-target)>6.6&&taxiFar(taxiX);
       ticket.position.y=1.80+.055*Math.sin(clock*2.4)+.14*signBounce;
       crystalMark.rotation.y=clock*.85;
       if(!ride)return;
@@ -1464,7 +1505,16 @@
     const sparkPos=new Float32Array(180*3);
     for(let i=0;i<sparkPos.length;i+=3){sparkPos[i]=rand()*(length+8)-3;sparkPos[i+1]=1+rand()*6;sparkPos[i+2]=-17+rand()*10;}
     const sg=new T.BufferGeometry();sg.setAttribute('position',new T.BufferAttribute(sparkPos,3));
-    const dust=new T.Points(sg,new T.PointsMaterial({color:0xffefd2,size:.055,transparent:true,opacity:.65,sizeAttenuation:true,depthWrite:false}));motes.add(dust);
+    // Ice-crystal glints: each one slowly flares into a tiny four-point star and fades (measured, never busy).
+    const glintUniforms={time:{value:0}};
+    const dust=new T.Points(sg,new T.ShaderMaterial({uniforms:glintUniforms,transparent:true,depthWrite:false,blending:T.AdditiveBlending,
+      vertexShader:`uniform float time;varying float a;void main(){vec4 mv=modelViewMatrix*vec4(position,1.);gl_Position=projectionMatrix*mv;
+        float ph=fract(sin(dot(position.xz,vec2(12.9898,78.233)))*43758.5453);float w=sin(time*(.55+.7*ph)+ph*40.);
+        a=.28+.72*pow(max(0.,w),6.);gl_PointSize=clamp((1.1+5.5*pow(max(0.,w),6.))*60./max(4.,-mv.z),1.,14.);}`,
+      fragmentShader:`varying float a;void main(){vec2 p=abs(gl_PointCoord-.5)*2.;float core=max(0.,1.-length(p)*1.7);
+        float cross=pow(max(0.,1.-p.x),6.)*pow(max(0.,1.-p.y*7.),2.)+pow(max(0.,1.-p.y),6.)*pow(max(0.,1.-p.x*7.),2.);
+        gl_FragColor=vec4(1.,.95,.86,(core+cross*.8)*a*.8);}`}));
+    dust.frustumCulled=false;motes.add(dust);
     flush();
     weldToy(scout);for(const wing of wings)weldToy(wing);for(const claw of claws)weldToy(claw);
     weldToy(lens);weldToy(paw);weldToy(boat);weldToy(direction);weldToy(pawMark);
@@ -1490,9 +1540,13 @@
       if(tasks[i])return;
       tasks[i]=true;M.celebrate(x,y);M.sfx('complete');
     }
+    // Echo game: the waiting bell sings and sways by itself; answering that
+    // same bell lights its moon. Any other bell simply sings (no penalty).
+    const harpOrder=[1,0,2];let harpCallT=1.2;
+    function harpNext(){return harp[harpOrder[Math.min(view.chimes,2)]];}
     function chime(i) {
       const q=harp[i];q.energy=1;M.sfx('saturn-chime-'+i);
-      if(q.hit)return;
+      if(q.hit||q!==harpNext())return;harpCallT=-1.4;
       q.hit=true;toyRings[i].visible=true;moonLights[i].material.color.copy(mats.shine[i].color);view.chimes++;
       if(view.chimes===3)finishTask(0,harpX,harpY+1.55);
     }
@@ -1744,9 +1798,9 @@
       const artAspect=2021/778,crop=Math.min(1,aspect/artAspect),cropY=Math.min(1,artAspect/aspect);
       panorama.repeat.set(crop,cropY);
       panorama.offset.set((1-crop)*(.14+.72*clamp(x/length,0,1)),(1-cropY)*.5);
-      animateWheel(dt,time);
+      animateWheel(dt,time);spaceSky?.update(dt);
       key.position.set(x-8,15,10);key.target.position.set(x,ground(x),0);
-      motes.position.y=Math.sin(time*.38)*.15;
+      motes.position.y=Math.sin(time*.38)*.15;glintUniforms.time.value=time;
     }
     function update(dt,time){
       clock+=dt;gleam=Math.max(0,gleam-dt);
@@ -1755,6 +1809,8 @@
       nursery.update(dt,time);view.nurserySeeds=nursery.planted;view.wheelTurned=wheelTurned;
       eclipse.update(dt,time);view.eclipse=eclipse.state;view.eclipseSeen=eclipse.seen;
       autoHelp(dt);
+      // Opening: keep the pair and the first ice sail both in view (portrait too).
+      if(!ride&&!sails.riding&&player.x<12.2&&sails.nextX===13)M.frameActivity(Math.min(player.x-1.6,dog.x-1.2),15.3,ground(11)+1.7,1.0);
       if(!ride&&!sails.riding){
         if(!tasks[1]&&close(dockX,6.4))M.parkForActivity(dockX-3.7,dockX-5.1,1);
         else if(!nursery.complete&&close(nurseryX,6.4))M.parkForActivity(nurseryX-3.7,nurseryX-5.0,1);
@@ -1764,9 +1820,9 @@
       // Walking and jumping never complete a registered experiment.
       jumpRose=rising;
       guide.visible=false;
-      view.active=close(harpX)?'harp':close(dockX)?'scout':close(eyeX)?'observatory':close(eclipseX,6.5)?'eclipse':close(nurseryX,8.4)?'nursery':'';
+      view.active=close(harpX)?'harp':close(dockX,7.5)?'scout':close(eyeX)?'observatory':close(eclipseX,6.5)?'eclipse':close(nurseryX,8.4)?'nursery':'';
       if(ride||sails.riding){guide.visible=false;}else if(view.active==='harp'&&!tasks[0]) {
-        const next=harp.find(q=>!q.hit);guide.position.set(next.x,next.y,0);
+        const next=harpNext();guide.position.set(next.x,next.y,0);
         guide.visible=true;
         dog.activityTargetX=next.x-1.15;dog.activityMode='look';dog.emote='curious';dog.lookY=.82;dog.lookX=.37;
         M.frameActivity(harpX-4.0,harpX+4.0,harpY+2.22,1.25);
@@ -1796,13 +1852,17 @@
       guide.visible=guide.visible&&clock-lastGuideTouch>2.6;guideHand.position.y=.71+.06*Math.sin(clock*3.4);
       const th=clock*2.75,gl=1+.08*Math.sin(clock*3);
       guideHalo.visible=false;guideSpark.visible=false;guideHalo.rotation.z=th;guideHalo.scale.setScalar(gl*.45);guideSpark.position.set(.17*gl*Math.cos(th),.17*gl*Math.sin(th),0);
+      if(!tasks[0]&&close(harpX,9)&&!player.locked){
+        harpCallT+=dt;
+        if(harpCallT>3.1){harpCallT=0;const c=harpNext();c.energy=Math.max(c.energy,.62);c.calling=1.6;M.sfx('saturn-chime-'+harp.indexOf(c));}
+      }
       for(let i=0;i<3;i++){
-        const q=harp[i];q.energy=Math.max(0,q.energy-dt*.65);
+        const q=harp[i];q.energy=Math.max(0,q.energy-dt*.65);q.calling=Math.max(0,(q.calling||0)-dt);
         q.mallet.rotation.z=-.42+q.energy*Math.sin((1-q.energy)*11)*.48;
         q.hanger.rotation.z=Math.sin(clock*1.25+i)*.022+q.energy*Math.sin((1-q.energy)*17)*.34;
-        q.gem.rotation.y=.025*Math.sin(clock*1.2+i);q.ang.scale.setScalar(.34+q.energy*.07);moonLights[i].scale.setScalar(1+q.energy*.15*Math.sin((1-q.energy)*8));
+        q.gem.rotation.y=.025*Math.sin(clock*1.2+i);q.ang.scale.setScalar(.34+q.energy*.07+(q.calling>0?.07*Math.sin(clock*12):0));q.gem.scale.setScalar(1+(q.calling>0&&!q.hit?.07*Math.sin(Math.PI*q.calling/1.6):0));moonLights[i].scale.setScalar(1+q.energy*.15*Math.sin((1-q.energy)*8));
         toyRings[i].rotation.y=.17+.08*Math.sin(clock*.64+i*.36);
-        q.pump.visible=q.energy>.011;
+        q.pump.visible=q.hit&&q.energy>.011;
         if(q.pump.visible){
           const progress=(1-q.energy)*1.55;
           for(let j=0;j<14;j++){
@@ -1910,13 +1970,15 @@
       if(type==='cancel'){
         if(!e||e.pointerId===spinPointer)releaseWheel(e,true);
         if(flight&&(!e||flight.id===e.pointerId)){flight.id=null;if(flight.dragged)flight.targetY=Math.max(flight.targetY,dockY+1.4);}
+        garden.rub('cancel',p,e?e.pointerId:0);if(!e)garden.rub('cancel',p,undefined);
         if(e)held.delete(e.pointerId);else held.clear();return false;
       }
       const id=e?e.pointerId:0;
       if(type==='down'){
         if(!ride&&grabWheel(id,e,p)){held.add(id);return true;}
-        if(!garden.touch(p)&&!activateAt(p,id))return false;held.add(id);return true;
+        if(!garden.touch(p,id)&&!activateAt(p,id))return false;held.add(id);return true;
       }
+      garden.rub(type,p,id);
       if(flight&&flight.id===id)carryDrag(type,p,id);
       if(id===spinPointer){if(type==='move')dragWheel(e,p);else if(type==='up')releaseWheel(e,false);}
       const owned=held.has(id);if(type==='up')held.delete(id);return owned;
@@ -1951,7 +2013,7 @@
       if(Math.abs(player.x-wheelX)<4.4){impulse(player.facing);return true;}
       if(taxiOn&&close(taxiX,2.1)&&Math.abs(nextStop()-taxiX)>6.6){boardTaxi();return true;}
       if(garden.interact()||eclipse.interact()||nursery.interact())return true;
-      if(close(harpX,9)){const i=harp.findIndex(v=>!v.hit);chime(i<0?1:i);return true;}
+      if(close(harpX,9)){chime(harpOrder[Math.min(view.chimes,2)]);return true;}
       if(close(dockX,9)){if(flight)placeShard();else launchScout();return true;}
       if(close(eyeX,9)){
         if(familyReady()&&finalePhase!=='ready'){
@@ -1969,18 +2031,18 @@
     const free=()=>!player.locked&&!ride&&!sails.riding;
     function lesson(id,x,goal,completed,describe,enabled=free){lessons.push({id,x,y:()=>ground(typeof x==='function'?x():x),goal,completed,enabled,describe});}
     lessons.push(...sails.lessons,...garden.lessons);
-    lesson('saturn-harp',harpX,'moon-lights',()=>tasks[0],step=>{if(!free()||tasks[0]||!close(harpX,12))return false;let q;for(let i=0;i<harp.length;i++)if(!harp[i].hit){q=harp[i];break;}if(!q)return false;q.gem.getWorldPosition(step.from);step.to.copy(step.from);step.action='tap';step.progress=view.chimes;step.total=3;step.sourceIcon='bell';step.goalIcon='moon-lights';return true;});
+    lesson('saturn-harp',harpX,'moon-lights',()=>tasks[0],step=>{if(!free()||tasks[0]||!close(harpX,12))return false;const q=harpNext();if(!q||q.hit)return false;q.gem.getWorldPosition(step.from);step.to.copy(step.from);step.action='tap';step.progress=view.chimes;step.total=3;step.sourceIcon='bell';step.goalIcon='moon-lights';return true;});
     lesson('saturn-probe-samples',dockX,'samples',()=>tasks[1],step=>{if(!free()||tasks[1]||!close(dockX,12)||flight?.phase==='place')return false;let q=flight?samples[flight.index]:null;for(let i=0;!q&&i<samples.length;i++)if(!samples[i].collected)q=samples[i];if(!q)return false;q.g.getWorldPosition(step.from);step.to.set(q.jarX,q.jarY,.12);step.demoObject=q.g;step.action='drag';step.progress=view.samples;step.total=3;step.sourceIcon='sample';step.goalIcon='samples';return true;});
     const turnAxis=new T.Vector3(0,0,1),orreryPointAt=(u,out)=>wheel.mobile.localToWorld(out.copy(wheel.pea.position).applyAxisAngle(turnAxis,1.4*u));
     lesson('saturn-orrery',wheelX,'rings',()=>wheelTurned,step=>{if(!free()||wheelTurned||!close(wheelX,7.8))return false;wheel.pea.getWorldPosition(step.from);wheel.mobile.localToWorld(step.to.copy(wheel.pea.position).applyAxisAngle(turnAxis,1.4));wheel.mobile.getWorldPosition(step.pivot);step.startAngle=Math.atan2(step.from.y-step.pivot.y,step.from.x-step.pivot.x);const end=Math.atan2(step.to.y-step.pivot.y,step.to.x-step.pivot.x);step.endAngle=step.startAngle+Math.atan2(Math.sin(end-step.startAngle),Math.cos(end-step.startAngle));step.pointAt=orreryPointAt;step.action='turn';step.progress=0;step.total=1;step.sourceIcon='marble';step.goalIcon='rings';return true;});
     lesson('saturn-eclipse',eclipseX,'eclipse',()=>eclipse.seen,eclipse.describe);
     lesson('saturn-nursery',nurseryX,'flowers',()=>nursery.complete,nursery.describe);
     lesson('saturn-family-photo',eyeX,'photo',()=>view.finished,step=>{if(!free()||!familyReady()||view.finished||shutter>=0)return false;step.progress=Number(familyFeza)+Number(familyBilbo);step.total=3;if(!familyFeza){leverHandle.getWorldPosition(step.from);step.to.copy(step.from);step.to.y-=.80;step.action='drag';step.sourceIcon='handle';step.goalIcon='flowers';}else if(!familyBilbo){familyPaw.getWorldPosition(step.from);step.from.y+=.12;step.to.copy(step.from);step.action='tap';step.sourceIcon='paw';step.goalIcon='flowers';}else{if(finalePhase!=='ready'||photoPending)return false;lens.getWorldPosition(step.from);step.to.copy(step.from);step.action='tap';step.sourceIcon='camera';step.goalIcon='photo';}return true;},()=>free()&&familyReady());
-    lesson('saturn-taxi-call',eyeX,'boat',familyReady,step=>{if(familyReady()||!free()||(taxiOn&&Math.abs(taxiX-eyeX)<6.6))return false;lens.getWorldPosition(step.from);step.to.copy(step.from);step.action='tap';step.sourceIcon='paw';step.goalIcon='boat';step.progress=0;step.total=1;return true;},()=>free()&&!familyReady()&&(!taxiOn||Math.abs(taxiX-eyeX)>6.6));
-    lesson('saturn-taxi-board',()=>taxiX,'boat',()=>familyReady()&&Math.abs(taxiX-eyeX)<6.6,step=>{if(!free()||!taxiOn||Math.abs(nextStop()-taxiX)<=6.6)return false;taxi.localToWorld(step.from.set(0,.30,.30));step.to.copy(step.from);step.action='tap';step.sourceIcon='footsteps';step.goalIcon='boat';step.progress=0;step.total=1;return true;},()=>free()&&taxiOn&&Math.abs(nextStop()-taxiX)>6.6);
+    lesson('saturn-taxi-call',eyeX,'boat',familyReady,step=>{if(familyReady()||!free()||!taxiFar(eyeX)||(taxiOn&&Math.abs(taxiX-eyeX)<6.6))return false;lens.getWorldPosition(step.from);step.to.copy(step.from);step.action='tap';step.sourceIcon='paw';step.goalIcon='boat';step.progress=0;step.total=1;return true;},()=>free()&&!familyReady()&&taxiFar(eyeX)&&(!taxiOn||Math.abs(taxiX-eyeX)>6.6));
+    lesson('saturn-taxi-board',()=>taxiX,'boat',()=>familyReady()&&Math.abs(taxiX-eyeX)<6.6,step=>{if(!free()||!taxiOn||Math.abs(nextStop()-taxiX)<=6.6||!taxiFar(taxiX))return false;taxi.localToWorld(step.from.set(0,.30,.30));step.to.copy(step.from);step.action='tap';step.sourceIcon='footsteps';step.goalIcon='boat';step.progress=0;step.total=1;return true;},()=>free()&&taxiOn&&Math.abs(nextStop()-taxiX)>6.6&&taxiFar(taxiX));
     const probeLesson=lessons.find(l=>l.id==='saturn-probe-samples');probeLesson.demoSources=samples.map(s=>s.g);lessons.find(l=>l.id==='saturn-nursery').demoSources=nursery.demoSources;
     view.lessonCount=lessons.length;
     const world={length,ground,platforms,warmPositions:[8,26,43,63,90,115,137,155,167,191,215,242,263,287],update:worldUpdate,zone(x){return x<55?'Buz yelkeni iskelesi':x<75?'Buz çanları':x<131?'Kehribar halka geçidi':x<147?'Halka oyuncağı':x<174?'Çoban sonda ve çiçekler':x<233?'Kristal boğazı':x<251?'Tutulma atölyesi':x<278?'Halka fidanlığı':'Aile gözlemevi';}};
-    return {world,activities:{lessons,update,pointer,interact,jump,prepare:preparePhoto,dispose:disposePhoto,state:()=>view}};
+    return {world,activities:{lessons,update,pointer,interact,jump,prepare:preparePhoto,dispose(){disposePhoto();try{spaceSky?.dispose();}catch(_){}spaceSky=null;},state:()=>view}};
   };
 })(window.MARS);

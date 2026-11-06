@@ -13,7 +13,7 @@
   }
 
   M.createMarsWeather=function({root,ground,height,sandFloor}) {
-    const state={intensity:0,gust:0,direction:1,active:false,phase:0,clearing:0,reading:0};
+    const state={intensity:0,gust:0,direction:1,active:false,phase:0,clearing:0,reading:0,storm:0,stormCount:0};
     const props=new T.Group();props.name='Mars • rüzgâr gözlemi';root.add(props);
     const clock={value:0},wind={value:0},distantWind={value:0},sunbreak={value:0},charge={value:0},readingAge={value:8};
     const mastX=371,mastZ=-1.02,deck=ground(mastX)+1.35;
@@ -375,9 +375,32 @@
     const sock=new T.Mesh(sockGeo,sockMat);sock.name='Oluklu dokuma rüzgâr çorabı';sock.frustumCulled=false;instrument.add(sock);
 
     let time=0,currentX=8,lastTap=-20,angle=0,jumpWas=false;
+    // Clear, short sand storms: a calm breeze, then a copper dust wall rolls in, blows hard
+    // for a few seconds and rolls away. Nothing is blocked; play continues through the storm.
+    const CALM=6.5,RISE=1.2,PEAK=3.2,FALL=1.4,CYCLE=CALM+RISE+PEAK+FALL;
+    let stormClock=CALM-2.6,stormPeak=0;
+    const wallAmount={value:0},wallMat=new T.ShaderMaterial({transparent:true,depthWrite:false,toneMapped:false,fog:false,
+      uniforms:{art:{value:null},clock,amount:wallAmount},
+      vertexShader:`varying vec2 tex;void main(){tex=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+      fragmentShader:`uniform sampler2D art;uniform float clock,amount;varying vec2 tex;
+        void main(){
+          vec2 q=vec2(fract(tex.x*1.6-clock*.07),clamp(tex.y*.92+.04+sin(tex.x*9.+clock*.6)*.02,.001,.999));
+          vec4 s=texture2D(art,q);
+          float side=smoothstep(0.,.22,tex.x)*smoothstep(0.,.22,1.-tex.x);
+          float body=smoothstep(.0,.08,tex.y)*(1.-smoothstep(.55,1.,tex.y));
+          float billow=.72+.28*sin(tex.x*13.+clock*.9+sin(tex.y*7.)*1.5);
+          float a=amount*side*max(body*.86*billow,s.a*.95);
+          if(a<.01)discard;
+          vec3 c=mix(vec3(.80,.47,.27),s.rgb*vec3(1.02,.86,.70),s.a*.6)*(.86+.18*tex.y);
+          gl_FragColor=vec4(c,a);
+          #include <colorspace_fragment>
+        }`});
+    const dustWall=new T.Mesh(new T.PlaneGeometry(52,11,1,1),wallMat);dustWall.name='Yaklaşan kum fırtınası duvarı';
+    dustWall.renderOrder=-11;dustWall.frustumCulled=false;dustWall.visible=false;props.add(dustWall);
+    function callStorm(){if(stormClock%CYCLE<CALM-.3)stormClock=Math.floor(stormClock/CYCLE)*CYCLE+CALM-.3;}
     function playInstrument() {
       if(time-lastTap<1.1)return;
-      lastTap=time;state.reading++;M.sfx('windsock');
+      lastTap=time;state.reading++;M.sfx('windsock');callStorm();
     }
     function touch(point) {
       if(Math.abs(mastX-currentX)>(point?10.5:4.1))return false;
@@ -388,8 +411,17 @@
       if(dt>0)time+=dt;
       currentX=player.x;clock.value=time;state.phase=time;
       const local=exposure(currentX);
-      const arrival=ramp((Math.sin(time*.24+currentX*.018)+.28)/1.28);
-      const swell=.73+.25*arrival+.055*Math.sin(time*.51+currentX*.062);
+      // One big effect at a time: while the child works at a station, no new storm starts.
+      const busy=!!(M.guide&&M.guide.state&&M.guide.state().active);
+      if(local>.3){if(!(busy&&stormClock%CYCLE<CALM-.3))stormClock+=dt;}else stormClock=Math.min(stormClock%CYCLE,CALM-2.6);
+      const cyc=stormClock%CYCLE,gale=ramp((cyc-CALM)/RISE)*(1-ramp((cyc-CALM-RISE-PEAK)/FALL));
+      if(gale>.6&&!stormPeak){stormPeak=1;state.stormCount++;}else if(gale<.05)stormPeak=0;
+      state.storm=gale*ramp((local-.25)/.3);
+      const swell=.3+.7*gale+.04*Math.sin(time*.51+currentX*.062);
+      // The wall arrives from upwind, stands over the valley at the peak and rolls on downwind.
+      const travel=clamp((cyc-CALM)/(RISE+PEAK+FALL)),slide=travel<.2?mix(-30,-5,ramp(travel/.2)):travel<.78?mix(-5,5,(travel-.2)/.58):mix(5,32,ramp((travel-.78)/.22));
+      wallAmount.value=state.storm;dustWall.visible=state.storm>.01&&!!frontArt.image;
+      if(dustWall.visible){wallMat.uniforms.art.value=frontArt;dustWall.position.set(currentX+slide,ground(currentX)+4.1,-5.8);}
       const strength=local*clamp(swell);
       state.intensity=strength;state.active=strength>.02;state.gust=swell;
       state.clearing=Math.max(windowAt(currentX,219,229,234,244),windowAt(currentX,345,352,359,366),windowAt(currentX,412,421,430,440))*(.73+.18*Math.sin(time*.28));
@@ -412,7 +444,7 @@
         needle.rotation.z=mix(.82*Math.PI,-.12*Math.PI,clamp(strength*.87+pulse*.43+.045*Math.sin(time*2.1)));
       }
     }
-    return {state,touch,update};
+    return {state,touch,update,callStorm};
   };
 
   // The two original transparent illustrations are embedded so the game also

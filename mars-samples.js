@@ -130,7 +130,10 @@
     mark.rotation.x=-Math.PI/2;
 
     // Two rigid links reach the real claw; solve their joints from its target.
-    const linkA=part(bench,cube,mint,0,0,-.65,.17,1,.19),linkB=part(bench,cube,cream,0,0,-.61,.15,1,.17);
+    const armRod=new T.CylinderGeometry(.5,.5,1,14);
+    const linkA=part(bench,armRod,mint,0,0,-.65,.17,1,.19),linkB=part(bench,armRod,cream,0,0,-.61,.15,1,.17);
+    // Brass bands give the claw arm a finished, toy-like look.
+    for(const [link,m] of [[linkA,brass],[linkB,brass]])for(const v of [-.36,.36]){const band=part(link,pin,m,0,v,0,.56,.045,.56);band.receiveShadow=false;}
     const elbow=part(bench,pin,brass,0,0,-.56,.15,.27,.15);elbow.rotation.x=Math.PI/2;
     const motor=part(bench,pin,brass,pivotX,pivotY,-.60,.23,.28,.23);motor.rotation.x=Math.PI/2;
     for(const joint of [elbow,motor]){
@@ -163,28 +166,37 @@
       elbow.position.set(ex,ey,-.56);head.position.set(clawX,clawY,.055);
       pair[0].rotation.z=-.37*(1-grip);pair[1].rotation.z=.37*(1-grip);
     }
-    let time=0,active=-1,queued=-1,last=0,inspected=-1,started=0,lit=0,visited=false,endAllowedAt=0;
+    let time=0,active=-1,queued=-1,last=0,inspected=-1,started=0,lit=0,visited=false,endAllowedAt=0,fromX=restX,fromY=restY,reveal=0,revealKind=0;
     let scanned=false;const examined=[false,false,false];
     const archiveLights=sampleXs.map(x=>part(bench,new T.SphereGeometry(.075,10,7),mint,x,.76,.49));
-    const archiveGlow=new T.MeshStandardMaterial({color:0xffd877,emissive:0xcc8d31,emissiveIntensity:.45,roughness:.45});
+    // Each stone hides a small shining crystal; it pops up inside the big lens while the claw works.
+    const gemColors=[0xff9fc8,0x7fe6d6,0xffd36e],gemMat=new T.MeshBasicMaterial({color:gemColors[0]});
+    const archiveGlows=gemColors.map(c=>new T.MeshStandardMaterial({color:c,emissive:c,emissiveIntensity:.55,roughness:.45}));
+    const gem=new T.Mesh(new T.OctahedronGeometry(.36,0),gemMat);gem.position.set(glassX,glassY-.05,-.22);gem.visible=false;bench.add(gem);
+    const gemShine=new T.Mesh(new T.OctahedronGeometry(.36,0),new T.MeshBasicMaterial({color:0xffffff,wireframe:true}));gem.add(gemShine);gemShine.scale.setScalar(1.02);
+    const starShape=new T.Shape();
+    for(let i=0;i<8;i++){const a=Math.PI*i/4,r=i%2?.045:.13;if(i)starShape.lineTo(r*Math.cos(a),r*Math.sin(a));else starShape.moveTo(r,0);}
+    const sparkleGeo=new T.ShapeGeometry(starShape),sparkleMat=new T.MeshBasicMaterial({color:0xfff2c4});
+    const sparkles=[[-.52,.36],[.55,.30],[.42,-.48],[-.46,-.40]].map(([x,y])=>{const o=new T.Mesh(sparkleGeo,sparkleMat);o.position.set(glassX+x,glassY+y,-.2);o.visible=false;bench.add(o);return o;});
+    // Faster cycle: reach .55 s, carry .7 s, look 1.6 s, carry back .65 s, rest .45 s.
+    const TA=.55,TB=1.25,TC=2.85,TD=3.5,TE=3.95;
     function start(k){
-      scanned=false;
-      active=k;started=time;queued=-1;visited=true;endAllowedAt=time+.4;
+      scanned=false;fromX=clawX;fromY=clawY;
+      active=k;started=time;queued=-1;visited=true;endAllowedAt=time+.3;
       M.sfx('aerostat-clasp');
     }
     function request(k){
       if(time<endAllowedAt){if(active>=0&&k!==active)queued=k;return;}
       if(active<0){start(k);return;}
-      queued=k;endAllowedAt=time+.34;
+      queued=k;endAllowedAt=time+.3;
       const age=time-started;
-      if(age>2.58&&age<4.68)started=time-4.68;
+      if(age>TB+.9&&age<TC)started=time-TC;
       M.sfx('select');
     }
     function touch(p){
       if(player.locked||Math.abs(player.x-center)>(p?10:6))return false;
-      if(!p){request((active>=0?active+1:last+1)%3);return true;}
-      const x=p.x-center,y=p.y-floor;
-      for(let i=0;i<3;i++)if(!examined[i]&&M.touchPlayPart(p,samples[i],.16)){request(i);return true;}
+      if(!p){const next=examined.findIndex((q,i)=>!q&&i!==active);request(next>=0?next:(active>=0?active+1:last+1)%3);return true;}
+      for(let i=0;i<3;i++)if(!examined[i]&&i!==active&&M.touchPlayPart(p,samples[i],.16)){request(i);return true;}
       return false;
     }
     function update(dt,now){
@@ -195,40 +207,60 @@
       if(active>=0){
         const k=active,sample=samples[k],sx=sampleXs[k],age=time-started;
         let u;
-        if(age<1.0){
-          u=ease(age);clawX=restX+(sx-restX)*u;clawY=restY+(gripY-restY)*u+.23*Math.sin(Math.PI*u);grip=ease((age-.73)/.27);
-        }else if(age<2.5){
-          u=ease((age-1)/1.5);clawX=sx+(scopeX-sx)*u;clawY=gripY+.79*Math.sin(Math.PI*u);grip=1;
+        if(age<TA){
+          u=ease(age/TA);clawX=fromX+(sx-fromX)*u;clawY=fromY+(gripY-fromY)*u+.2*Math.sin(Math.PI*u);grip=ease((age-TA*.7)/(TA*.3));
+        }else if(age<TB){
+          u=ease((age-TA)/(TB-TA));clawX=sx+(scopeX-sx)*u;clawY=gripY+.7*Math.sin(Math.PI*u);grip=1;
           sample.position.set(clawX,clawY-.36,.05);
-        }else if(age<4.92){
-          sample.position.set(scopeX,baseY+.22,.05);clawX=scopeX;
-          const upAmount=ease((age-2.5)/.33)*(1-ease((age-4.61)/.31));
+        }else if(age<TC){
+          sample.position.set(scopeX,baseY+.22,.05);clawX=scopeX;sample.rotation.y+=dt*1.6;
+          const upAmount=ease((age-TB)/.25)*(1-ease((age-TC+.25)/.25));
           clawY=gripY+upAmount*.31;grip=1-upAmount;
-          if(!scanned){inspected=k;last=k;glassMat.map=maps[k];view.visible=true;scanned=true;examined[k]=true;archiveLights[k].material=archiveGlow;if(examined.every(Boolean)&&!mission.samples){if(mission.signal)mission.signal('samples',center);else mission.samples=true;M.celebrate(center,floor+2);}if(bench.visible)M.sfx('scan');}
-        }else if(age<6.35){
-          u=ease((age-4.92)/1.43);clawX=scopeX+(sx-scopeX)*u;clawY=gripY+.79*Math.sin(Math.PI*u);grip=1;
+          if(!scanned){inspected=k;last=k;glassMat.map=maps[k];view.visible=true;scanned=true;examined[k]=true;archiveLights[k].material=archiveGlows[k];gemMat.color.setHex(gemColors[k]);revealKind=k;reveal=0;if(examined.every(Boolean)&&!mission.samples){if(mission.signal)mission.signal('samples',center);else mission.samples=true;M.celebrate(center,floor+2);}if(bench.visible)M.sfx('scan');}
+        }else if(age<TD){
+          u=ease((age-TC)/(TD-TC));clawX=scopeX+(sx-scopeX)*u;clawY=gripY+.7*Math.sin(Math.PI*u);grip=1;
           sample.position.set(clawX,clawY-.36,.05);
         }else{
           sample.position.set(sx,baseY+.22,.05);
-          u=ease((age-6.35)/.82);clawX=sx+(restX-sx)*u;clawY=gripY+(restY-gripY)*u;grip=1-ease((age-6.35)/.24);
-          if(u===1){active=-1;if(queued>=0&&bench.visible)start(queued);else queued=-1;}
+          if(queued>=0&&bench.visible){clawX=sx;clawY=gripY;grip=0;active=-1;start(queued);}
+          else{
+            u=ease((age-TD)/(TE-TD));clawX=sx+(restX-sx)*u;clawY=gripY+(restY-gripY)*u;grip=1-ease((age-TD)/.2);
+            if(u===1){active=-1;queued=-1;}
+          }
         }
         aim();
       }
       if(!bench.visible)return;
-      if(active>=0&&!player.locked&&Math.abs(player.x-center)<5.2&&Math.abs(player.vx)<.6&&(!examined.every(Boolean)||time-started<3.9)){
+      // The crystal pops, spins and twinkles in the lens, then softly fades back into the stone.
+      const showing=active>=0&&scanned&&time-started<TC+.2;
+      reveal=showing?Math.min(1,reveal+dt*2.6):Math.max(0,reveal-dt*2.2);
+      gem.visible=reveal>.01;
+      if(gem.visible){
+        const pop=reveal<1?reveal*(1+.35*Math.sin(Math.PI*reveal)):1;
+        gem.scale.set(pop,pop*1.35,pop);gem.rotation.y=time*2.4;gem.position.y=glassY-.05+.06*Math.sin(time*3.1);
+      }
+      for(let i=0;i<sparkles.length;i++){
+        const o=sparkles[i],w=Math.max(0,Math.sin(time*5.2+i*1.7));o.visible=reveal>.3&&w>.05;
+        if(o.visible){o.scale.setScalar(reveal*(.45+.75*w));o.rotation.z=time*1.3+i;}
+      }
+      if(showing&&Math.abs(player.x-center)<7){
+        dog.emote='happy';dog.lookX=M.clamp((glassX+center-dog.x)/6,-1,1);dog.lookY=.7;
+        if(!player.locked){player.emote='happy';player.lookX=M.clamp((glassX+center-player.x)/6,-1,1);player.lookY=.8;}
+      }
+      if(active>=0&&!player.locked&&Math.abs(player.x-center)<5.2&&Math.abs(player.vx)<.6&&(!examined.every(Boolean)||time-started<TC)){
         M.frameActivity(Math.min(center-3.75,player.x-1.1,dog.x-1.3),Math.max(center+4.20,player.x+1.1,dog.x+1.3),floor+2.08,.98);
       }
-      lit=M.damp(lit,inspected>=0?1:0,7,dt);glassMat.opacity=.91*lit;
+      lit=M.damp(lit,inspected>=0?1:0,7,dt);glassMat.opacity=.91*lit*(1-.55*reveal);
       const choice=queued>=0?queued:active>=0?active:(last+1)%3;
-      sampleHand.visible=!M.playGuideActive&&active<0&&!examined.every(Boolean)&&Math.abs(player.x-center)<6&&Math.abs(player.vx)<.4;
-      const suggested=examined.findIndex(value=>!value);sampleHand.position.set(sampleXs[Math.max(0,suggested)],1.30+.06*Math.sin(time*2.8),.6);
+      const suggested=examined.findIndex(value=>!value);
+      sampleHand.visible=!M.playGuideActive&&(active<0||scanned)&&suggested>=0&&queued<0&&Math.abs(player.x-center)<6&&Math.abs(player.vx)<.4;
+      sampleHand.position.set(sampleXs[Math.max(0,suggested)],1.30+.06*Math.sin(time*2.8),.6);
       mark.visible=false;mark.position.x=sampleXs[choice];const pulse=1+.065*Math.sin(time*3.4);
       mark.scale.set(.59*pulse,.43*pulse,.58*pulse);
     }
     aim();
     const sampleState={examined,active:-1,queued:-1,finished:false};
-    const lessons=[{id:'mars-magnifier',x:center,y:floor,goal:'scope',range:10,enabled:()=>!player.locked,completed:()=>examined.every(Boolean),describe(step){const i=examined.findIndex(q=>!q);if(i<0)return false;step.action=active>=0?'wait':'tap';step.sourceIcon='rock';step.progress=examined.filter(Boolean).length;step.total=3;samples[i].getWorldPosition(step.from);step.to.copy(step.from);return true;}}];
+    const lessons=[{id:'mars-magnifier',x:center,y:floor,goal:'scope',range:10,enabled:()=>!player.locked,completed:()=>examined.every(Boolean),describe(step){const i=examined.findIndex(q=>!q);if(i<0)return false;step.action=active>=0&&(!scanned||queued>=0)?'wait':'tap';step.sourceIcon='rock';step.progress=examined.filter(Boolean).length;step.total=3;samples[i].getWorldPosition(step.from);step.to.copy(step.from);return true;}}];
     return {lessons,touch,update,state(){sampleState.active=active;sampleState.queued=queued;sampleState.finished=examined.every(Boolean);return sampleState;}};
   };
 })(window.MARS);

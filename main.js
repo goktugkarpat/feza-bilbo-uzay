@@ -2,8 +2,11 @@
  'use strict';
  const T=THREE,$=id=>document.getElementById(id),Q=new URLSearchParams(location.search);
  const canvas=$('game'), scene=new T.Scene(),camera=new T.PerspectiveCamera(34,innerWidth/innerHeight,.15,1500);
- let renderer,world,actors,activities,footprints,discoveries,guide,phase='loading',time=0,prev=0,renderSlot=0,lastDisplayTick=0,displayPeriod=0,perfT=0,perfVisible=Q.has('fps'),frameAvg=0,jumpBuffer=0,coyote=0,jumpHeld=false;
- const measuredFrames=[];
+ let renderer,world,actors,activities,footprints,discoveries,guide,phase='loading',time=0,prev=0,renderSlot=0,lastDisplayTick=0,displayPeriod=0,perfT=0,perfVisible=Q.has('fps')||Q.has('perf'),frameAvg=0,jumpBuffer=0,coyote=0,jumpHeld=false;
+ // Last 120 drawn frames in fixed buffers: MARS.perf() and the ?perf corner meter read them without allocating per frame.
+ const PERF_N=120,perfGap=new Float32Array(PERF_N),perfCpu=new Float32Array(PERF_N);let perfIdx=0,perfCount=0;
+ // ?perf also splits our CPU time per part (activities, world, characters, guide, render submit).
+ const perfParts=Q.has('perf'),partMs=new Float64Array(5);let partFrames=0;
  const meter=$('performance');
  meter.classList.toggle('hidden',!perfVisible);
  const player={x:8,y:0,vx:0,vy:0,grounded:true,facing:1,mode:'idle',locked:false},dog={x:5.4,y:0,vx:0,vy:0,grounded:true,facing:1,mode:'idle',locked:false};
@@ -18,10 +21,12 @@
     maxX=Math.max(maxX,workshop.dogX+1.3,dog.x+1.3);
    }
   }
-  const marker=M.guide?.frameBounds();if(marker){minX=Math.min(minX,marker.minX);maxX=Math.max(maxX,marker.maxX);}
-  const width=Math.max(8,maxX-minX+1.8);
+  // Portrait is narrow: frame the game itself tightly (the flag may sit at the edge) so the
+  // objects a child touches stay large. Landscape keeps the flag and wider margins.
+  const portrait=innerWidth<innerHeight,marker=portrait?null:M.guide?.frameBounds();if(marker){minX=Math.min(minX,marker.minX);maxX=Math.max(maxX,marker.maxX);}
+  const width=portrait?Math.max(6,maxX-minX+1.1):Math.max(8,maxX-minX+1.8);
   const visible=2*camera.position.z*Math.tan(camera.fov*Math.PI/360)*camera.aspect;
-  M.setCameraTarget((minX+maxX)/2,y,Math.min(maxZoom,visible/width),1);
+  M.setCameraTarget((minX+maxX)/2,y,Math.min(portrait?maxZoom*1.3:maxZoom,visible/width),1);
  };
  const keys=new Set(),pointers=new Map(),raycaster=new T.Raycaster(),ndc=new T.Vector2(),plane=new T.Plane(new T.Vector3(0,0,1),0),hit=new T.Vector3();
  let viewportWidth=0,viewportHeight=0,displayDensity=0,densityQuery=null;
@@ -45,7 +50,7 @@
  M.celebrate=function(x,y){points.visible=true;if(!Number.isFinite(x))x=player.x;if(!Number.isFinite(y))y=player.y+1;let count=0;for(const p of particles){if(p.life>0)continue;p.x=x;p.y=y;p.z=.5;p.max=p.life=1.3+Math.random()*.7;const a=Math.random()*Math.PI*2,s=1+Math.random()*2;p.vx=Math.cos(a)*s;p.vy=1+Math.random()*3;p.vz=(Math.random()-.5)*1.2;if(++count>=24)break;}state.celebrate=1;};
  function clearInput(){guide?.clearContact();keys.clear();discoveries?.pointer?.('cancel',hit,null);if(activities)activities.pointer('cancel',hit,null);for(const id of pointers.keys()){try{if(canvas.hasPointerCapture(id))canvas.releasePointerCapture(id);}catch(_){}}pointers.clear();activeWalk=null;steer=0;jumpWalkId=null;jumpHeld=false;jumpBuffer=0;$('jump-button').classList.remove('pressed');}
  function setPhase(p){
-  phase=p;prev=renderSlot=lastDisplayTick=displayPeriod=0;resetPacingWindow();measuredFrames.length=0;perfT=0;
+  phase=p;prev=renderSlot=lastDisplayTick=displayPeriod=0;resetPacingWindow();perfIdx=perfCount=0;perfT=0;partFrames=0;partMs.fill(0);
   $('hud').classList.toggle('hidden',p!=='play');
   $('pause').classList.toggle('hidden',p!=='pause');
   $('ending').classList.toggle('hidden',p!=='ending');
@@ -120,7 +125,7 @@
    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
    return;
   }
-  if(e.code!=='Escape'&&e.target.closest?.('button')&&(phase!=='play'||e.code==='Enter'||e.code==='Space'))return;if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space','KeyW','KeyA','KeyD','KeyE','Escape'].includes(e.code))e.preventDefault();if(e.code==='Escape'){pause();return;}if(e.code==='Period'){perfVisible=!perfVisible;meter.classList.toggle('hidden',!perfVisible);measuredFrames.length=0;perfT=0;return;}if(phase!=='play')return;
+  if(e.code!=='Escape'&&e.target.closest?.('button')&&(phase!=='play'||e.code==='Enter'||e.code==='Space'))return;if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space','KeyW','KeyA','KeyD','KeyE','Escape'].includes(e.code))e.preventDefault();if(e.code==='Escape'){pause();return;}if(e.code==='Period'){perfVisible=!perfVisible;meter.classList.toggle('hidden',!perfVisible);perfT=0;return;}if(phase!=='play')return;
   if(!e.repeat&&activities?.keyDown?.(e.code)){M.audio.start();e.preventDefault();return;}
   if(!e.repeat&&['ArrowLeft','ArrowRight','KeyA','KeyD'].includes(e.code))M.audio.start();if(!e.repeat&&(e.code==='Space'||e.code==='ArrowUp'||e.code==='KeyW'))jump();if(!e.repeat&&e.code==='KeyE'){M.audio.start();if(!discoveries?.interact())activities?.interact();}keys.add(e.code);});
  addEventListener('keyup',e=>{keys.delete(e.code);if(['Space','ArrowUp','KeyW'].includes(e.code))jumpHeld=false;});
@@ -168,7 +173,7 @@
   if(disposed)return;
   graphicsLost=true;graphicsEpoch++;cancelAnimationFrame(scheduledFrame);scheduledFrame=0;
   clearInput();familyPhotoHost?.suspend();M.audio.setPaused(true);
-  $('loading').classList.add('recovering');
+  $('loading').classList.remove('fading');$('loading').classList.add('recovering');
   $('loading').classList.remove('hidden');
   $('destination-title').textContent=M.destination.label;
   progress(70,'Uzay manzarası geri geliyor…');
@@ -237,10 +242,19 @@
   }
  }
  function particlesUpdate(dt){if(!points.visible||dt<=0)return;let active=0;for(let i=0;i<particles.length;i++){const p=particles[i];p.life=Math.max(0,p.life-dt);if(p.life){active++;p.vy-=1.1*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=p.vz*dt;particlePos[i*3]=p.x;particlePos[i*3+1]=p.y;particlePos[i*3+2]=p.z;const a=p.life/p.max;particleCol[i*3]=a*.9;particleCol[i*3+1]=a;particleCol[i*3+2]=a*.68;particleSizes[i]=1.3*a;}else particleSizes[i]=0;}points.visible=active>0;if(!active)return;particleGeo.attributes.position.needsUpdate=true;particleGeo.attributes.color.needsUpdate=true;particleGeo.attributes.aSize.needsUpdate=true;}
+ // Portrait iPad: the walking view is zoomed in so the children stay large. Planet-specific
+ // camera requests keep their tuned zoom; activity framing still fits the game's width.
+ const PORTRAIT_ZOOM=1.3;
+ // Shared, allocation-free visibility test for planet scripts: skip animating props that are
+ // off-screen. x range on the walking plane (z≈0); margin in metres covers depth and motion.
+ M.inView=function(minX,maxX=minX,margin=3){
+  const half=camera.position.z*Math.tan(camera.fov*Math.PI/360)*camera.aspect/Math.max(.2,camera.zoom);
+  return maxX>=camera.position.x-half-margin&&minX<=camera.position.x+half+margin;
+ };
  function cameraUpdate(dt){
   let tx=innerWidth<innerHeight?(player.x+dog.x)*.5+player.facing*.65:player.x+2+M.clamp(player.vx*.5,-1.5,1.5),ty=groundAt(player.x)+2.2+Math.max(0,player.y-groundAt(player.x))*.28;
   
-  const rq=M.cameraRequest;if(rq.life>0){rq.life-=dt;tx=M.lerp(tx,rq.x,M.clamp(rq.weight,0,1));ty=M.lerp(ty,rq.y,M.clamp(rq.weight,0,1));cameraZoom=M.damp(cameraZoom,rq.zoom,3,dt);}else cameraZoom=M.damp(cameraZoom,1,3,dt);
+  const rq=M.cameraRequest;if(rq.life>0){rq.life-=dt;tx=M.lerp(tx,rq.x,M.clamp(rq.weight,0,1));ty=M.lerp(ty,rq.y,M.clamp(rq.weight,0,1));cameraZoom=M.damp(cameraZoom,rq.zoom,3,dt);}else cameraZoom=M.damp(cameraZoom,innerWidth<innerHeight?PORTRAIT_ZOOM:1,3,dt);
   const walkIntent=(keys.has('ArrowRight')||keys.has('KeyD')?1:0)-(keys.has('ArrowLeft')||keys.has('KeyA')?1:0)+(activeWalk!==null?steer:0);
   if(phase==='play'&&!player.locked&&walkIntent*player.vx>.01)tx=walkIntent>0?Math.max(tx,cameraX):Math.min(tx,cameraX);
   cameraX=M.damp(cameraX,tx,3.5,dt);cameraY=M.damp(cameraY,ty,3.6,dt);camera.position.set(cameraX,cameraY+2.8,innerWidth<innerHeight?28:16);if(Math.abs(camera.zoom-cameraZoom)>.00001){camera.zoom=cameraZoom;camera.updateProjectionMatrix();}camera.lookAt(cameraX,cameraY,0);
@@ -303,7 +317,7 @@
     const wantWalk=!!guide?.state?.().walkHint;
     if(walkGuide.hidden===wantWalk)walkGuide.hidden=!wantWalk;
    }
-   activities.update(dt,time);if(discoveries)discoveries.update(dt,time);pathDepth(dt);const shouldPrompt=M.planet==='mars'&&!learnedJump&&player.x>24&&player.x<55;if(shouldPrompt!==jumpPrompt){jumpPrompt=shouldPrompt;$('jump-button').classList.toggle('show-how',jumpPrompt);}const activityState=activities.state();state.activity=activityState.active||null;state.completed=activityState.finished;state.rover=player.mode==='ride';state.celebrate=Math.max(0,state.celebrate-dt*.7);
+   let pt=perfParts?performance.now():0;activities.update(dt,time);if(discoveries)discoveries.update(dt,time);if(perfParts){const n=performance.now();partMs[0]+=n-pt;}pathDepth(dt);const shouldPrompt=M.planet==='mars'&&!learnedJump&&player.x>24&&player.x<55;if(shouldPrompt!==jumpPrompt){jumpPrompt=shouldPrompt;$('jump-button').classList.toggle('show-how',jumpPrompt);}const activityState=activities.state();state.activity=activityState.active||null;state.completed=activityState.finished;state.rover=player.mode==='ride';state.celebrate=Math.max(0,state.celebrate-dt*.7);
    const spokenCue=narratorCue(activityState);M.audio.setCue(obsoleteSpokenHints.has(spokenCue)?'':spokenCue);M.audio.update();
    const zone=world.zone?world.zone(player.x):M.destination.label;if(zone!==zoneLast){$('zone-name').textContent=({kamp:'İniş kampı',kanyon:'Kızıl kanyon',kumlar:'Rüzgâr vadisi',buz:'Mavi buz mağarası',geçit:'Kanyon geçidi',gözlemevi:'Yıldız gözlemevi'})[zone]||zone;zoneLast=zone;}
    hintClock+=dt;if(M.planet==='mars'&&hintClock>3){hintClock=0;if(player.x<30)M.setHint(player.x<15?'Sağa doğru basılı tut. Bilbo peşinden gelir!':'Büyük oka dokun: Mars’ta daha yükseğe zıpla!');}
@@ -319,7 +333,7 @@
    maybeShowEnding();
   }
   const animDt=phase==='play'?dt:0;
-  world.update(animDt,time,state);player.wind=dog.wind=world.weather?world.weather.intensity:0;M.audio.setWeather(player.wind);actors.feza.root.position.set(player.x,player.y,player.z||0);actors.bilbo.root.position.set(dog.x,dog.y,dog.z??.3);actors.update(animDt,time,state);activities.afterActors?.();if(footprints)footprints.update(animDt,time,state);particlesUpdate(animDt);cameraUpdate(animDt);if(phase==='play'){guide?.update(animDt,time);if(!showFirstSteps){const hideWalk=endingShown||!guide?.state().walkHint;if(walkGuide.hidden!==hideWalk)walkGuide.hidden=hideWalk;}}
+  let pt=perfParts?performance.now():0;world.update(animDt,time,state);if(perfParts){const n=performance.now();partMs[1]+=n-pt;pt=n;}player.wind=dog.wind=world.weather?world.weather.intensity:0;M.audio.setWeather(player.wind);actors.feza.root.position.set(player.x,player.y,player.z||0);actors.bilbo.root.position.set(dog.x,dog.y,dog.z??.3);actors.update(animDt,time,state);if(perfParts){const n=performance.now();partMs[2]+=n-pt;pt=n;}activities.afterActors?.();if(footprints)footprints.update(animDt,time,state);particlesUpdate(animDt);cameraUpdate(animDt);if(phase==='play'){if(perfParts)pt=performance.now();guide?.update(animDt,time);if(perfParts)partMs[3]+=performance.now()-pt;if(!showFirstSteps){const hideWalk=endingShown||!guide?.state().walkHint;if(walkGuide.hidden!==hideWalk)walkGuide.hidden=hideWalk;}}
  }
  function resetPacingWindow(){
   windowTime=0;windowFrames=0;lateFrames=0;timelyFrames=0;slowWindows=0;
@@ -388,20 +402,80 @@
   prev=stamp;
   if(M.device.tablet&&!resizeNeeded)checkTabletPacing(elapsed);
   if(resizeNeeded)resize();
-  update(dt);renderer.render(scene,camera);
+  update(dt);let rt=perfParts?performance.now():0;renderer.render(scene,camera);if(perfParts){partMs[4]+=performance.now()-rt;partFrames++;}
   captureScheduledPhoto();
-  frameAvg=M.damp(frameAvg,performance.now()-start,3,dt);
-  if(perfVisible)updateMeter(elapsed);
+  const cpu=performance.now()-start;
+  frameAvg=M.damp(frameAvg,cpu,3,dt);
+  perfGap[perfIdx]=elapsed*1000;perfCpu[perfIdx]=cpu;perfIdx=(perfIdx+1)%PERF_N;if(perfCount<PERF_N)perfCount++;
+  if(perfVisible){perfT+=elapsed;if(perfT>=.5){perfT=0;updateMeter();}}
  }
- function updateMeter(elapsed){
-  perfT+=elapsed;measuredFrames.push(elapsed*1000);
-  if(perfT<1)return;
-  measuredFrames.sort((a,b)=>a-b);
-  const n=measuredFrames.length,p95=measuredFrames[Math.ceil(n*.95)-1],worst=measuredFrames[n-1];
-  meter.textContent=Math.round(n/perfT)+' FPS · p95 '+p95.toFixed(1)+' ms · en uzun '+worst.toFixed(1)+' ms\n'+
-   canvas.width+' × '+canvas.height+' · MSAA'+(M.device.tablet?' · 60 FPS hedef':'')+'\n'+
-   renderer.info.render.calls+' çizim · '+Math.round(renderer.info.render.triangles/1000)+' bin üçgen · CPU '+frameAvg.toFixed(1)+' ms';
-  measuredFrames.length=0;perfT=0;
+ // Test-only measurement: MARS.perf() in the console, or ?perf for a small corner meter.
+ function perfStats(){
+  let gap=0,gapMax=0,cpu=0,cpuMax=0;
+  for(let i=0;i<perfCount;i++){gap+=perfGap[i];cpu+=perfCpu[i];if(perfGap[i]>gapMax)gapMax=perfGap[i];if(perfCpu[i]>cpuMax)cpuMax=perfCpu[i];}
+  const n=Math.max(1,perfCount);return {frames:perfCount,avg:gap/n,worst:gapMax,cpuAvg:cpu/n,cpuWorst:cpuMax};
+ }
+ M.perf=function(){
+  if(!renderer)return null;
+  const info=renderer.info,f=perfStats(),r=x=>Math.round(x*100)/100;
+  return {calls:info.render.calls,triangles:info.render.triangles,points:info.render.points,lines:info.render.lines,
+   geometries:info.memory.geometries,textures:info.memory.textures,programs:info.programs?info.programs.length:0,
+   frameMs:{avg:r(f.avg),worst:r(f.worst),fps:f.avg>0?Math.round(1000/f.avg):0,cpuAvg:r(f.cpuAvg),cpuWorst:r(f.cpuWorst),frames:f.frames},
+   pixelRatio:r(renderer.getPixelRatio()),canvas:canvas.width+'x'+canvas.height,css:innerWidth+'x'+innerHeight,
+   cpuParts:perfParts&&partFrames?{activities:r(partMs[0]/partFrames),world:r(partMs[1]/partFrames),actors:r(partMs[2]/partFrames),guide:r(partMs[3]/partFrames),renderSubmit:r(partMs[4]/partFrames)}:'(?perf ile)',
+   tablet:!!M.device.tablet,shadows:renderer.shadowMap.enabled,planet:M.planet,phase};
+ }
+ // Test-only fill estimate for tile GPUs (iPad): opaque overdraw is mostly removed by
+ // the GPU, transparent layers are not. MARS.overdraw() renders a small off-screen
+ // count of transparent layers per pixel and lists the most covering objects.
+ M.overdraw=function(opts={}){
+  if(!renderer||!ready)return null;
+  const scale=opts.scale||.25,w=Math.max(16,Math.round(innerWidth*scale)),h=Math.max(16,Math.round(innerHeight*scale));
+  const target=new T.WebGLRenderTarget(w,h,{depthBuffer:true}),buf=new Uint8Array(w*h*4);
+  const one=1/255,count=new T.MeshBasicMaterial({color:new T.Color(one,one,one),blending:T.AdditiveBlending,transparent:true,depthWrite:false,toneMapped:false,fog:false});
+  count.color.setRGB(one,one,one,T.LinearSRGBColorSpace);
+  const countSprite=new T.SpriteMaterial({color:count.color,blending:T.AdditiveBlending,transparent:true,depthWrite:false,toneMapped:false,fog:false});
+  const variants=new Map();function variant(side,test){const k=side+'/'+test;if(!variants.has(k)){const m=count.clone();m.side=side;m.depthTest=test;variants.set(k,m);}return variants.get(k);}
+  const objs=[],opaque=[],other=[],saved=new Map();
+  scene.traverseVisible(o=>{if(!(o.isMesh||o.isSprite||o.isPoints)){if(o.material)other.push(o);return;}const m=Array.isArray(o.material)?o.material[0]:o.material;if(!m)return;(m.transparent||m.blending===T.AdditiveBlending?objs:opaque).push(o);});
+  const all=[...objs,...opaque,...other];for(const o of all)saved.set(o,{v:o.visible,m:o.material});
+  const opaqueMats=new Map();for(const o of opaque)for(const m of [].concat(o.material))if(m&&!opaqueMats.has(m))opaqueMats.set(m,m.colorWrite);
+  const prevTarget=renderer.getRenderTarget(),prevClear=renderer.autoClear,prevTone=renderer.toneMapping,cc=renderer.getClearColor(new T.Color()),ca=renderer.getClearAlpha(),bg=scene.background,fog=scene.fog;
+  function pass(list){
+   renderer.setRenderTarget(target);renderer.setClearColor(0x000000,1);renderer.clear();
+   for(const o of all)o.visible=false;
+   for(const o of opaque){if(o.isMesh){o.visible=true;o.material=saved.get(o).m;}}
+   renderer.render(scene,camera);
+   for(const o of opaque)o.visible=false;
+   renderer.autoClear=false;
+   for(const o of list){o.visible=true;const m=saved.get(o).m,src=Array.isArray(m)?m[0]:m;o.material=o.isSprite?countSprite:variant(src.side,src.depthTest);}
+   renderer.render(scene,camera);renderer.autoClear=prevClear;
+   for(const o of list){o.visible=false;}
+   // An async photo readback may still own the pack buffer; read into memory without disturbing it.
+   const gl=renderer.getContext(),pack=gl.PIXEL_PACK_BUFFER?gl.getParameter(gl.PIXEL_PACK_BUFFER_BINDING):null;if(pack)gl.bindBuffer(gl.PIXEL_PACK_BUFFER,null);
+   renderer.readRenderTargetPixels(target,0,0,w,h,buf);if(pack)gl.bindBuffer(gl.PIXEL_PACK_BUFFER,pack);
+   let sum=0,max=0,deep=0;for(let i=0;i<buf.length;i+=4){const n=buf[i];sum+=n;if(n>max)max=n;if(n>=3)deep++;}
+   return {avg:sum/(w*h),max,deep:deep/(w*h)};
+  }
+  let result;
+  try{
+   renderer.toneMapping=T.NoToneMapping;scene.background=null;scene.fog=null;for(const m of opaqueMats.keys())m.colorWrite=false;
+   const total=pass(objs),top=[];
+   if(opts.each!==false)for(const o of objs){const r=pass([o]);if(r.avg>.005)top.push({name:o.name||o.parent?.name||o.type,type:o.type,screen:Math.round(r.avg*1000)/10});}
+   top.sort((a,b)=>b.screen-a.screen);
+   result={transparentObjects:objs.length,layersAvg:Math.round(total.avg*100)/100,layersMax:total.max,screen3plus:Math.round(total.deep*1000)/10+'%',top:top.slice(0,opts.top||10),note:'screen = ekranın yüzde kaçını kaplıyor (saydam katman)'};
+  }finally{
+   for(const [o,s] of saved){o.visible=s.v;o.material=s.m;}for(const [m,c] of opaqueMats)m.colorWrite=c;
+   renderer.setRenderTarget(prevTarget);renderer.autoClear=prevClear;renderer.toneMapping=prevTone;renderer.setClearColor(cc,ca);scene.background=bg;scene.fog=fog;
+   target.dispose();count.dispose();countSprite.dispose();for(const m of variants.values())m.dispose();
+  }
+  return result;
+ };
+ function updateMeter(){
+  const f=perfStats(),info=renderer.info;
+  meter.textContent=(f.avg>0?Math.round(1000/f.avg):0)+' FPS · ort '+f.avg.toFixed(1)+' ms · en kötü '+f.worst.toFixed(1)+' ms\n'+
+   canvas.width+' × '+canvas.height+' · oran '+renderer.getPixelRatio().toFixed(2)+(M.device.tablet?' · 60 FPS hedef':'')+'\n'+
+   info.render.calls+' çizim · '+Math.round(info.render.triangles/1000)+' bin üçgen · '+info.programs.length+' program · CPU '+f.cpuAvg.toFixed(1)+' ms';
  }
  function progress(u,label){$('loading-fill').style.width=u+'%';$('loading-label').textContent=label;}
  const tick=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
@@ -471,7 +545,8 @@
   M.audio.prepare();
   if(M.waitForLanding)await M.waitForLanding;
   if(disposed||graphicsLost)return;
-  $('loading').classList.add('hidden');ready=true;start();
+  // Landing fades in softly while the sky lights its stars; the cover never takes touches.
+  {const cover=$('loading');cover.classList.add('fading');setTimeout(()=>{if(!graphicsLost)cover.classList.add('hidden');cover.classList.remove('fading');},650);}ready=true;start();
   M.debug={get phase(){return phase;},get time(){return time;},get frameMs(){return frameAvg;},get audioContexts(){return M.audio.contexts;},get errors(){return errors;},warp(x){if(!Q.has('atla')&&!Q.has('test'))return false;player.x=x;player.y=world.ground(x);player.vx=player.vy=0;dog.x=x-2;dog.y=world.ground(dog.x);dog.vx=dog.vy=0;cameraX=x+2;cameraY=player.y+2.2;return true;},state:()=>({phase,player:{...player},dog:{...dog},activities:activities.state(),weatherPost:discoveries?.weatherPost(),guide:guide?.state(),draws:renderer.info.render.calls,triangles:renderer.info.render.triangles,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures})};
  }catch(e){console.error(e);$('loading-label').textContent='Bu gezegen hazırlanamadı. Üsse dönüp yeniden deneyebilirsin.';$('loading').classList.add('error');}}
  const errors=[];addEventListener('error',e=>{errors.push(e.message);});addEventListener('unhandledrejection',e=>{errors.push(String(e.reason));});

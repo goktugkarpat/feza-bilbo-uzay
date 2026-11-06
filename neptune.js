@@ -107,6 +107,13 @@
       sun.target.position.set(x,0,0).addScaledVector(shadowRight,dr).addScaledVector(shadowUp,du);
       sun.position.copy(sun.target.position).add(sunOffset);
     }
+    // Shared magical sky over the painted Neptune plate: twinkling stars only above the
+    // planet's limb, one slow luminous wind ribbon and an occasional slow shooting star.
+    const spaceSky=M.createSpaceSky?M.createSpaceSky({scene,preset:'neptune',dome:false,stars:{count:700,brightness:.95,size:1.05,twinkle:1.25,parallax:.25},
+      aurora:{colors:['#5ee8d2','#7f8cff'],amount:.16,y:.62,height:.2,wave:.06,rays:.3},shooting:{every:[22,40],duration:2.6,color:'#e8fbff'},bodies:[]}):null;
+    {const stars=scene.getObjectByName('space-sky-stars'),pa=stars?.geometry?.attributes?.position;
+      if(pa){for(let i=0;i<pa.count;i++){const x=pa.getX(i),y=pa.getY(i),z=pa.getZ(i),r=Math.hypot(x,y,z),h=Math.hypot(x,z)||1,el=Math.asin(y/r);
+        if(el<.13){const e=.13+((i*.618)%1)*.42;pa.setXYZ(i,x/h*Math.cos(e)*r,Math.sin(e)*r,z/h*Math.cos(e)*r);}}pa.needsUpdate=true;stars.geometry.computeBoundingSphere();}}
     const rim=new T.DirectionalLight(0x8be5ff,1.15);rim.position.set(13,10,-9);scene.add(rim);
 
     // Each buoyant raft has a continuous cloth deck, sculpted underbody and a slightly different outline.
@@ -232,6 +239,28 @@
       const tex=new T.CanvasTexture(cv);tex.colorSpace=T.SRGBColorSpace;tex.anisotropy=4;return tex;
     }
     const leafTints=[['#dc9c73','#f4ce89'],['#a29ac8','#abdac9'],['#6eaeb7','#bad9c3']];
+    // Shared machine ornaments (made once): a turned brass spinner, a lathe pedestal,
+    // a pipe collar, a little five-point star badge and curved propeller blades.
+    const spinnerGeo=new T.LatheGeometry([[0,.30],[.05,.29],[.10,.25],[.135,.18],[.155,.10],[.16,.03],[.175,0],[.0,0]].map(([r,y])=>new T.Vector2(r,y)),20).rotateX(Math.PI*.5);
+    const pedestalGeo=new T.LatheGeometry([[0,.42],[.30,.42],[.34,.38],[.30,.33],[.33,.27],[.46,.18],[.52,.09],[.55,.04],[.53,0],[0,0]].map(([r,y])=>new T.Vector2(r,y)),28);
+    const collarGeo=new T.TorusGeometry(1,.22,8,24).rotateX(Math.PI*.5);
+    const starGeo=(()=>{const sh=new T.Shape();for(let i=0;i<10;i++){const a=Math.PI*.5+i*Math.PI/5,r=i%2?.42:1;i?sh.lineTo(Math.cos(a)*r,Math.sin(a)*r):sh.moveTo(Math.cos(a)*r,Math.sin(a)*r);}return new T.ExtrudeGeometry(sh,{depth:.18,bevelEnabled:true,bevelThickness:.08,bevelSize:.08,bevelSegments:2});})();
+    const miniVaneMat=new T.MeshStandardMaterial({vertexColors:true,roughness:.66,metalness:.08,side:T.DoubleSide});
+    let miniVane=null;
+    function propellerGeometry(n,length,tip){
+      // Curved, twisted blades with rounded tips and a painted tip band, merged into one mesh.
+      const pos=[],col=[],idx=[],c=new T.Color(),S=12,U=6,body=new T.Color(0xfff1d6),band=new T.Color(tip);
+      for(let b=0;b<n;b++){const base=pos.length/3,ang=b*TAU/n;
+        for(let j=0;j<=S;j++)for(let k=0;k<=U;k++){
+          const t=j/S,u=k/U*2-1,round=t>.78?Math.sqrt(Math.max(0,1-Math.pow((t-.78)/.22,2))):1;
+          const hw=(.30+.70*Math.sin(Math.PI*(.18+.62*t)))*.11*round*length/.4+.012,r=.07+t*length;
+          const lx=u*hw+.035*t*t,lz=u*hw*.42*(1-.55*t)+.035*(1-u*u)*Math.sin(Math.PI*t);
+          pos.push(Math.cos(ang)*lx-Math.sin(ang)*r,Math.sin(ang)*lx+Math.cos(ang)*r,lz);
+          c.copy(body).lerp(band,t>.74?1:0).multiplyScalar(.86+.14*(1-Math.abs(u)));col.push(c.r,c.g,c.b);
+          if(j<S&&k<U){const i=base+j*(U+1)+k;idx.push(i,i+U+1,i+1,i+1,i+U+1,i+U+2);}
+        }}
+      const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));g.setAttribute('color',new T.Float32BufferAttribute(col,3));g.setIndex(idx);g.computeVertexNormals();return g;
+    }
     function windBellows(x,to,ii){
       const y=ground(x)+.61,w=3.08,z=-.30,sx=1.82,sz=1.13,n=42,group=new T.Group();
       group.position.set(x,y,z);root.add(group);platforms.push({x,y,w});
@@ -256,8 +285,10 @@
       mesh(group,sg,new T.MeshStandardMaterial({vertexColors:true,side:T.DoubleSide,roughness:.46,metalness:.3}),0,0,0);
       // The fan and its skids sit entirely below the open, capped sail.
       const rotor=new T.Group();rotor.position.set(0,-.39,sz*.81);group.add(rotor);
-      for(let j=0;j<5;j++){const a=j*TAU/5;const petal=mesh(rotor,geo.pearl,paint(mint),Math.cos(a)*.17,Math.sin(a)*.17,0,.18,.063,.035);petal.rotation.z=a+.53;}
-      mesh(rotor,geo.pearl,paint(brass),0,0,.03,.085,.085,.046);
+      if(!miniVane)miniVane=vanePetal(5);
+      mesh(rotor,miniVane,miniVaneMat,0,0,-.02,.20,.20,.20);
+      mesh(rotor,spinnerGeo,paint(brass),0,0,.04,.42,.42,.42);
+      mesh(rotor,geo.torus,paint(cream),0,0,.0,.27,.27,.30);
       for(const dx of [-1.17,1.17])pipe(x+dx,y-.27,z,x+dx*.62,ground(x)-.13,z-.06,.11,brass);
       const yEnd=ground(to);
       // A wind sock marks the receiving island. Its fabric points in the direction of travel.
@@ -306,7 +337,7 @@
       ripple(0,0);
       const mouth=mesh(sock,geo.torus,paint(cream),.013,.05,0,.185,.185,.26);mouth.rotation.y=Math.PI*.5;
       groupFittings(rotor);
-      bellows.push({x,y,to,rotor,sock,top,ii,petals,ripple,charge:0,launches:0});
+      bellows.push({x,y,to,rotor,sock,top,ii,petals,ripple,group,charge:0,launches:0,press:0});
     }
     windBellows(16.65,23.15,0);windBellows(44.65,51.5,1);windBellows(128.4,137.45,2);windBellows(256.8,264.5,0);windBellows(286.2,295.3,1);
     // Three small cloud laboratories share a shell, with different instruments visible through their windows.
@@ -511,12 +542,15 @@
     }
     waveRoofRibbons(0);roofRibbonGeo.computeVertexNormals();
     const hoop=new T.TorusGeometry(1,.029,6,64);
+    const fanTurns=3.0;
     const fans=[25.8,32,38].map((x,i)=>{
       const y=ground(x),height=[1.95,2.20,1.97][i];
-      stamp(geo.cylinder,indigo,x,y+.12,-.99,.59,.25,.52);stamp(geo.cylinder,cream,x,y+.28,-.99,.43,.22,.41);
+      stamp(pedestalGeo,indigo,x,y,-.99,1.05,1.0,.95);stamp(collarGeo,cream,x,y+.43,-.99,.30,.30,.30);
       pipe(x,y+.31,-.99,x,y+height,-.99,.105,brass);
+      for(const h of [.95,height-.62])stamp(collarGeo,[coral,teal,lilac][i],x,y+h,-.99,.14,.14,.14);
       const rotor=mesh(root,vanePetal([4,5,6][i]),petalMat,x,y+height,-.83);
-      stamp(geo.sphere,brass,x,y+height,-.56,.235,.235,.14);stamp(geo.sphere,cream,x,y+height,-.44,.103,.103,.064,0,lamp);
+      stamp(spinnerGeo,brass,x,y+height,-.64,1.15,1.15,1.0);stamp(geo.torus,cream,x,y+height,-.60,.25,.25,.7);
+      stamp(starGeo,cream,x,y+height,-.30,.085,.085,.085,0,lamp);
       const trim=mesh(root,hoop,paint(brass),x,y+height,-.93,1.38,1.38,.29);
       const housing=new T.Group();housing.position.set(x,y+height,-.93);root.add(housing);
       const band=mesh(housing,new T.CylinderGeometry(1.38,1.38,.24,36,1,true),paint([0x847a9c,0x628d9c,0x9b7f7e][i]),0,0,0);band.rotation.x=Math.PI*.5;
@@ -654,16 +688,17 @@
     rod(ship,1.60,1.01,.18,1.51,1.40,.18,.035,bronzePaint);mesh(ship,geo.sphere,paint(coral),1.51,1.40,.18,.075,.075,.075);
     const dial=mesh(ship,geo.torus,bronzePaint,1.78,1.24,.37,.110,.11,.13);dial.rotation.x=-.25;
     mesh(ship,geo.sphere,paint(mint),1.78,1.24,.372,.095,.095,.024);
-    const turbines=[];
+    const turbines=[],shipProp=propellerGeometry(4,.40,0xef806b);
     for(const sign of [-1,1]){
       const x=sign*2.63;
       mesh(ship,geo.torus,outerPaint,x,.98,.02,.54,.54,.44);
+      mesh(ship,geo.torus,innerPaint,x,.98,.07,.47,.47,.18);
+      for(let k=0;k<8;k++){const a=k*TAU/8;mesh(ship,geo.stud,bronzePaint,x+Math.cos(a)*.54,.98+Math.sin(a)*.54,.11,.035,.035,.025);}
       const rotor=new T.Group();ship.add(rotor);rotor.position.set(x,.98,.075);
-      for(let i=0;i<4;i++){
-        const a=i*TAU/4;const p=mesh(rotor,geo.sphere,innerPaint,Math.sin(a)*.25,Math.cos(a)*.25,0,.089,.26,.045);
-        p.rotation.z=-a-.23;
-      }
-      mesh(rotor,geo.sphere,bronzePaint,0,0,.07,.14,.14,.09);turbines.push(rotor);
+      mesh(rotor,shipProp,miniVaneMat,0,0,0);
+      mesh(rotor,spinnerGeo,bronzePaint,0,0,.02,.62,.62,.62);
+      mesh(rotor,collarGeo,paint(coral),0,0,.03,.105,.105,.105).rotation.x=Math.PI*.5;
+      const badge=mesh(rotor,starGeo,paint(cream),0,0,.205,.045,.045,.045);badge.position.z=.205;turbines.push(rotor);
     }
     groupFittings(ship);turbines.forEach(groupFittings);
     // A broad hand-sewn ray kite sleeps on its cradle. Feza can release it and hold the flying line.
@@ -713,27 +748,42 @@
     for(let i=0;i<4;i++){const a=i*TAU/4;rod(reel,0,0,0,.89*Math.cos(a),.89*Math.sin(a),0,.056,innerPaint);}
     mesh(reel,geo.sphere,paint(coral),.64,.55,.22,.29,.23,.18);
     groupFittings(reel);
-    let kiteLift=0,kiteLoose=false,kiteWarm=0;
+    let kiteLift=0,kiteLoose=false,kiteWarm=0,kiteHold=null;const kiteSky=new T.Vector3(kiteX-1.6,kiteFloor+4.3,-1.32),kitePoint=new T.Vector3();
+    // In the world, a soft golden wind loop in the sky shows where the kite wants to go.
+    const kiteGoal=new T.Group();kiteGoal.position.copy(kiteSky);root.add(kiteGoal);
+    const kiteGoalMat=new T.MeshBasicMaterial({color:0xffd27a,transparent:true,opacity:.85,depthWrite:false});
+    mesh(kiteGoal,geo.smallRing,kiteGoalMat,0,0,0,.62,.62,.62);
+    for(let i=0;i<3;i++){const w=mesh(kiteGoal,geo.slim,paint(mint,false),-.15+i*.05,-.18+i*.18,0,.025,.75,.025);w.rotation.z=Math.PI*.5;}
     function releaseKite(){
       if(kiteWarm>0||kiteLoose)return false;
       kiteWarm=1.1;
-      if(!kiteLoose){kiteLoose=true;M.celebrate(kiteX,kiteFloor+1.7);M.sfx('beacon');}
+      if(!kiteLoose){kiteLoose=true;M.celebrate(kite.position.x,kite.position.y);M.sfx('beacon');cheer();}
       else M.sfx('dog');
       return true;
+    }
+    // The child lifts the sleeping kite by hand into the high wind; there it catches and flies.
+    function holdKite(p){
+      onPlane(p,-1.32,kitePoint);
+      kiteHold.x=clamp(kitePoint.x,kiteX-3.2,kiteX+2.2);kiteHold.y=clamp(kitePoint.y,kiteFloor+1.6,kiteFloor+5.6);
+      if(Math.hypot(kiteHold.x-kiteSky.x,kiteHold.y-kiteSky.y)<1.0||kiteHold.y>kiteSky.y+.35){clearDrag();kiteHold=null;kiteLift=.32;releaseKite();}
     }
     function playKite(dt,t){
       kiteWarm=Math.max(0,kiteWarm-dt);
       if(kiteLoose)kiteLift=Math.min(1,kiteLift+dt*.65);
+      if(kiteHold&&drag?.scope!=='kite')kiteHold=null;
+      kiteGoal.visible=!kiteLoose&&Math.abs(player.x-kiteX)<14;if(kiteGoal.visible){const k=1+.08*Math.sin(t*3.1)+(kiteHold?.12:0);kiteGoal.scale.setScalar(k);kiteGoal.rotation.z=.15*Math.sin(t*.9);}
       const nearby=Math.abs(player.x-kiteX)<38;
       kite.visible=kiteLine.visible=nearby;
       if(!nearby)return;
       const u=ease(kiteLift),following=clamp(player.x-kiteX,-2,12);
       const targetX=kiteX+u*(following-2.25+.62*Math.sin(t*.71));
       const targetY=kiteFloor+2.29+u*(1.52+.35*Math.sin(t*1.52));
-      kite.position.set(M.damp(kite.position.x||kiteX,targetX,3.6,dt),targetY,-1.32-u*1.45);
+      if(kiteHold)kite.position.set(M.damp(kite.position.x||kiteX,kiteHold.x,9,dt),M.damp(kite.position.y||targetY,kiteHold.y,9,dt),-1.32);
+      else kite.position.set(M.damp(kite.position.x||kiteX,targetX,3.6,dt),M.damp(kite.position.y||targetY,targetY,kiteLoose?2.4:4,dt),-1.32-u*1.45);
+      const held=kiteHold?clamp((kite.position.y-kiteFloor-2.29)/1.7,0,1)*.6:0;
       kite.rotation.z=-.075+Math.sin(t*(kiteWarm?2.85:1.15))*(.035+.12*u);
       kite.rotation.y=.06+u*(.28+.35*Math.sin(t*.8));
-      wingHinges.forEach((h,i)=>{const side=i?1:-1;h.rotation.y=side*mix(.89,.05+.19*Math.sin(t*3.2),u);h.rotation.z=side*(.12-u*.15+.04*Math.sin(t*2.1));});
+      wingHinges.forEach((h,i)=>{const side=i?1:-1;h.rotation.y=side*mix(.89,.05+.19*Math.sin(t*3.2),Math.max(u,held));h.rotation.z=side*(.12-u*.15+.04*Math.sin(t*2.1));});
       for(let i=0;i<13;i++){
         const v=i/12,y=-.61-1.23*v,mid=v*(.29+.12*u)*Math.sin(t*(1.7+u)+v*5)+u*v*.24,width=.085*(1-v*.70);
         const k=6*i;streamPos[k]=mid-width;streamPos[k+1]=y;streamPos[k+2]=.12-v*.19;streamPos[k+3]=mid+width;streamPos[k+4]=y;streamPos[k+5]=streamPos[k+2];
@@ -1119,7 +1169,7 @@
     si.fillStyle='#e6b875';si.strokeStyle='#31586b';si.lineWidth=2.4;si.beginPath();si.moveTo(0,-58);si.lineTo(9,-12);si.lineTo(32,0);si.lineTo(9,12);si.lineTo(0,55);si.lineTo(-10,13);si.lineTo(-32,0);si.lineTo(-10,-12);si.closePath();si.fill();si.stroke();si.restore();
     const shellTexture=new T.CanvasTexture(shellInk);shellTexture.colorSpace=T.SRGBColorSpace;shellTexture.anisotropy=4;
     const shellFamilies=[0xf1a786,0xbfb4db,0x9ddcd1],shellGroups=[],shellMaterials=[];
-    const bellNotes=[false,false,false],bellSound=[0,0,0],bellStrike=[0,0,0];
+    const bellNotes=[false,false,false],bellSound=[0,0,0],bellStrike=[0,0,0],bellPush=[0,0,0],bellTaps=[0,0,0];
     const bellAirTouch=[false,false,false];let songUnlocked=false,chorus=0;
     const shellLight=new T.MeshBasicMaterial({color:0xffeba9});
     for(let family=0;family<3;family++){
@@ -1212,8 +1262,17 @@
     function ringCloudBell(i){
       if(bellStrike[i]>.8||bellNotes[i])return false;
       bellStrike[i]=1;bellSound[i]=1;bellNotes[i]=true;helpElapsed=0;M.sfx('wind-harp-'+(i+1));
-      if(!songUnlocked&&bellNotes.every(Boolean)){songUnlocked=true;chorus=1;M.celebrate(organX,ground(organX)+2.5);}
+      if(!songUnlocked&&bellNotes.every(Boolean)){songUnlocked=true;chorus=1;cheer();M.celebrate(organX,ground(organX)+2.5);}
       return true;
+    }
+    // A bell is pushed sideways by hand; once it swings far enough the clapper rings.
+    function swingBell(p){
+      const i=drag.i;bellPush[i]=clamp((p.x-drag.x0)/.95,-1,1);helpElapsed=0;
+      if(Math.abs(bellPush[i])>=.5){drag.rung=true;clearDrag();ringCloudBell(i);}
+    }
+    function releaseBell(){
+      const i=drag?.i;if(i===undefined||bellNotes[i]||Math.abs(bellPush[i])>.2)return;
+      bellPush[i]=.35;bellTaps[i]++;M.sfx('wind-tug');if(bellTaps[i]>=2)ringCloudBell(i);
     }
     function updateOrgan(dt,t,px){
       chorus=Math.max(0,chorus-dt*.095);
@@ -1224,7 +1283,8 @@
         bellStrike[i]=Math.max(0,bellStrike[i]-dt*.65);bellSound[i]=Math.max(0,bellSound[i]-dt*.44);
         if(!visible){beads[i].visible=false;continue;}
         const energy=bellSound[i],a=(1-energy)*18.0,swing=Math.sin(a)*energy*.34;
-        bells[i].pivot.rotation.z=swing+.020*Math.sin(t*1.55+i);
+        if(drag?.scope!=='bell'||drag.i!==i)bellPush[i]=M.damp(bellPush[i],0,3.2,dt);
+        bells[i].pivot.rotation.z=swing+.020*Math.sin(t*1.55+i)+bellPush[i]*.42;
         bells[i].clapper.rotation.z=-swing*1.92;
         shellMaterials[i].emissiveIntensity=(bellNotes[i]?.18:.018)+.24*energy+.05*chorus;
         shellGroups[i].rotation.z=(i-1)*(.023*Math.sin(t*.7+i)+.064*energy);
@@ -1283,11 +1343,13 @@
     function fillBeaker(cup,amount){cup.liquid.scale.y=.06+amount*.56;cup.liquid.position.y=-.27+amount*.28;}
     function fanInstrument(parent,x,y,z,size=1){
       const group=new T.Group();group.position.set(x,y,z);group.scale.setScalar(size);parent.add(group);
-      mesh(group,geo.cylinder,paint(indigo),0,-1.03,0,.66,.19,.42);rod(group,0,-.96,0,0,0,0,.11,paint(brass));
-      mesh(group,geo.cylinder,paint(teal),0,0,-.10,.67,.35,.67).rotation.x=Math.PI*.5;
+      mesh(group,pedestalGeo,paint(indigo),0,-1.12,0,1.0,.9,.8);rod(group,0,-.96,0,0,0,0,.11,paint(brass));
+      for(const h of [-.7,-.32])mesh(group,collarGeo,paint(coral),0,h,0,.15,.15,.15);
+      mesh(group,geo.torus,paint(teal),0,0,-.06,.62,.62,1.2);
       const rotor=new T.Group();rotor.position.z=.13;group.add(rotor);
-      for(let i=0;i<5;i++){const a=i*TAU/5,q=mesh(rotor,geo.pearl,paint(cream),Math.cos(a)*.32,Math.sin(a)*.32,0,.31,.12,.055);q.rotation.z=a+.63;}
-      mesh(rotor,geo.pearl,paint(brass),0,0,.07,.17,.17,.10);
+      if(!miniVane)miniVane=vanePetal(5);
+      mesh(rotor,miniVane,miniVaneMat,0,0,-.10,.47,.47,.47);
+      mesh(rotor,spinnerGeo,paint(brass),0,0,-.02,.9,.9,.9);mesh(rotor,starGeo,paint(cream),0,0,.27,.07,.07,.07);
       mesh(group,geo.torus,paint(brass),0,0,.23,.68,.68,.36);
       for(const a of [0,Math.PI/3,Math.PI*2/3])rod(group,-Math.cos(a)*.63,-Math.sin(a)*.63,.32,Math.cos(a)*.63,Math.sin(a)*.63,.32,.018,paint(indigo));
       groupFittings(group);groupFittings(rotor);return {group,rotor};
@@ -1398,10 +1460,10 @@
     const pumpBellows=new T.Group();pumpBellows.position.set(-1.10,.46,-.50);pump.group.add(pumpBellows);
     mesh(pumpBellows,geo.pearl,timber,0,-.13,0,.96,.18,.59);mesh(pumpBellows,geo.pearl,timber,0,.28,0,.96,.12,.59);
     for(let j=0;j<7;j++){const fold=mesh(pumpBellows,geo.pearl,paint(j%2?0xa85462:0xe6ae83,false),0,-.06+j*.052,0,.86+(j%2)*.07,.047,.51+(j%2)*.06);}
-    rod(pump.group,-.14,.45,-.47,.46,.45,-.47,.15,paint(brass));rod(pump.group,.46,.45,-.47,.46,1.67,-.47,.13,paint(teal));
+    rod(pump.group,-.14,.45,-.47,.46,.45,-.47,.15,paint(brass));rod(pump.group,.46,.45,-.47,.46,1.67,-.47,.095,paint(teal));for(const h of [.80,1.30])mesh(pump.group,collarGeo,paint(brass),.46,h,-.47,.13,.13,.13);
     const pumpFan=fanInstrument(pump.group,1.25,1.62,-.85,.88);
     rod(pump.group,1.25,.04,-.85,1.25,.75,-.85,.085,paint(brass));
-    mesh(pump.group,new T.TubeGeometry(new T.CatmullRomCurve3([new T.Vector3(.46,1.67,-.47),new T.Vector3(.54,1.90,-.62),new T.Vector3(.86,1.90,-.85),new T.Vector3(1.25,1.62,-.98)]),16,.10,7,false),paint(teal),0,0,0);
+    mesh(pump.group,new T.TubeGeometry(new T.CatmullRomCurve3([new T.Vector3(.46,1.67,-.47),new T.Vector3(.54,1.90,-.62),new T.Vector3(.86,1.90,-.85),new T.Vector3(1.25,1.62,-.98)]),20,.07,10,false),paint(brass),0,0,0);
     const gauge=new T.Group();gauge.position.set(.39,.92,.01);pump.group.add(gauge);
     mesh(gauge,geo.cylinder,paint(brass),0,0,0,.27,.08,.27).rotation.x=Math.PI*.5;mesh(gauge,new T.CircleGeometry(.22,24),paint(cream),0,0,.052);
     const gaugeNeedle=rod(gauge,0,0,.075,-.13,-.10,.075,.018,paint(coral));
@@ -1660,11 +1722,11 @@
       const x=p.x-prop.x,y=p.y-prop.y;
       if(prop===dew){
         dew.dropX=clamp(x,-2.2,2.4);dew.dropY=clamp(y,.6,2.45);
-        if(Math.hypot(x-1.23,y-.81)<1.1){gardenGoals.dew=true;dew.water=1;dew.flowClock=2.5;clearDrag();M.sfx('beacon');M.celebrate(dew.x+1.2,dew.y+1.3);}
+        if(Math.hypot(x-1.23,y-.81)<1.1){gardenGoals.dew=true;dew.water=1;dew.flowClock=2.5;clearDrag();cheer();M.sfx('beacon');M.celebrate(dew.x+1.2,dew.y+1.3);}
       }else if(prop===loom){
         loom.shuttleX=clamp(x,-2.1,2.2);loom.shuttleY=clamp(y,.55,2.4);
         const next=loom.points[loom.step];
-        if(next&&Math.hypot(x-next[0],y-next[1])<.95){loom.step=3;M.sfx('ring');if(loom.step===3){gardenGoals.loom=true;clearDrag();M.sfx('complete');M.celebrate(loom.x,loom.y+2.2);}}
+        if(next&&Math.hypot(x-next[0],y-next[1])<.95){loom.step++;M.sfx('ring');if(loom.step<3)M.celebrate(prop.x+next[0],prop.y+next[1]);if(loom.step===3){gardenGoals.loom=true;clearDrag();M.sfx('complete');cheer();M.celebrate(loom.x,loom.y+2.2);}}
       }else if(prop===pump){
         pump.lever=Math.max(pump.lever,clamp((Math.atan2(y-1.01,x-.63)-.1095)/.93,0,1));
       }
@@ -1744,7 +1806,7 @@
       }
       if(player.locked)return;
       for(const prop of gardenProps)if(prop.kind<2&&!gardenGoals[gardenNames[prop.kind]]&&prop.group.visible&&near(prop.x,6.2)){
-        M.parkForActivity?.(prop.x-3.3,prop.x-4.9,1);break;
+        if(player.x>prop.x+.2)M.parkForActivity?.(prop.x+3.2,prop.x+4.7,-1);else M.parkForActivity?.(prop.x-3.3,prop.x-4.9,1);break;
       }
       for(const prop of gardenProps)if(!gardenGoals[gardenNames[prop.kind]]&&prop.group.visible&&near(prop.x,6.2)){
         if(M.frameActivity){
@@ -1972,9 +2034,39 @@
       if(!f)return false;
       f.pulse=1;
       if(f.on)return false;
-      f.on=true;status.activatedFans++;M.sfx('ring');M.celebrate(f.x,f.y);
+      f.on=true;f.turned=fanTurns;cheer();status.activatedFans++;M.sfx('ring');M.celebrate(f.x,f.y);
       if(status.activatedFans===3){tasks[0]=true;M.sfx('complete');M.notify('Rüzgâr bahçesi uyandı!');}
       return true;
+    }
+    // A pinwheel is turned by the finger: a circling stroke (or a broad sweep through
+    // the middle) spins the real petals, and enough turning wakes the windsock.
+    const fanPoint=new T.Vector3();
+    function onPlane(p,z,out){const c=M.camera;if(!c||!c.position.z)return out.set(p.x,p.y,z);const k=(c.position.z-z)/(c.position.z-(p.z||0));return out.set(c.position.x+(p.x-c.position.x)*k,c.position.y+(p.y-c.position.y)*k,z);}
+    function grabFan(f,cx,cy,p,id,z=-.9){
+      onPlane(p,z,fanPoint);
+      drag={scope:'fan',fan:f,cx,cy,z,last:Math.atan2(fanPoint.y-cy,fanPoint.x-cx),moved:0};dragPointer=id;helpElapsed=0;f.pulse=1;f.idle=0;return true;
+    }
+    function turnFan(p){
+      const f=drag?.fan;if(!f||f.on)return;
+      onPlane(p,drag.z,fanPoint);const dx=fanPoint.x-drag.cx,dy=fanPoint.y-drag.cy;if(dx*dx+dy*dy<.04)return;
+      const a=Math.atan2(dy,dx);let d=a-drag.last;d-=TAU*Math.round(d/TAU);drag.last=a;
+      d=clamp(d,-1.6,1.6);drag.moved+=Math.abs(d);f.turned=(f.turned||0)+Math.abs(d);f.angle+=d;
+      if(Math.abs(d)>.01)f.dir=d<0?-1:1;f.spin=clamp(Math.abs(f.spin)+Math.abs(d)*3.2,0,7)*(f.dir||1);f.idle=0;helpElapsed=0;
+      if(f.turned>=fanTurns){clearDrag();fanOn(f);}
+    }
+    function releaseFan(){
+      const f=drag?.fan;if(!f||f.on||drag.moved>.25)return;
+      // A plain tap still gives the petals a small push, so nothing feels broken.
+      f.turned=(f.turned||0)+.75;f.spin=clamp(Math.abs(f.spin)+2.4,0,7)*(f.dir||1);f.pulse=1;M.sfx('wind-tug');
+      if(f.turned>=fanTurns)fanOn(f);
+    }
+    // One short shared joy after a finished game: Feza and Bilbo smile together.
+    let cheerTime=0;
+    function cheer(){cheerTime=1.6;}
+    function updateCheer(dt){
+      if(cheerTime<=0)return;cheerTime-=dt;
+      if(cheerTime>0){dog.emote='happy';if(!player.locked)player.emote='happy';}
+      else{if(dog.emote==='happy')dog.emote='';if(player.emote==='happy'&&!player.locked)player.emote='';}
     }
     function markActors(){
       ride.origin.length=0;
@@ -2084,16 +2176,16 @@
         if(!tasks[0]&&near(32,13)){
           const f=fans.find(q=>!q.on&&Math.abs(player.x-q.x)<8.3);
           if(f){
-            setGuide(f.x,f.y);dog.activityTargetX=f.x-1;dog.activityMode='look';dog.emote='curious';dog.lookY=.6;
+            setTurnGuide(f.x,f.y,2.6,-.9,.95);dog.activityTargetX=f.x-1;dog.activityMode='look';dog.emote='curious';dog.lookY=.6;
           }
 
         }else{dog.activityTargetX=undefined;dog.activityMode=undefined;dog.emote='';dog.lookY=0;}
         if(!kiteLoose&&near(kiteX,6.8)){
-          setGuide(kiteX,kiteFloor+1.52);dog.activityTargetX=kiteX-.96;dog.activityMode='look';dog.emote='curious';dog.lookY=.77;
+          setSwipeGuide(kite.position.x,kite.position.y,kiteSky.x,kiteSky.y);dog.activityTargetX=kiteX-.96;dog.activityMode='look';dog.emote='curious';dog.lookY=.77;
 
         }
         if(!tasks[1]&&near(ride.x,7.5)){setGuide(ride.x+.55,ship.position.y+1.25);}
-        else if(!tasks[1]&&near(dockB,7)&&Math.abs(ride.x-dockB)>1)setGuide(dockB+2.6,ground(dockB)+1.24);
+        else if(!tasks[1]&&near(dockB,7)&&Math.abs(ride.x-dockB)>1)setSwipeGuide(dockB+2.7,ground(dockB)+1.55,dockB+2.7,ground(dockB)+.75);
         for(let i=0;i<bells.length;i++){
           const b=bells[i],atBell=near(b.x,.77)&&!player.grounded&&player.y+1.48>b.y-.35&&player.y<b.y+.35;
           if(atBell&&!bellAirTouch[i])bellAirTouch[i]=true;
@@ -2101,18 +2193,14 @@
         }
         if(!songUnlocked&&near(organX,8)){
           const target=bells.find((b,i)=>!bellNotes[i]&&near(b.x,7));
-          if(target)setGuide(target.x,target.y-.12);
+          if(target)setSwipeGuide(target.x,target.y-.3,target.x+.95,target.y-1.45);
         }
         if(near(finale,7)&&!status.finished)setGuide(finale,finaleY+1.4);
-        for(const b of bellows){
-
-          if(!b.launches&&near(b.x,4.6)&&(!guide.visible||Math.abs(b.x-player.x)<Math.abs(guide.x-player.x)))setGuide(b.x,b.y+.15);
-        }
       }
-      updateGarden(dt,t);updateFinale(dt,t);
-      if(near(finale,14)&&finaleState.phase==='idle'&&!tasks[0]){const i=fans.findIndex(f=>!f.on);setGuide(arrivalFans[i].x,arrivalFans[i].y);}
+      updateGarden(dt,t);updateFinale(dt,t);updateCheer(dt);
+      if(near(finale,14)&&finaleState.phase==='idle'&&!tasks[0]){const i=fans.findIndex(f=>!f.on);setTurnGuide(arrivalFans[i].x,arrivalFans[i].y,2.6,-.9,.55);}
       for(const f of fans){
-        f.pulse=Math.max(0,f.pulse-dt*.74);f.spin=M.damp(f.spin,f.on?3.05:0,1.65,dt);f.angle+=dt*f.spin;
+        f.pulse=Math.max(0,f.pulse-dt*.74);f.spin=M.damp(f.spin,f.on?3.05*(f.dir||1):0,f.on?1.65:.9,dt);f.angle+=dt*f.spin;
         f.rotor.rotation.z=f.angle+(f.on?0:.095*Math.sin(t*.88+f.x));
         f.trim.scale.x=f.trim.scale.y=1.33+.07*f.pulse;swimWindsock(f,windsocks[f.order],dt,t);
       }
@@ -2135,8 +2223,8 @@
       if(!p)return false;
       if(type==='move'||type==='up'){
         if(!drag||dragPointer!==id)return false;
-        if(drag.scope==='journey')moveJourneyHandle(p);else if(drag.scope==='finale')moveFinalHandle(p);else moveGardenHandle(p);
-        if(type==='up')clearDrag();return true;
+        if(drag.scope==='journey')moveJourneyHandle(p);else if(drag.scope==='finale')moveFinalHandle(p);else if(drag.scope==='fan')turnFan(p);else if(drag.scope==='kite')holdKite(p);else if(drag.scope==='bell')swingBell(p);else if(drag.scope==='callBell'){if(drag.y0-p.y>.38){const a=drag.act;clearDrag();a();}}else if(drag.scope==='pumpPress'){pump.pad.scale.y=.10*(1-.6*clamp((drag.y0-p.y)/.45,0,1));if(drag.y0-p.y>.42){clearDrag();pump.pad.scale.y=.10;startPump();}}else moveGardenHandle(p);
+        if(type==='up'){if(drag?.scope==='pumpPress')pump.pad.scale.y=.10;if(drag?.scope==='fan')releaseFan();else if(drag?.scope==='bell')releaseBell();clearDrag();}return true;
       }
       if(type!=='down')return false;
       if(dragPointer!==null)return true;
@@ -2163,17 +2251,16 @@
         if(!prop.group.visible||!near(prop.x,10)||gardenGoals[gardenNames[prop.kind]])continue;
         if(prop===dew&&hit(p,prop.x+dew.dropX,prop.y+dew.dropY,1.2,1.15)){drag={scope:'garden',prop};dragPointer=id;helpElapsed=0;return true;}
         if(prop===loom&&hit(p,prop.x+loom.shuttleX,prop.y+loom.shuttleY,1.2,1.1)){drag={scope:'garden',prop};dragPointer=id;helpElapsed=0;return true;}
-        if(prop===pump&&hit(p,prop.x-1.62,prop.y+.28,1.05,.80))return startPump();
+        if(prop===pump&&pump.phase==='idle'&&hit(p,prop.x-1.62,prop.y+.35,1.15,.95)){drag={scope:'pumpPress',y0:Math.max(p.y,prop.y+.35)};dragPointer=id;helpElapsed=0;return true;}
       }
-      if(!tasks[0]&&near(finale,14))for(let i=0;i<3;i++)if(!fans[i].on&&hit(p,arrivalFans[i].x,arrivalFans[i].y,1.05,1.05))return fanOn(fans[i]);
-      for(let i=0;i<bells.length;i++){const b=bells[i];if(!bellNotes[i]&&near(b.x,10)&&hit(p,b.x,b.y-.30,.90,1.0))return ringCloudBell(i);}
-      for(const b of bellows)if(!b.launches&&near(b.x,7)&&hit(p,b.x,b.y-.02,1.83,.95))return startGust(b);
-      for(const f of fans)if(!f.on&&near(f.x,10)&&hit(p,f.x,f.y,1.48,1.48)){helpElapsed=0;return fanOn(f);}
-      if(!kiteLoose&&near(kiteX+1,9)&&(hit(p,kiteX,kiteFloor+1.34,1.35,1.20)||hit(p,kite.position.x,kite.position.y,1.9,1.1)))return releaseKite();
-      if(!tasks[1]&&near(finale,12)&&hit(p,lateBoatBell.position.x,finaleY+1.3,.86,1.0))return callFinalBoat();
+      if(!tasks[0]&&near(finale,14))for(let i=0;i<3;i++)if(!fans[i].on&&hit(p,arrivalFans[i].x,arrivalFans[i].y,1.25,1.25))return grabFan(fans[i],arrivalFans[i].x,arrivalFans[i].y,p,id,.22);
+      for(let i=0;i<bells.length;i++){const b=bells[i];if(!bellNotes[i]&&near(b.x,10)&&hit(p,b.x,b.y-.30,1.0,1.05)){drag={scope:'bell',i,x0:p.x};dragPointer=id;helpElapsed=0;return true;}}
+            for(const f of fans)if(!f.on&&near(f.x,10)&&hit(p,f.x,f.y,1.6,1.6))return grabFan(f,f.x,f.y,p,id);
+      if(!kiteLoose&&near(kiteX+1,9)&&(hit(p,kiteX,kiteFloor+1.34,1.35,1.20)||hit(p,kite.position.x,kite.position.y,1.9,1.1))){drag={scope:'kite'};dragPointer=id;kiteHold={x:kite.position.x,y:kite.position.y};helpElapsed=0;M.sfx('wind-tug');return true;}
+      if(!tasks[1]&&near(finale,12)&&hit(p,lateBoatBell.position.x,finaleY+1.3,.95,1.1)){drag={scope:'callBell',y0:p.y,act:callFinalBoat};dragPointer=id;helpElapsed=0;return true;}
       if(canStartFinale()&&near(finale,11)&&hit(p,finale,finaleY+1.4,1.5,1.5))return beginFinale();
       if(!tasks[1]&&near(ride.x,10)&&hit(p,ride.x,ship.position.y+1.5,3.1,2.15)){helpElapsed=0;return startRide();}
-      for(const dx of [dockA,dockB,forwardDock])if(!tasks[1]&&Math.abs(ride.x-dx)>1&&near(dx,9)&&hit(p,dx+2.7,ground(dx)+1.2,.9,1.05))return recall(dx);
+      for(const dx of [dockA,dockB,forwardDock])if(!tasks[1]&&Math.abs(ride.x-dx)>1&&near(dx,9)&&hit(p,dx+2.7,ground(dx)+1.2,1.0,1.15)){drag={scope:'callBell',y0:p.y,act:()=>recall(dx)};dragPointer=id;helpElapsed=0;return true;}
       return false;
     }
     function keyDown(code){
@@ -2207,7 +2294,6 @@
       }
 
       for(let i=0;i<bells.length;i++)if(!bellNotes[i]&&near(bells[i].x,1.31))return ringCloudBell(i);
-      for(const b of bellows)if(!b.launches&&near(b.x,3.3))return startGust(b);
       if(!kiteLoose&&near(kiteX,6.3))return releaseKite();
       if(!tasks[1]&&near(ride.x,8))return startRide();
       for(const dx of [dockA,dockB,forwardDock])if(!tasks[1]&&near(dx,7))return recall(dx);
@@ -2215,11 +2301,11 @@
     }
     const winBalloon=drifting[drifting.length-1];let gardenLift=0;
     function worldUpdate(dt,t,state){
-      const px=state?.player?.x??8;cloudWind.value=t;followSun(px);updateWhales(dt,t,px);
+      const px=state?.player?.x??8;spaceSky?.update(dt);cloudWind.value=t;followSun(px);updateWhales(dt,t,px);
       // Keep an undistorted pan across the wide plate in landscape and portrait.
       const aspect=innerWidth/innerHeight,wide=1.92;
       const visibleX=Math.min(1,aspect/wide)*.9,visibleY=Math.min(1,wide/aspect)*.9;
-      sky.repeat.set(visibleX,visibleY);sky.offset.set((1-visibleX)*(.23+.53*clamp(px/length,0,1)),(1-visibleY)*(.44+clamp((state?.player?.y||0)*.025,0,.17)));
+      sky.repeat.set(visibleX,visibleY);sky.offset.set((1-visibleX)*(.66+.34*clamp(px/length,0,1)),(1-visibleY)*(.44+clamp((state?.player?.y||0)*.025,0,.17)));
       weather.intensity=.08+.12*Math.sin(t*.24)*Math.sin(t*.24);
       for(const c of clouds){c.q.position.x=c.x+Math.sin(t*.10+c.i)*1.6;c.q.position.y=c.y+Math.sin(t*.19+c.i*.7)*.13;}
       for(const b of stormBands){b.q.visible=Math.abs(px-b.x)<57;b.q.rotation.z=b.a+t*.037;}
@@ -2274,21 +2360,16 @@
     }
     const lessons=[];
     const freeGame=()=>!player.locked&&gust.phase==='idle'&&ride.phase==='ready'&&finaleState.phase==='idle'&&!status.finished;
-    for(let i=0;i<bellows.length;i++){
-      const b=bellows[i];lessons.push({id:'neptune-wind-crossing-'+i,x:b.x,y:b.y+.12,goal:'kite',
-        enabled:()=>freeGame()&&near(b.x,7),completed:()=>b.launches>0,
-        describe(step){return lessonStep(step,'tap',b.x,b.y-.02,-.30,b.to,ground(b.to)+1.0,0,0,1);}});
-    }
     for(let i=0;i<fans.length;i++){
       const f=fans[i];lessons.push({id:'neptune-fan-'+i,x:f.x,y:f.y,goal:'wind',
         enabled:()=>freeGame()&&near(f.x,10),completed:()=>f.on,
-        describe(step){return lessonStep(step,'tap',f.x,f.y,-.50,f.x+2.0,ground(f.x)+3.2,-3.0,status.activatedFans,3);}});
+        describe(step){const ok=lessonStep(step,'turn',f.x+Math.cos(2.6)*.95,f.y+Math.sin(2.6)*.95,-.30,f.x+Math.cos(-.9)*.95,f.y+Math.sin(-.9)*.95,-.30,status.activatedFans,3);step.centerX=f.x;step.centerY=f.y;if(step.pivot)step.pivot.set(f.x,f.y,-.30);step.radius=.95;step.startAngle=2.6;step.endAngle=-.9;return ok;}});
       const a=arrivalFans[i];lessons.push({id:'neptune-arrival-fan-'+i,x:a.x,y:a.y,goal:'wind',
         enabled:()=>freeGame()&&!tasks[0]&&player.x>299&&near(finale,14),completed:()=>f.on&&!tasks[0],
-        describe(step){return lessonStep(step,'tap',a.x,a.y,.32,winBalloon.position.x,winBalloon.position.y,winBalloon.position.z,status.activatedFans,3);}});
+        describe(step){const ok=lessonStep(step,'turn',a.x+Math.cos(2.6)*.55,a.y+Math.sin(2.6)*.55,.32,a.x+Math.cos(-.9)*.55,a.y+Math.sin(-.9)*.55,.32,status.activatedFans,3);step.centerX=a.x;step.centerY=a.y;if(step.pivot)step.pivot.set(a.x,a.y,.32);step.radius=.55;step.startAngle=2.6;step.endAngle=-.9;return ok;}});
     }
-    lessons.push({id:'neptune-ray-kite',x:kiteX,y:kiteFloor+1.34,goal:'kite',enabled:()=>freeGame()&&near(kiteX+1,9),completed:()=>kiteLoose,
-      describe(step){return lessonStep(step,'tap',kiteX,kiteFloor+1.34,-.66,kiteX-1.5,kiteFloor+3.9,-2.5,0,1);}});
+    lessons.push({id:'neptune-ray-kite',x:kiteX,y:kiteFloor+1.34,goal:'wind',enabled:()=>freeGame()&&near(kiteX+1,9),completed:()=>kiteLoose,
+      describe(step){return lessonStep(step,'drag',kite.position.x||kiteX,kite.position.y||kiteFloor+2.29,-1.0,kiteSky.x,kiteSky.y,-1.0,0,1);}});
     lessons.push({id:'neptune-glider-wind',x:()=>wing.position.x,y:()=>wing.position.y,goal:'kite',
       enabled:()=>gust.phase==='fly'&&gust.cool<=0,completed:()=>false,
       describe(step){if(gust.phase!=='fly')return false;return lessonStep(step,'tap',wing.position.x,wing.position.y,-.1,gust.pad.to,ground(gust.pad.to)+1.0,0,0,1);}});
@@ -2312,12 +2393,12 @@
     }
     for(let i=0;i<bells.length;i++){
       const b=bells[i];lessons.push({id:'neptune-wind-bell-'+i,x:b.x,y:b.y-.30,goal:'light',
-        enabled:()=>freeGame()&&near(b.x,10),completed:()=>bellNotes[i],
-        describe(step){return lessonStep(step,'tap',b.x,b.y-.30,-.90,organX+(i-1)*2.3,organY+5.3,organZ+.8,(bellNotes[0]?1:0)+(bellNotes[1]?1:0)+(bellNotes[2]?1:0),3);}});
+        enabled:()=>freeGame()&&near(b.x,10)&&bellNotes.slice(0,i).every(Boolean),completed:()=>bellNotes[i],
+        describe(step){return lessonStep(step,'drag',b.x,b.y-.30,-.90,b.x+.95,b.y-1.45,-.90,(bellNotes[0]?1:0)+(bellNotes[1]?1:0)+(bellNotes[2]?1:0),3);}});
     }
     for(const dx of [dockA,dockB,forwardDock])lessons.push({id:'neptune-call-boat-'+dx,x:dx+2.7,y:ground(dx)+1.2,goal:'boat',
       enabled:()=>freeGame()&&!tasks[1]&&Math.abs(ride.x-dx)>1&&near(dx,9),completed:()=>tasks[1],
-      describe(step){return lessonStep(step,'tap',dx+2.7,ground(dx)+1.2,-1.05,dx,ground(dx)+1.1,0,0,1);}});
+      describe(step){return lessonStep(step,'press',dx+2.7,ground(dx)+1.55,-.3,dx+2.7,ground(dx)+.75,-.3,0,1);}});
     lessons.push({id:'neptune-dew-flowers',x:()=>dew.group.position.x,y:()=>dew.group.position.y+1.4,goal:'flowers',
       enabled:()=>freeGame()&&dew.group.visible&&near(dew.x,10),completed:()=>gardenGoals.dew,
       describe(step){return lessonStep(step,'drag',dew.x+dew.dropX,dew.y+dew.dropY,.24,dew.x+1.23,dew.y+.81,.15,0,1);}});
@@ -2326,15 +2407,15 @@
       describe(step){const p=loom.points[loom.step];if(!p)return false;return lessonStep(step,'drag',loom.x+loom.shuttleX,loom.y+loom.shuttleY,.40,loom.x+p[0],loom.y+p[1],.17,0,1);}});
     lessons.push({id:'neptune-bilbo-bellows',x:()=>pump.phase==='work'?pump.x+1.35:pump.group.position.x-1.62,y:()=>pump.group.position.y+(pump.phase==='work'?1.4:.43),goal:'boat',
       enabled:()=>pump.group.visible&&(freeGame()&&near(pump.x,10)||pump.phase==='work'),completed:()=>gardenGoals.pump,
-      describe(step){if(pump.phase==='board')return false;if(pump.phase!=='work')return lessonStep(step,'tap',pump.x-1.62,pump.y+.28,.35,pump.x-1.62,pump.y+.28,.35,0,2);const a=.1095+pump.lever*.93;const ok=lessonStep(step,'turn',pump.x+.63+Math.cos(a)*.916,pump.y+1.01+Math.sin(a)*.916,0,pump.x+1.094,pump.y+1.80,0,1,2);step.centerX=pump.x+.63;step.centerY=pump.y+1.01;if(step.pivot)step.pivot.set(step.centerX,step.centerY,0);step.radius=.916;step.startAngle=a;step.endAngle=1.0395;return ok;}});
-    lessons.push({id:'neptune-final-call-boat',x:finale-2.82,y:finaleY+1.28,goal:'boat',enabled:()=>freeGame()&&tasks[0]&&!tasks[1]&&player.x>299&&near(finale,12),completed:()=>tasks[1],describe(step){return lessonStep(step,'tap',finale-2.82,finaleY+1.28,-.8,ride.x,ship.position.y+1.2,0,0,1);}});
+      describe(step){if(pump.phase==='board')return false;if(pump.phase!=='work')return lessonStep(step,'press',pump.x-1.62,pump.y+.75,.35,pump.x-1.62,pump.y-.05,.35,0,2);const a=.1095+pump.lever*.93;const ok=lessonStep(step,'turn',pump.x+.63+Math.cos(a)*.916,pump.y+1.01+Math.sin(a)*.916,0,pump.x+1.094,pump.y+1.80,0,1,2);step.centerX=pump.x+.63;step.centerY=pump.y+1.01;if(step.pivot)step.pivot.set(step.centerX,step.centerY,0);step.radius=.916;step.startAngle=a;step.endAngle=1.0395;return ok;}});
+    lessons.push({id:'neptune-final-call-boat',x:finale-2.82,y:finaleY+1.28,goal:'boat',enabled:()=>freeGame()&&tasks[0]&&!tasks[1]&&player.x>299&&near(finale,12),completed:()=>tasks[1],describe(step){return lessonStep(step,'press',finale-2.82,finaleY+1.6,-.3,finale-2.82,finaleY+.8,-.3,0,1);}});
     lessons.push({id:'neptune-family-balloon',x:()=>finale-.08,y:()=>finaleState.phase==='pull'?finalHandle.position.y:finaleY+1.4,goal:'balloon',
       enabled:()=>!status.finished&&(finaleState.phase==='pull'||freeGame()&&near(finale,11)&&tasks[0]&&tasks[1]&&gardenGoals.dew&&gardenGoals.loom&&gardenGoals.pump),completed:()=>finaleState.complete,
       describe(step){if(finaleState.phase==='pull')return lessonStep(step,'drag',finale-.08,finalHandle.position.y,.31,finale-.08,finaleY+1.01,.31,1,2);if(finaleState.phase!=='idle')return false;return lessonStep(step,'tap',finale,finaleY+1.4,-.45,winBalloon.position.x,winBalloon.position.y,winBalloon.position.z,0,2);}});
     const sourcePictures={sunMirror:'mirror',dewShell:'water',kiteWeave:'thread',whaleGuide:'fish',silkGate:'rope',windDelivery:'bellows'};
     for(const lesson of lessons){
       const id=lesson.id;let icon='wind';
-      if(id.includes('fan-'))icon='fan';else if(id==='neptune-ray-kite'||id==='neptune-weave-kite')icon='thread';else if(id==='neptune-cloud-boat')icon='footsteps';else if(id.startsWith('neptune-route-game-'))icon=sourcePictures[id.slice(19)]||'wind';else if(id.startsWith('neptune-route-'))icon='boat';else if(id.includes('bell-')||id.includes('call-boat'))icon='bell';else if(id==='neptune-dew-flowers')icon='water';else if(id==='neptune-bilbo-bellows')icon='bellows';else if(id==='neptune-family-balloon')icon='rope';
+      if(id.includes('fan-'))icon='fan';else if(id.startsWith('neptune-wind-crossing-'))icon='bellows';else if(id==='neptune-ray-kite')icon='kite';else if(id==='neptune-weave-kite')icon='thread';else if(id==='neptune-cloud-boat')icon='footsteps';else if(id.startsWith('neptune-route-game-'))icon=sourcePictures[id.slice(19)]||'wind';else if(id.startsWith('neptune-route-'))icon='boat';else if(id.includes('bell-')||id.includes('call-boat'))icon='bell';else if(id==='neptune-dew-flowers')icon='water';else if(id==='neptune-bilbo-bellows')icon='bellows';else if(id==='neptune-family-balloon')icon='rope';
       const demoObject=id==='neptune-route-game-sunMirror'?mirrorGrip:id==='neptune-dew-flowers'?dew.drop:id==='neptune-weave-kite'?loom.shuttle:id==='neptune-route-game-dewShell'?eventHandle:id==='neptune-route-game-kiteWeave'?eventKite:id==='neptune-route-game-whaleGuide'?eventFish:null;if(demoObject)lesson.demoSources=[demoObject];
       const describe=lesson.describe;lesson.describe=function(step){const okay=describe(step);if(okay){step.sourceIcon=id==='neptune-bilbo-bellows'&&pump.phase!=='work'?'paw':icon;if(demoObject)step.demoObject=demoObject;}return okay;};
       lesson.flagOffsetX=-1.1;lesson.flagHeight=1.80;

@@ -37,6 +37,14 @@
       const o=mesh(p,geometry.tube,m,(ax+bx)/2,(ay+by)/2,(az+bz)/2,r,direction.length(),r);
       o.quaternion.setFromUnitVectors(up,direction.normalize());return o;
     }
+    // Shared trim for hand wheels: six slim spokes, an enamel inner ring, a domed brass hub and rim rivets.
+    const rivetShape=new T.SphereGeometry(1,8,6);
+    function dressWheel(g,r,accent){
+      for(let i=0;i<6;i++){const a=i*tau/6+tau/12;rod(g,copper,0,0,0,r*.9*Math.cos(a),r*.9*Math.sin(a),0,.017);}
+      mesh(g,geometry.torus,accent,0,0,.015,r*.6,r*.6,.8);
+      mesh(g,geometry.hemisphere,amber,0,0,.035,.105,.105,.075).rotation.x=Math.PI/2;
+      for(let i=0;i<8;i++){const a=i*tau/8;mesh(g,rivetShape,enamel,r*Math.cos(a),r*Math.sin(a),.045,.026,.026,.026);}
+    }
     function station(x,name){
       const g=group(scene);g.position.set(x,world.ground(x),-.7);g.name=name;return g;
     }
@@ -118,16 +126,17 @@
     const silverFace=new T.MeshStandardMaterial({color:0xffffff,map:mirrorMap,roughness:.18,metalness:.4,emissive:0x526f79,emissiveIntensity:.22});
     body(mirror,silverFace,0,0,.018,.69,.69,.08);mirror.rotation.z=-.85;
     rod(waterFixed,strut,-1.5,.55,-.4,-1.5,1.72,-.4,.11);
-    const iceShape=new T.BoxGeometry(2,2,2,2,2,2),iceVertices=iceShape.attributes.position;
-    for(let i=0;i<iceVertices.count;i++){const x=iceVertices.getX(i),y=iceVertices.getY(i),z=iceVertices.getZ(i);const ax=M.clamp(x,-.88,.88),ay=M.clamp(y,-.88,.88),az=M.clamp(z,-.88,.88),dx=x-ax,dy=y-ay,dz=z-az,l=Math.hypot(dx,dy,dz)||1;iceVertices.setXYZ(i,ax+dx/l*.12,ay+dy/l*.12,az+dz/l*.12);}iceShape.computeVertexNormals();
-    const frozenWater=world.materials.ice.clone();frozenWater.vertexColors=false;frozenWater.color.setHex(0xc2efff);frozenWater.roughness=.25;
+    const iceShape=new T.IcosahedronGeometry(1.25,1),iceVertices=iceShape.attributes.position;
+    // A chunky, faceted ice crystal rather than a plain cube; the same mesh still melts by scaling.
+    for(let i=0;i<iceVertices.count;i++){const x=iceVertices.getX(i),y=iceVertices.getY(i),z=iceVertices.getZ(i),f=.9+.1*Math.sin(x*3.1+z*2.3+1.2)+.07*Math.sin(y*4.7-x*2.9);iceVertices.setXYZ(i,M.clamp(x*f,-1.02,1.02),M.clamp(y*f*1.05,-1,1.12),M.clamp(z*f,-1.02,1.02));}iceShape.computeVertexNormals();
+    const frozenWater=world.materials.ice.clone();frozenWater.vertexColors=false;frozenWater.color.setHex(0xc2efff);frozenWater.roughness=.25;frozenWater.flatShading=true;
     const ice=mesh(waterLab,iceShape,frozenWater,.05,1.14,-.2,.55,.69,.48),bowl=mesh(waterFixed,geometry.tube,enamel,.05,.73,-.2,.72,.25,.62);
     ice.rotation.set(.04,-.25,.08);
 
     const waterBeam=box(waterLab,lamp,-.65,1.57,-.30,1.34,.07,.08);waterBeam.rotation.z=-.28;waterBeam.visible=false;
     rod(waterFixed,copper,.06,.73,-.2,1.53,.73,-.2,.075);
     const valve=group(waterLab);valve.name='Suyun gerçek dönen musluk çarkı';valve.position.set(.9,1.03,.42);mesh(valve,geometry.torus,amber,0,0,0,.42,.42,.7);rod(waterFixed,copper,.9,.75,.1,.9,1.03,.42,.065);
-    for(let i=0;i<3;i++){const a=i*tau/3;rod(valve,copper,0,0,0,.37*Math.cos(a),.37*Math.sin(a),0,.035);}body(valve,enamel,.40,0,.10,.13,.13,.16);body(valve,copper,0,0,.04,.10,.10,.09);
+    for(let i=0;i<3;i++){const a=i*tau/3;rod(valve,copper,0,0,0,.37*Math.cos(a),.37*Math.sin(a),0,.035);}dressWheel(valve,.42,turquoise);body(valve,enamel,.40,0,.10,.13,.13,.16);body(valve,copper,0,0,.04,.10,.10,.09);
     const vessel=group(waterLab);vessel.name='Omuzlu boyunlu cam su şişesi';vessel.position.set(1.86,.51,.1);mesh(vessel,geometry.tube,glass,0,.65,0,.45,1.16,.40);body(vessel,glass,0,1.20,0,.45,.24,.40);mesh(vessel,geometry.tube,glass,0,1.44,0,.26,.29,.25);mesh(vessel,geometry.torus,enamel,0,.10,0,.43,.43,.43).rotation.x=Math.PI/2;const fill=mesh(vessel,geometry.tube,turquoise,0,.18,0,.38,.10,.34);
     const cap=group(vessel);cap.name='Su şişesinin yivli gerçek kapağı';cap.position.set(.98,.37,.18);mesh(cap,geometry.tube,amber,0,0,0,.30,.19,.29);mesh(cap,geometry.tube,enamel,0,.105,0,.28,.035,.27);for(let n=0;n<12;n++){const a=n*tau/12;rod(cap,copper,.30*Math.cos(a),-.07,.29*Math.sin(a),.30*Math.cos(a),.07,.29*Math.sin(a),.018);}if(world.batchStation)world.batchStation(cap);
     mesh(waterFixed,geometry.tube,strut,2.84,.42,.28,.075,.60,.075);mesh(waterFixed,geometry.tube,enamel,2.84,.75,.28,.40,.10,.36);mesh(waterFixed,geometry.torus,copper,2.84,.81,.28,.35,.35,.35).rotation.x=Math.PI/2;
@@ -178,15 +187,17 @@
     const bladeGeometry=new T.Shape();
     bladeGeometry.moveTo(.04,0);bladeGeometry.quadraticCurveTo(.45,.12,1.25,.13);bladeGeometry.quadraticCurveTo(1.63,.1,1.7,.03);
     bladeGeometry.quadraticCurveTo(1.45,-.05,.77,-.055);bladeGeometry.lineTo(.04,0);
-    const blade=new T.ExtrudeGeometry(bladeGeometry,{depth:.027,bevelEnabled:false,curveSegments:8});blade.rotateX(-Math.PI/2);
+    const blade=new T.ExtrudeGeometry(bladeGeometry,{depth:.022,bevelEnabled:true,bevelThickness:.009,bevelSize:.012,bevelSegments:2,curveSegments:10});blade.rotateX(-Math.PI/2);
     for(let i=0;i<2;i++){
       const rotor=group(craft);rotor.position.y=1.24+i*.22;
       for(const side of [0,Math.PI]){
         mesh(rotor,blade,i?strut:copper,0,0,0).rotation.y=side;
-        const tip=box(rotor,amber,Math.cos(side)*1.45,0,0,.16,.032,.085);tip.rotation.y=side;
+        const tip=body(rotor,i?turquoise:amber,Math.cos(side)*1.47,0,0,.17,.03,.075);tip.rotation.y=side;
       }
+      mesh(rotor,geometry.torus,i?amber:turquoise,0,0,0,.15,.15,.15).rotation.x=Math.PI/2;
       rotors.push(rotor);
     }
+    mesh(rotors[1],geometry.hemisphere,amber,0,.02,0,.15,.12,.15);body(rotors[1],lamp,0,.15,0,.045,.045,.045);
     box(craft,deep,0,1.78,0,.83,.055,.63);
     for(let i=0;i<4;i++)box(craft,enamel,-.3+i*.2,1.815,0,.013,.008,.58);
     const touchdown=mesh(pad,geometry.torus,amber,0,.38,0,1.02,1.02,1.02);touchdown.rotation.x=-Math.PI/2;
@@ -364,7 +375,7 @@ stemGroups.push(plant);flowerGroups.push(bloom);
     const awningRoll=mesh(shade,geometry.tube,enamel,0,.04,-.82,.12,3.95,.12);awningRoll.rotation.z=Math.PI/2;
     const crank=group(garden);crank.position.set(2.90,2.97,-.04);
     const shadeHandle=mesh(crank,geometry.torus,amber,0,0,0,.35,.35,.7);
-    for(let i=0;i<3;i++){const a=i*tau/3;rod(crank,copper,0,0,0,.31*Math.cos(a),.31*Math.sin(a),0,.035);}
+    for(let i=0;i<3;i++){const a=i*tau/3;rod(crank,copper,0,0,0,.31*Math.cos(a),.31*Math.sin(a),0,.035);}dressWheel(crank,.35,turquoise);
     body(crank,turquoise,.32,0,.08,.12,.12,.19);
     rod(garden,copper,2.9,.35,-.2,2.9,2.97,-.2,.045);
     rod(garden,copper,2.9,2.97,-.2,3.13,3.18,-1.69,.045);
@@ -670,7 +681,7 @@ stemGroups.push(plant);flowerGroups.push(bloom);
       teachingIdle=Math.abs(player.vx)>.4?0:teachingIdle+dt;teaching.visible=false;
       clock=t;solarUpdate(dt);waterUpdate(dt);aerostat.update(dt,t);samples.update(dt,t);updateGeode();
       pad.visible=Math.abs(player.x-pad.position.x)<33;garden.visible=Math.abs(player.x-garden.position.x)<33;projector.visible=Math.abs(player.x-projector.position.x)<33;
-      if(pad.visible)fly(dt);if(garden.visible)grow(dt);if(!player.locked&&!mission.garden&&Math.abs(player.x-gardenX)<8)M.parkForActivity(gardenX-6.6,gardenX-8.2,1);if(projector.visible)stargaze(dt);
+      if(pad.visible)fly(dt);if(garden.visible)grow(dt);if(!player.locked&&!mission.garden&&Math.abs(player.x-gardenX)<8){const tx=Math.max(gardenX-6.6,player.x-3.6);M.parkForActivity(tx,tx-1.6,1);}if(projector.visible)stargaze(dt);
       if(!player.locked){
         let targetX=0,targetY=0,show=false;
         if(Math.abs(player.x-95)<10&&!mission.power){

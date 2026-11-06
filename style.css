@@ -109,4 +109,12 @@ header #notice{top:calc(100% + 10px);width:max-content;max-width:min(560px,94%)}
 
 
 .toggle{min-height:44px;min-width:58px}
-
+/* Picture support for children who do not read yet (text stays for parents). */
+.setting-label{display:inline-flex;align-items:center;gap:8px}.setting-label svg{width:22px;height:22px;flex:none;color:#bff3e6}
+#restart.replay svg{width:20px;height:20px}
+.win-stars{display:flex;justify-content:center;gap:8px;margin:2px 0 6px}.win-stars svg{width:38px;height:38px;fill:#ffd36e;stroke:#fff3c4;stroke-width:1.2;stroke-linejoin:round;filter:drop-shadow(0 3px 6px #0005)}.win-stars svg:nth-child(2){width:48px;height:48px;margin-top:-8px}
+#ending:not(.hidden) .win-stars svg{animation:win-star .5s cubic-bezier(.3,1.6,.5,1) both}#ending:not(.hidden) .win-stars svg:nth-child(2){animation-delay:.15s}#ending:not(.hidden) .win-stars svg:nth-child(3){animation-delay:.3s}
+@keyframes win-star{from{transform:scale(0) rotate(-40deg);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){#ending:not(.hidden) .win-stars svg{animation:none}}
+#loading.fading{opacity:0;pointer-events:none;transition:opacity .6s ease-out}
+@media (prefers-reduced-motion:reduce){#loading.fading{transition:none}}

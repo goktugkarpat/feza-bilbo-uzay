@@ -13,7 +13,7 @@
     const target = new URL('expedition.html', location.href);
     target.searchParams.set('planet', planet);
     target.searchParams.set('ucus', '1');
-    for (const key of ['sessiz','test','atla','altyazi','fps']) {
+    for (const key of ['sessiz','test','atla','altyazi','fps','perf']) {
       if (options.has(key)) target.searchParams.set(key, '');
     }
     expedition = document.createElement('iframe');

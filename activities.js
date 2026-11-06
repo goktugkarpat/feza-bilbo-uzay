@@ -139,7 +139,7 @@
     box([0,.75,0],[4.3,.65,1.75],C.white,rover);box([0,1.12,0],[2.35,.35,1.5],C.orange,rover);box([1.7,.97,0],[.85,.5,1.3],C.teal,rover);
     const bumper=tube([1.7,.6,.92],[2.3,.85,.92],.12,C.dark,rover);box([-1.4,1.4,0],[.7,.35,1.2],C.dark,rover);
     [-.62,.62].forEach(z=>{const head=ball([2.16,1.05,z],[.14,.17,.1],C.gold,rover);head.rotation.y=Math.PI/2;});
-    M.WorkshopArt.sign(root,['rover'],vx-5.6,vg+2.66,-2.3,1.3,1.3);
+    const roverSign=M.WorkshopArt.sign(root,['rover'],vx-5.6,vg+2.66,-2.3,1.3,1.3);let buildFade=0;
     const slots=[], parts=[], wheelRigs=[];
     function wheelSet(parent,material,ghost){const frame=new T.Group();parent.add(frame);for(const x of[-1.4,1.4])tube([x,.3,-.92],[x,.3,.92],.09,ghost?material:C.silver,frame);tube([-1.4,.3,0],[1.4,.3,0],.10,ghost?material:C.silver,frame);tube([-.25,.3,0],[.25,.3,0],.15,ghost?material:C.orange,frame);if(world.batchStation)world.batchStation(frame);[-1.4,1.4].forEach(x=>[-.92,.92].forEach(z=>{const rig=new T.Group();rig.position.set(x,.3,z);parent.add(rig);const tire=mesh(geo.cyl,material,[0,0,0],[.61,.3,.61],rig);tire.rotation.x=Math.PI/2;if(!ghost){wheelRigs.push(rig);const hub=mesh(geo.cyl,C.orange,[0,0,z>0?.17:-.17],[.28,.055,.28],rig);hub.rotation.x=Math.PI/2;for(let n=0;n<6;n++){const a=n*Math.PI/3;const tread=box([Math.sin(a)*.52,Math.cos(a)*.52,0],[.15,.2,.33],C.dark,rig);tread.rotation.z=-a;}box([0,0,z>0?.21:-.21],[.08,.49,.04],C.white,rig);}}));}
     function canopy(parent,material,ghost){
@@ -465,7 +465,7 @@
       if(i===0){const panel=new T.Group();panel.position.y=.15;panel.rotation.x=.48;g.add(panel);box([0,0,0],[1.40,.13,.97],C.white,panel);const cells=C.cells;for(let col=0;col<4;col++)for(let row=0;row<3;row++)box([-.51+col*.34,.09,-.31+row*.31],[.29,.03,.26],cells,panel);if(world.batchStation)world.batchStation(panel);cyl([0,.45,-.15],[.075,.40,.075],C.silver,g);ball([0,.68,-.15],[.16,.20,.16],C.gold,g);}
       if(i===1){cyl([0,.16,0],[.36,.82,.34],C.blue,g);ball([0,.55,0],[.36,.21,.34],C.blue,g);cyl([0,.76,0],[.17,.22,.17],C.silver,g);cyl([0,.91,0],[.23,.12,.23],C.white,g);for(let n=0;n<10;n++){const a=n*Math.PI/5;box([Math.cos(a)*.23,.91,Math.sin(a)*.23],[.035,.10,.035],C.silver,g);}const handle=hoop([.37,.20,0],.29,C.white,g);handle.scale.y=.38;ball([0,.17,.34],[.19,.24,.035],C.white,g);const drop=new T.Shape();drop.moveTo(0,.17);drop.bezierCurveTo(-.04,.11,-.15,-.03,-.12,-.12);drop.bezierCurveTo(-.07,-.23,.13,-.20,.13,-.08);drop.bezierCurveTo(.12,.02,.04,.12,0,.17);mesh(new T.ExtrudeGeometry(drop,{depth:.02,bevelEnabled:false,curveSegments:6}),C.teal,[0,.21,.37],null,g);}
       if(i===2){box([0,-.1,0],[1.25,.25,.85],C.orange,g);[-.34,0,.34].forEach((x,n)=>mesh(new T.OctahedronGeometry(1),[C.sand,C.silver,C.blue][n],[x,.24,0],[.23,.30,.22],g));}
-      const socket=hoop([(i-1)*2.5,1.05,-2.6],.62,ghostMat,finale);campSockets.push(socket);campPieces.push({g,x,progress:0,edge});
+      const socket=hoop([(i-1)*2.5,1.05,-2.6],.62,ghostMat,finale);campSockets.push(socket);campPieces.push({g,x,progress:0,edge,pull:new T.Vector3(),held:false});
       const wire=tube([(i-1)*2.5,.72,-3.1],[(i-1)*2.5,2.1,-3.1],.045,C.dark,finale);campWires.push(wire);
     });
     const campGarden=new T.Group();campGarden.position.set(-2.6,.9,.1);campBuilding.add(campGarden);
@@ -479,12 +479,42 @@
     function campReady(){return done.every(Boolean)&&campSupplyReady(0)&&campSupplyReady(1)&&campSupplyReady(2);}
     function installCamp(i){
       if(camp.parts[i]||!campReady()){finish();return;}
-      camp.parts[i]=true;idle=0;burst(fx+campPieces[i].x,fg+1.6,C.teal,9);sound('snap');
+      if(campDrag&&campDrag.i===i)campDrag=null;campPieces[i].held=false;if(selectedCamp===i)selectedCamp=-1;
+      camp.parts[i]=true;idle=0;burst(fx+(i-1)*2.5,fg+1.6,C.teal,9);sound('snap');
+    }
+    // The child carries each camp piece up to its glowing ring; a drop near any free ring is accepted.
+    let campDrag=null,selectedCamp=-1;
+    function campSocketHit(p,dragging){
+      const c=M.camera&&M.camera.position;
+      for(let n=0;n<3;n++){
+        if(camp.parts[n])continue;
+        const sx=fx+(n-1)*2.5,sy=fg+1.05,sz=-2.6;
+        if(Math.hypot(p.x-sx,p.y-sy)<(dragging?1.35:1.05))return true;
+        if(c&&c.z>sz+.5){const k=(c.z-(p.z||0))/(c.z-sz),px=c.x+(sx-c.x)*k,py=c.y+(sy-c.y)*k;if(Math.hypot(p.x-px,p.y-py)<(dragging?1.35:1.05))return true;}
+      }
+      return false;
+    }
+    function campPointer(type,p,event){
+      if(!campDrag)return false;
+      const d=campDrag,q=campPieces[d.i];
+      if(event&&event.pointerId!==d.id){if(type==='down'&&p&&campSocketHit(p,false))installCamp(d.i);return true;}
+      if(type==='move'&&p){
+        if(Math.hypot(p.x-d.x,p.y-d.y)>.15)d.moved=true;
+        if(d.moved){q.pull.set(p.x-fx-q.x,Math.max(-.4,p.y-fg-.95),0);}
+        return true;
+      }
+      if(type==='up'||type==='cancel'){
+        campDrag=null;q.held=false;
+        if(type==='up'&&p&&d.moved&&campSocketHit(p,true))installCamp(d.i);
+        else if(type==='up'&&!d.moved)selectedCamp=d.i;
+        return true;
+      }
+      return true;
     }
     function updateCamp(dt){
       campBuilding.visible=Math.abs(player.x-fx)<45;
       if(!finished&&camp.phase==='waiting'&&campReady()&&nearby(fx,14)&&!player.locked&&Math.abs(player.vx)<.6)call('frameActivity',Math.min(fx-5,player.x-1.05,dog.x-1.2),fx+5,fg+2.15,.98);
-      campPieces.forEach((q,i)=>{q.progress=M.damp(q.progress,camp.parts[i]?1:0,3.4,dt);q.g.position.set(q.x*(1-q.progress)+(i-1)*2.5*q.progress,.95+q.progress*.65,.7-q.progress*3.8);q.g.rotation.y=q.progress*Math.PI*2;q.edge.material=campSupplyReady(i)?C.gold:C.dark;campSockets[i].visible=!camp.parts[i];campWires[i].material=camp.parts[i]?C.teal:C.dark;});
+      const campAim=campDrag?campDrag.i:selectedCamp;campPieces.forEach((q,i)=>{q.progress=M.damp(q.progress,camp.parts[i]?1:0,3.4,dt);if(!q.held)q.pull.multiplyScalar(Math.exp(-(camp.parts[i]?5:9)*dt));const lift=q.held?.18:0;q.g.position.set(q.x*(1-q.progress)+(i-1)*2.5*q.progress+q.pull.x,.95+q.progress*.65+q.pull.y+lift,.7-q.progress*3.8+(q.held?.35:0));q.g.rotation.y=q.progress*Math.PI*2;q.g.scale.setScalar(selectedCamp===i&&!q.held?1+.06*Math.sin(elapsed*6):1);q.edge.material=campSupplyReady(i)?C.gold:C.dark;campSockets[i].visible=!camp.parts[i];const hot=!camp.parts[i]&&(campAim>=0||(!finished&&campReady()&&nearby(fx,14)));campSockets[i].material=hot?C.gold:ghostMat;campSockets[i].scale.setScalar(hot?1+(campAim>=0?.08:.04)*Math.sin(elapsed*(campAim>=0?5:2.6)+i):1);campWires[i].material=camp.parts[i]?C.teal:C.dark;});
       const alive=camp.phase==='joining'||camp.phase==='alive';campGarden.scale.setScalar(alive?.8+.2*Math.min(1,camp.time/2):.12);campAntenna.rotation.y=alive?Math.sin(elapsed*.6)*.3:0;
       for(let n=0;n<campDrops.length;n++){const d=campDrops[n];d.visible=alive;if(alive){const u=(elapsed*.45+n*.1)%1;d.position.set(Math.sin(n*2.4)*.7,1.0+2.3*Math.sin(u*Math.PI),.2+Math.cos(n)*.3);}}
       if(camp.phase==='joining'){
@@ -554,35 +584,42 @@
       const next=nextStop();
       const alreadyHere=Math.abs(player.x-stopX(next))<10;
       taxi.at=alreadyHere?NaN:!finished&&next!==3&&nearby(fx,14)?fx-5.3:!finished&&taxi.used&&Number.isFinite(taxi.pad)&&nearby(taxi.pad,16)?taxi.pad:NaN;
+      // Only a real journey: a nearby discovery is reached on foot, never by a short hop.
+      if(Number.isFinite(taxi.at)&&Math.abs(stopX(next)-taxi.at)<60)taxi.at=NaN;
       if(!Number.isFinite(taxi.at)||player.locked){if(taxi.ship)taxi.ship.visible=false;return;}
       taxiModel();taxi.target=next;taxi.ship.visible=true;taxi.ship.position.set(taxi.at,ground(taxi.at)+.12+.075*Math.sin(elapsed*2.2),-.87);
       ticket.material=ticketMats[next];boardingLamp.scale.setScalar(.14+.025*Math.sin(elapsed*3.4));
     }
+    // A real flight across Mars: the shuttle lifts off, carries Feza and Bilbo over the
+    // landscape (skimming low through the ice cave) and lands at the waiting discovery.
+    const caveAmount=x=>{const a=M.clamp((x-238)/12,0,1),b=1-M.clamp((x-338)/12,0,1);return a*b;};
     function boardTaxi(){
       if(!taxiAvailable())return false;
-      taxi.used=true;taxi.airborne=true;taxi.time=0;taxi.moved=false;taxi.pad=NaN;taxi.ship.visible=false;
+      const dest=stopX(taxi.target)-(taxi.target===7?6.6:taxi.target===1?1.6:1);
+      taxi.used=true;taxi.airborne=true;taxi.time=0;taxi.moved=false;taxi.pad=NaN;
+      taxi.from=taxi.at;taxi.to=dest;taxi.dir=dest>=taxi.at?1:-1;taxi.duration=M.clamp(3+Math.abs(dest-taxi.at)/65,4,8);taxi.lastX=taxi.at;taxi.lastY=ground(taxi.at)+.12;taxi.vx=taxi.vy=0;
+      taxi.fromY=ground(taxi.at)+.12;taxi.toY=ground(dest)+.12;
       player.locked=dog.locked=true;player.vx=player.vy=dog.vx=dog.vy=0;dog.activityTargetX=undefined;dog.activityMode=undefined;
       selectedRobot=selected=-1;drag=null;helper.visible=false;idle=0;
-      if(!taxi.flight){
-        const sky=taxi.flight=document.createElement('div');sky.setAttribute('aria-hidden','true');
-        sky.style.cssText='position:absolute;inset:0;overflow:hidden;pointer-events:none;background:radial-gradient(ellipse at 36% 150%,#e6ab7c 0%,#915e73 34%,#263958 66%,#101f37 100%);';
-        const ship=taxi.passenger=document.createElement('img');ship.src='assets/orbit/shuttle.webp';ship.alt='';ship.style.cssText='position:absolute;left:50%;top:51%;width:min(43vw,42vh,390px);height:auto;';
-        sky.appendChild(ship);const hud=document.getElementById('hud');hud.parentNode.insertBefore(sky,hud);
-      }
-      taxi.flight.hidden=false;taxi.flight.style.opacity='0';sound('rover');return true;
+      actors.feza.root.visible=actors.bilbo.root.visible=false;burst(taxi.at,ground(taxi.at)+1,C.teal,6);
+      sound('rover');return true;
     }
     function taxiUpdate(dt){
-      taxi.time+=dt;const u=Math.min(1,taxi.time/3.3),s=Math.sin(u*Math.PI);
-      const fade=Math.min(1,u/.14,(1-u)/.19);taxi.flight.style.opacity=String(fade);
-      const left=taxi.target===3||stopX(taxi.target)>taxi.at?1:-1;
-      taxi.passenger.style.transform='translate('+(-50+left*(u-.5)*88)+'%,'+(-43-s*19)+'%) scaleX('+left+') rotate('+(-6*s)+'deg)';
-      if(u>=.17&&!taxi.moved){
-        taxi.moved=true;const dest=stopX(taxi.target);
-        player.x=dest-(taxi.target===7?6.6:taxi.target===1?1.6:1);dog.x=player.x-1.7;
-        for(const a of movers){a.y=ground(a.x);a.z=a===dog?.3:0;a.mode='idle';a.facing=1;a.grounded=true;a.emote='';}
+      taxi.time+=dt;const u=Math.min(1,taxi.time/taxi.duration),e=u*u*(3-2*u);
+      const x=taxi.from+(taxi.to-taxi.from)*e,arc=Math.min(1,Math.sin(u*Math.PI)*2.4);
+      const y=taxi.fromY+(taxi.toY-taxi.fromY)*e+arc*(6.5-4.3*caveAmount(x));
+      const g=taxi.ship;g.visible=true;g.position.set(x,y,.2);g.rotation.y=taxi.dir>0?0:Math.PI;g.rotation.z=.16*Math.cos(u*Math.PI)*arc;
+      player.x=x;dog.x=x-taxi.dir*.6;player.y=ground(x);dog.y=ground(dog.x);
+      // The camera eases after its target; lead it by the ship's speed so the ship stays centred.
+      if(dt>0){taxi.vx=M.damp(taxi.vx,(x-taxi.lastX)/dt,6,dt);taxi.vy=M.damp(taxi.vy,(y-taxi.lastY)/dt,6,dt);}taxi.lastX=x;taxi.lastY=y;
+      call('setCameraTarget',x+taxi.dir*2.2+taxi.vx/3.5,y-.4+taxi.vy/3.6,.9,1);
+      if(u>=1){
+        taxi.airborne=false;taxi.at=NaN;g.visible=false;
+        player.x=taxi.to;dog.x=player.x-1.7;
+        for(const a of movers){a.y=ground(a.x);a.z=a===dog?.3:0;a.mode='idle';a.facing=1;a.grounded=true;a.emote='happy';}
+        actors.feza.root.visible=actors.bilbo.root.visible=true;burst(taxi.to,ground(taxi.to)+1.2,C.gold,10);
+        release();idle=5.5;
       }
-      if(taxi.moved)call('setCameraTarget',player.x+1.4,player.y+2.1,.98,1);
-      if(u>=1){taxi.airborne=false;taxi.at=NaN;taxi.flight.hidden=true;release();idle=5.5;}
     }
 
     function finish(){
@@ -607,6 +644,7 @@
 
     function pointer(type,p,event){
       if(!helpBusy&&type==='down')helpT=0;
+      if(campDrag&&campPointer(type,p,event))return true;
       if(routeRockPointer(type,p,event))return true;
       if(routePlugPointer(type,p,event))return true;
       if(type==='cancel'){bridgeWorkshop.pointer(type,p,event);gateWorkshop.pointer(type,p,event);}
@@ -614,6 +652,8 @@
       if(slideState.phase==='slide'&&sledPlay.pointer(type,p,event)){idle=0;return true;}
       if(type==='cancel'&&roverState.intentStop>=0&&(!event||event.pointerId===roverState.intentPointer)){clearRouteIntent();return true;}
       if(!p)return false;
+      // A finished piece can never keep holding the pointer (a lost release must not swallow later taps).
+      if(drag&&((drag.kind==='robot'&&robotPieces[drag.i]?.attached)||(drag.kind==='rover'&&parts[drag.i]?.placed)))drag=null;
       if(drag){
         const d=drag,robotPart=d.kind==='robot',q=robotPart?robotPieces[d.i]:parts[d.i];
         // Another finger can point to the matching slot while the first holds the piece.
@@ -647,11 +687,11 @@
           let picked=visiblePart(event);if(picked<0)for(let i=0;i<parts.length;i++){if(!parts[i].placed&&M.touchPlayPart(p,parts[i].g,.22)){picked=i;break;}}
           if(picked>=0){choose(picked);drag={kind:'rover',i:picked,id:event?.pointerId,x:p.x,y:p.y,moved:false};return true;}
         }else if(!done[1]&&roverState.phase==='ready'){
-          if(hit(p,roverState.x,ground(roverState.x)+1.1,2.5))return startDrive();
+          if(hit(p,roverState.x,ground(roverState.x)+1.1,3.2)||M.touchPlayPart(p,rover,.3))return startDrive();
         }
       }
       if(!done[2]&&mission.garden&&slideState.phase==='ready'&&nearby(slideState.x,15)&&hit(p,slideState.x,ground(slideState.x)+1,2.0))return startSlide();
-      if(nearby(fx,14)&&campReady()){for(let i=0;i<3;i++)if(!camp.parts[i]&&M.touchPlayPart(p,campPieces[i].g,.20)){installCamp(i);return true;}if(M.touchPlayPart(p,telescopeStar,.22)||M.touchPlayPart(p,campBootBase,.15)||M.touchPlayPart(p,campPawBase,.15)){finish();return true;}}
+      if(nearby(fx,14)&&campReady()){if(selectedCamp>=0&&!camp.parts[selectedCamp]&&campSocketHit(p,false)){installCamp(selectedCamp);return true;}for(let i=0;i<3;i++)if(!camp.parts[i]&&M.touchPlayPart(p,campPieces[i].g,.20)){selectedCamp=i;campPieces[i].held=true;campDrag={i,id:event?.pointerId,x:p.x,y:p.y,moved:false};idle=0;sound('select');return true;}if(M.touchPlayPart(p,telescopeStar,.22)||M.touchPlayPart(p,campBootBase,.15)||M.touchPlayPart(p,campPawBase,.15)){finish();return true;}}
       return false;
     }
     function interact(){idle=0;if(transit||taxi.airborne||camp.phase==='joining')return true;if(taxiAvailable()&&nearby(taxi.at,4.75))return boardTaxi();if(roverState.phase==='drive'){hopRover();return true;}if(slideState.phase==='slide'){jumpSlide();return true;}if(nearby(70,12)){if(robot.awake)friendlyRobot();else{const i=robotFocus();if(i>=0){if(!robotPieces[i].dug)dig(i);else if(selectedRobot===i)attachRobot(i);else chooseRobot(i);}}return true;}if(!done[1]&&nearby(roverState.x,10)&&roverState.phase==='ready')return startDrive();if(nearby(182,10)&&roverState.phase==='build'){if(selected>=0)place(selected);else choose(parts.findIndex(p=>!p.placed));return true;}if(!done[2]&&mission.garden&&nearby(slideState.x,8)&&slideState.phase==='ready')return startSlide();if(nearby(fx,9)){const i=campReady()?camp.parts.indexOf(false):-1;if(i>=0)installCamp(i);else finish();return true;}return false;}
@@ -716,6 +756,9 @@
       updateCamp(dt);
       if(camp.phase==='joining')return;
       updateRobot(dt);
+      if(!done[2]&&mission.garden&&slideState.phase==='ready'&&!transit){const hop=Math.max(0,Math.sin(elapsed*3.6));sled.position.y=ground(slideState.x)+.12+.16*hop*hop;}
+      // Once the rover is built, its empty part plinths and the floating build sign shrink away.
+      if(roverState.phase!=='build'&&buildFade<1){buildFade=Math.min(1,buildFade+dt*1.3);const k=Math.max(.001,1-buildFade*buildFade*(3-2*buildFade));roverSign.scale.setScalar(k);roverSign.visible=buildFade<1;for(const q of parts){q.plinth.scale.setScalar(k);q.plinth.visible=buildFade<1;}}
       updateTransit(dt);refreshTaxi();
       sparks.forEach(s=>{if(s.life<=0)return;s.life-=dt;s.o.visible=s.life>0;s.o.position.x+=s.vx*dt;s.o.position.y+=s.vy*dt;s.o.position.z+=s.vz*dt;s.vy-=4*dt;s.o.scale.setScalar(.09*Math.min(1,s.life*2));});
       parts.forEach((q,i)=>{if(q.install){const a=q.install;a.time+=dt;const u=Math.min(1,a.time/.55),v=u*u*(3-2*u);q.g.position.set(a.x*(1-v),a.y*(1-v)+Math.sin(u*Math.PI)*.65,a.z*(1-v));if(u>=1){q.g.position.set(0,0,0);q.install=null;q.pop=.35;assemblyReady();}}if(!q.placed&&(!drag||drag.i!==i)){q.g.position.y=q.g.userData.home.y+Math.sin(elapsed*1.7+i)*.08;}if(q.pop>0){q.pop=Math.max(0,q.pop-dt);q.g.scale.setScalar(1+Math.sin(q.pop*21)*q.pop*.22);}if(q.target.visible){q.target.scale.setScalar(1+Math.sin(elapsed*3)*.08);}});
@@ -776,16 +819,16 @@
       const q=sledPlay.target();if(!q)return false;step.progress=sledPlay.state().collected;step.total=iceRings.length;step.sourceIcon=q.kind==='snowflake'?'snowflake':q.kind==='prism'?'crystal':q.kind==='waterwheel'?'waterwheel':'handle';step.goalIcon=q.kind==='snowflake'?'snowflakes':q.kind==='prism'?'light':q.kind==='waterwheel'?'water':q.kind==='aurora'?'aurora':'ice-gate';
       if(q.kind==='gate'){step.action='drag';step.demoObject=gateWorkshop.demoSources[q.index];step.from.set(q.sourceX,q.sourceY,q.sourceZ);step.to.set(q.toX,q.toY,q.toZ);step.sourceIcon='ice';step.goalIcon='ice-gate';}
       else{tapStep(step,q.x,q.y,q.z||0);const toy=iceRings[sledPlay.nextIndex()];step.demoObject=toy?.control||null;if(q.kind==='aurora'){step.action='press';step.to.x+=.208;step.to.y-=.340;}}return true;
-    },13);
+    },18);
     lessons[lessons.length-1].flagOffsetX=4.5;
     lesson('mars-camp',fx,'camp',()=>finished,()=>campReady(),step=>{
       const i=camp.parts.indexOf(false);step.progress=camp.parts.filter(Boolean).length;step.total=4;step.action=camp.phase==='joining'?'wait':'tap';step.goalIcon=i>=0?'camp':'camera';
-      if(i>=0){step.sourceIcon=['solar-panel','water-sample','rock'][i];campPieces[i].g.localToWorld(step.from.set(0,.15,.25));}else{step.progress=3;step.sourceIcon='star';telescopeStar.getWorldPosition(step.from);}step.to.copy(step.from);return true;
+      if(i>=0){step.sourceIcon=['solar-panel','water-sample','rock'][i];campPieces[i].g.localToWorld(step.from.set(0,.15,.25));step.action=camp.phase==='joining'?'wait':'drag';step.demoObject=campPieces[i].g;campSockets[i].getWorldPosition(step.to);return true;}step.progress=3;step.sourceIcon='star';telescopeStar.getWorldPosition(step.from);step.to.copy(step.from);return true;
     },13);
     lesson('mars-taxi',()=>Number.isFinite(taxi.at)?taxi.at:player.x,'rocket',()=>false,()=>taxiAvailable(),step=>{tapStep(step,taxi.at,ground(taxi.at)+1.02,-.87);step.sourceIcon='footsteps';return true;},11);
     if(M.progress)M.progress.activities=100;
     // Borrowed view: callers may read/serialize immediately; no frame-time snapshots.
-    for(const entry of lessons){if(entry.id==='mars-robot')entry.demoSources=robotPieces.map(q=>q.g);else if(entry.id==='mars-rover-build')entry.demoSources=parts.map(q=>q.g);else if(entry.id==='mars-rover-stop-0')entry.demoSources=[caravan[0].plug];else if(entry.id==='mars-rover-stop-1')entry.demoSources=[caravan[1].rock];else if(entry.id==='mars-rover-stop-3')entry.demoSources=bridgeWorkshop.demoSources;else if(entry.id==='mars-sled')entry.demoSources=[...gateWorkshop.demoSources,...iceToys.map(q=>q.control).filter(Boolean)];}
+    for(const entry of lessons){if(entry.id==='mars-robot')entry.demoSources=robotPieces.map(q=>q.g);else if(entry.id==='mars-rover-build')entry.demoSources=parts.map(q=>q.g);else if(entry.id==='mars-rover-stop-0')entry.demoSources=[caravan[0].plug];else if(entry.id==='mars-rover-stop-1')entry.demoSources=[caravan[1].rock];else if(entry.id==='mars-rover-stop-3')entry.demoSources=bridgeWorkshop.demoSources;else if(entry.id==='mars-sled')entry.demoSources=[...gateWorkshop.demoSources,...iceToys.map(q=>q.control).filter(Boolean)];else if(entry.id==='mars-camp')entry.demoSources=campPieces.map(q=>q.g);}
     const stateView={tasks:done,science:{power:false,heli:false,garden:false,water:false,samples:false,constellation:false},robot:robot.phase,robotCompleted:robot.awake,robotDug:[false,false,false],robotAttached:[false,false,false],robotFocus:-1,selectedRobotPiece:-1,robotPieces:robotPieces.map(q=>({kind:q.kind,dug:q.dug,attached:q.attached,home:{x:q.home.x,y:q.home.y},slot:{x:robotX+q.slot.x,y:rg+q.slot.y}})),rover:roverState.phase,slide:slideState.phase,slideStars:slideState.score,selectedPart:-1,locked:false,active:null,finished};
     function state(){
       stateView.robot=robot.phase;stateView.robotCompleted=robot.awake;stateView.robotFocus=robotFocus();stateView.selectedRobotPiece=selectedRobot;

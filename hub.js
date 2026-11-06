@@ -40,6 +40,8 @@
     const target = container.querySelector('.orb-target'), status = container.querySelector('.orb-announcement');
     const buttons = [];
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+    // The turning Earth and the waving pair sit behind the same painted station.
+    const live = M.createHubScene ? M.createHubScene(container) : null;
     let visible = false, busy = false, launchTimer = 0, flight = null, departureSound = null;
 
     function clearFlight() {
@@ -48,12 +50,16 @@
       if (flight) {flight.cancel(); flight = null;}
       target.replaceChildren();
       container.classList.remove('orb-travelling');
+      for (const x of buttons) x.classList.remove('orb-picked');
       busy = false;
     }
     function launch(planet) {
       if (!visible || busy) return;
       clearFlight();
       busy = true;
+      live?.pause();
+      // One short happy hop and a sparkle on the chosen picture, then the flight.
+      buttons.find(x => x.dataset.planet === planet.id)?.classList.add('orb-picked');
       onDepart(planet.id);
       if (!M.soundIsOff()) {
         departureSound = new Audio('assets/orbit/liftoff.mp3');
@@ -152,6 +158,7 @@
     function show(arrival, postcard) {
       clearFlight(); visible = true; container.hidden = false;
       container.classList.remove('hidden','orb-away'); container.removeAttribute('inert');
+      live?.start();
       const arrived = buttons.find(b => b.dataset.planet === arrival);
       status.textContent = arrived ? 'Uzay üssündesin. Bir gezegen seçebilirsin.' : '';
       if (arrived) {
@@ -167,7 +174,7 @@
       }
     }
     function hide() {
-      visible = false; clearFlight(); container.hidden = true; container.setAttribute('inert','');
+      visible = false; clearFlight(); live?.stop(); container.hidden = true; container.setAttribute('inert','');
       container.classList.add('orb-away');
     }
     show(initialArrival);

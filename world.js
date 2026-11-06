@@ -147,8 +147,16 @@
     }
     // The sky is an atmospheric gradient, with a broad sun and dust-colored horizon.
     scene.background=new T.Color(0xd1a297);scene.fog=new T.FogExp2(0xd1a297,.010);
-    const skyMat=new T.ShaderMaterial({side:T.BackSide,depthWrite:false,uniforms:{top:{value:new T.Color(0x6c768f)},horizon:{value:new T.Color(0xe2b6a0)},low:{value:new T.Color(0xc48771)}},vertexShader:'varying vec3 vP;void main(){vP=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',fragmentShader:'varying vec3 vP;uniform vec3 top;uniform vec3 horizon;uniform vec3 low;void main(){vec3 d=normalize(vP);float h=d.y;vec3 c=mix(horizon,top,pow(max(h,0.),.38));c=mix(c,low,(1.-smoothstep(-.22,0.,h)));float sun=pow(max(dot(d,normalize(vec3(-.55,.33,-.7))),0.),550.);float haze=pow(max(dot(d,normalize(vec3(-.55,.33,-.7))),0.),7.);c+=vec3(.22,.14,.07)*haze+vec3(.55,.48,.33)*sun;gl_FragColor=vec4(c,1.);\n#include <colorspace_fragment>\n}',toneMapped:false});
+    const skyMat=new T.ShaderMaterial({side:T.BackSide,depthWrite:false,uniforms:{top:{value:new T.Color(0x6c768f)},horizon:{value:new T.Color(0xe2b6a0)},low:{value:new T.Color(0xc48771)}},vertexShader:'varying vec3 vP;void main(){vP=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',fragmentShader:'varying vec3 vP;uniform vec3 top;uniform vec3 horizon;uniform vec3 low;void main(){vec3 d=normalize(vP);float h=d.y;vec3 c=mix(horizon,top,smoothstep(.0,.13,h)*.82+.18*pow(max(h,0.),.38));c=mix(c,low,(1.-smoothstep(-.22,0.,h)));float sun=pow(max(dot(d,normalize(vec3(-.55,.33,-.7))),0.),550.);float haze=pow(max(dot(d,normalize(vec3(-.55,.33,-.7))),0.),7.);float blue=pow(max(dot(d,normalize(vec3(-.55,.33,-.7))),0.),26.);float rose=exp(-pow((h-.035)/.03,2.));c+=vec3(.22,.14,.07)*haze*.6+vec3(-.05,.10,.24)*blue+vec3(.10,.03,.05)*rose+vec3(.55,.48,.33)*sun;gl_FragColor=vec4(c,1.);\n#include <colorspace_fragment>\n}',toneMapped:false});
     const sky=mesh(new T.SphereGeometry(1100,32,16),skyMat,250,0,0,root,false);sky.renderOrder=-1000;sky.frustumCulled=false;
+    // Magic twilight overhead: twinkling stars, Phobos and Deimos, and a rare slow shooting star.
+    // The shared sky draws behind every cliff; its stars add light, so they fade into the bright dusty horizon.
+    let magicStars=null,stormBig=false,stormCheer=0;
+    const magicSky=M.createSpaceSky?M.createSpaceSky({scene,preset:'mars',dome:false,aurora:false,seed:11,
+      stars:{count:1100,brightness:1.3,twinkle:1.1,size:1.35},shooting:{every:[22,40],duration:2.8,color:'#fff0de'},
+      bodies:[{preset:'phobos',screen:[.71,.095],size:.125,light:[-1,.32],spin:.012,ambient:.42,colors:['#d9c2b0','#ad9483','#8a7464'],halo:'#ffd9e0',haloAmount:.4,alpha:.88},
+              {preset:'deimos',screen:[.27,.085],size:.065,light:[-1,.32],spin:.02,ambient:.45,colors:['#e6d4c2','#bba795','#988472'],halo:'#ffe2e8',haloAmount:.4,alpha:.85}]}):null;
+    if(magicSky)magicSky.group.traverse(o=>{if(o.isPoints){o.material.transparent=true;o.material.blending=T.AdditiveBlending;magicStars=o.material;}});
     const hemi=new T.HemisphereLight(0xc2d0e4,0x8c5040,2.1);scene.add(hemi);
     const shadowSize=M.device?.tablet ? 1024 : 2048;
     const sun=new T.DirectionalLight(0xffdfb6,3.1);sun.position.set(-30,52,28);sun.target.position.set(10,0,-4);sun.castShadow=true;sun.shadow.mapSize.set(shadowSize,shadowSize);sun.shadow.camera.left=-25;sun.shadow.camera.right=25;sun.shadow.camera.top=20;sun.shadow.camera.bottom=-18;sun.shadow.camera.near=1;sun.shadow.camera.far=120;sun.shadow.normalBias=.045;sun.shadow.bias=-.0002;sun.shadow.radius=3;scene.add(sun,sun.target);
@@ -240,7 +248,7 @@
     }
 
 
-    const stoneGeom=new T.DodecahedronGeometry(1,0);const stonePos=stoneGeom.getAttribute('position');for(let i=0;i<stonePos.count;i++){const x=stonePos.getX(i),y=stonePos.getY(i),z=stonePos.getZ(i),f=.92+.09*Math.sin(x*12.3+y*9.7+z*17.1);stonePos.setXYZ(i,x*f,y*.78*f,z*f);}stoneGeom.computeVertexNormals();
+    const stoneGeom=T.BufferGeometryUtils&&T.BufferGeometryUtils.mergeVertices?T.BufferGeometryUtils.mergeVertices(new T.IcosahedronGeometry(1,1)):new T.IcosahedronGeometry(1,1);const stonePos=stoneGeom.getAttribute('position');for(let i=0;i<stonePos.count;i++){const x=stonePos.getX(i),y=stonePos.getY(i),z=stonePos.getZ(i),f=.86+.11*Math.sin(x*5.3+y*3.7+z*7.1)+.06*Math.sin(x*11.9-z*9.3+y*4.1),flat=y<-.35?.55:1;stonePos.setXYZ(i,x*f,Math.max(-.5,y*.82*f*flat),z*f);}stoneGeom.computeVertexNormals();
     const stones=new T.InstancedMesh(stoneGeom,new T.MeshStandardMaterial({color:0xffffff,map:pbr.rockColor||null,normalMap:pbr.rockNormal||null,normalScale:new T.Vector2(.5,.5),roughness:.96,flatShading:true}),330),dummy=new T.Object3D(),stoneColor=new T.Color();
     for(let i=0;i<330;i++){let x=range(-18,450),z=range(-12,8);if(Math.abs(z)<2.6)z=z<0?-range(2.7,6):range(3.5,7);if(z>0&&z<(i%13===0?6.5:4.5))z=range(i%13===0?6.5:4.5,8);if(x>248&&x<348){stoneColor.setHex(rand()<.5?0x83afbf:0xb0d0d5);}else{stoneColor.setHex(rand()<.25?0x6d5550:rand()<.5?0xa4684f:0xc38a65);}const s=range(.12,.8),big=i%13===0?1.8:1;dummy.position.set(x,height(x,z)+s*.28,z);dummy.rotation.set(range(-.2,.2),range(0,6.28),range(-.18,.18));dummy.scale.set(s*range(1.2,2)*big,s*range(.35,.8)*big,s*range(.8,1.3)*big);dummy.updateMatrix();stones.setMatrixAt(i,dummy.matrix);stones.setColorAt(i,stoneColor);}
     stones.castShadow=true;stones.receiveShadow=true;addStonePatches(stones,'Mars kayaları');
@@ -301,7 +309,7 @@
       for(let i=0;i<3;i++){const ring=mesh(new T.TorusGeometry(1.17+i*.055,.014,5,28),mats.rail,0,2.25+i*.6,0,ship);ring.rotation.x=Math.PI*.5;}
       for(let i=0;i<4;i++){const a=i*Math.PI*.5+Math.PI*.25,x=Math.cos(a)*.83,z=Math.sin(a)*.83;cylinder(.22,.31,.37,mats.dark,x,1.15,z,ship,12);cylinder(.31,.32,.08,mats.rail,x,.96,z,ship,12);}
       for(let i=0;i<4;i++){let a=i*Math.PI*.5+Math.PI*.25;const b=v(Math.cos(a)*2,.12,Math.sin(a)*2),a0=v(Math.cos(a)*1.05,2,Math.sin(a)*1.05);beam(a0,b,.09,mats.metal,ship);cylinder(.45,.5,.12,mats.metal,b.x,b.y,b.z,ship,12);}
-      const cargo=[[3.0,.36,2.35],[4.05,.36,2.45],[4.0,1.02,2.45]],straps=[];cargo.forEach((p,i)=>{p[1]+=height(13+p[0],-6.5+p[2])-g.position.y;roundedPanel(.87,.65,.065,.72,i===1?mats.orange:mats.teal,p[0],p[1],p[2]-.36,g);straps.push([p[0]-.28,p[1],p[2],.04,.69,.76],[p[0]+.28,p[1],p[2],.04,.69,.76],[p[0],p[1]+.34,p[2],.9,.035,.77]);});bars(straps,mats.rail,g);
+      const cargo=[[3.0,.36,2.35],[4.05,.36,2.45],[4.0,1.02,2.45]],straps=[];cargo.forEach((p,i)=>{p[1]+=height(13+p[0],-6.5+p[2])-g.position.y;roundedPanel(.87,.65,.065,.72,i===1?mats.orange:mats.teal,p[0],p[1],p[2]-.36,g);straps.push([p[0]-.27,p[1],p[2],.07,.75,.83],[p[0]+.27,p[1],p[2],.07,.75,.83],[p[0],p[1]+.36,p[2],.96,.05,.84],[p[0],p[1]-.02,p[2]+.42,.22,.22,.03],[p[0],p[1]+.24,p[2]+.42,.34,.045,.05]);mesh(new T.CircleGeometry(.085,16),i===1?mats.teal:mats.orange,p[0],p[1]-.02,p[2]+.44,g);});bars(straps,mats.rail,g);
       batchStation(g,campCloth);
     }
     camp();
@@ -502,7 +510,7 @@
     const shadowCamera=sun.shadow.camera;
     const texelX=(shadowCamera.right-shadowCamera.left)/shadowSize;
     const texelY=(shadowCamera.top-shadowCamera.bottom)/shadowSize;
-    const warmFog=new T.Color(0xd1a297),coolFog=new T.Color(0x3d6e85),warmSky=new T.Color(0xc2d0e4),coolSky=new T.Color(0xaed6e8),warmSun=new T.Color(0xffdfb6),coolSun=new T.Color(0xa5c9e2),sunsetSun=new T.Color(0xffc38f),duskFog=new T.Color(0x978f9f),skyTop=new T.Color(0x6c768f),skyHorizon=new T.Color(0xe2b6a0),skyLow=new T.Color(0xc48771),duskTop=new T.Color(0x1e2d4d),duskHorizon=new T.Color(0x6b7d99),duskLow=new T.Color(0xb18f91),warmDust=new T.Color(0xefd1b7),coldDust=new T.Color(0xc0edf1);
+    const warmFog=new T.Color(0xd1a297),coolFog=new T.Color(0x3d6e85),warmSky=new T.Color(0xc2d0e4),coolSky=new T.Color(0xaed6e8),warmSun=new T.Color(0xffdfb6),coolSun=new T.Color(0xa5c9e2),sunsetSun=new T.Color(0xffc38f),duskFog=new T.Color(0x978f9f),skyTop=new T.Color(0x3e4a7c),skyHorizon=new T.Color(0xe6b0a3),skyLow=new T.Color(0xc48771),duskTop=new T.Color(0x1e2d4d),duskHorizon=new T.Color(0x6b7d99),duskLow=new T.Color(0xb18f91),warmDust=new T.Color(0xefd1b7),coldDust=new T.Color(0xc0edf1);
     function update(dt,t,state){
       const playerX=state?.player?.x ?? 8, lightStart=playerX<286.5?0:playerX<309.5?1:2;
       // Keep a constant light count throughout the cave. Outside the reach of the
@@ -514,6 +522,13 @@
         if (lightsInRange){light.position.x=caveLightXs[fixture];light.color.setHex(fixture%2?0x8ce2ee:0x69b9e9);}
       }
       weatherScene.update(dt,state?.player||restingExplorer);
+      // The explorers turn to watch the dust wall, brace through the gust and cheer when it has passed.
+      {const P=state?.player,D=state?.dog,storm=weather.storm||0;
+        if(storm>.6)stormBig=true;else if(stormBig&&storm<.08){stormBig=false;stormCheer=1.6;}
+        stormCheer=Math.max(0,stormCheer-dt);
+        const gi=M.guide&&M.guide.state?M.guide.state():null,free=P&&D&&!P.locked&&!D.locked&&P.grounded&&Math.abs(P.vx)<.3&&!(gi&&gi.active);
+        if(free&&storm>.35){P.emote='curious';P.lookX=-.75;P.lookY=.25;P.facing=-1;D.emote='sniff';D.lookX=-.5;D.lookY=-.4;}
+        else if(free&&stormCheer>0){P.emote='happy';D.emote='happy';P.lookX=0;P.lookY=.3;}}
       // The shadow frustum follows the explorer; terrain itself is entirely static.
       const lightAim=sun.target.position.set(playerX+3,ground(playerX),-3);
       // Snap on the light plane so shadows on the ground stay still as we walk.
@@ -521,10 +536,10 @@
       lightAim.addScaledVector(shadowRight,Math.round(shadowX/texelX)*texelX-shadowX);
       lightAim.addScaledVector(shadowUp,Math.round(shadowY/texelY)*texelY-shadowY);
       sun.position.copy(lightAim).add(lightOffset);sun.target.updateMatrixWorld();
-      const inside=smooth((playerX-246)/12)*(1-smooth((playerX-339)/14)),dusk=smooth((playerX-445)/28);sun.intensity=mix(mix(3.1,1.8,dusk),1.5,inside);sun.color.copy(warmSun).lerp(sunsetSun,dusk).lerp(coolSun,inside);hemi.intensity=mix(mix(2.1,1.7,dusk),1.9,inside);hemi.color.copy(warmSky).lerp(coolSky,Math.max(inside,dusk*.3));fill.intensity=mix(mix(.8,1.0,dusk),1.5,inside);scene.fog.color.copy(warmFog).lerp(duskFog,dusk).lerp(coolFog,inside);skyMat.uniforms.top.value.copy(skyTop).lerp(duskTop,dusk);skyMat.uniforms.horizon.value.copy(skyHorizon).lerp(duskHorizon,dusk);skyMat.uniforms.low.value.copy(skyLow).lerp(duskLow,dusk);starMat.opacity=dusk*.72;earthMat.opacity=dusk*.72;skyStars.visible=earth.visible=dusk>.001;dust.material.color.copy(warmDust).lerp(coldDust,inside);
+      const inside=smooth((playerX-246)/12)*(1-smooth((playerX-339)/14)),dusk=smooth((playerX-445)/28);sun.intensity=mix(mix(3.1,1.8,dusk),1.5,inside);sun.color.copy(warmSun).lerp(sunsetSun,dusk).lerp(coolSun,inside);hemi.intensity=mix(mix(2.1,1.7,dusk),1.9,inside);hemi.color.copy(warmSky).lerp(coolSky,Math.max(inside,dusk*.3));fill.intensity=mix(mix(.8,1.0,dusk),1.5,inside);scene.fog.color.copy(warmFog).lerp(duskFog,dusk).lerp(coolFog,inside);skyMat.uniforms.top.value.copy(skyTop).lerp(duskTop,dusk);skyMat.uniforms.horizon.value.copy(skyHorizon).lerp(duskHorizon,dusk);skyMat.uniforms.low.value.copy(skyLow).lerp(duskLow,dusk);starMat.opacity=dusk*.72;if(magicSky){magicSky.setVisible(inside<.97);if(magicStars)magicStars.uniforms.uBright.value=1.2*(1-inside)*(.6+.55*dusk);magicSky.update(dt,M.camera);}earthMat.opacity=dusk*.72;skyStars.visible=earth.visible=dusk>.001;dust.material.color.copy(warmDust).lerp(coldDust,inside);
       // The same wind bends cloth, drives the sand and warms the distant light.
       // Retain broad fill on the two helmeted faces throughout the front.
-      const haze=weather.intensity,clear=weather.clearing;
+      const haze=Math.min(1,weather.intensity*(.82+.3*(weather.storm||0))),clear=weather.clearing;
       if(playerX<30){
         // Physical folds are visible on both sides and in the cast shadow.
         const g=campCloth.geometry,p=g.attributes.position,n=g.attributes.normal,s=campClothRest,phase=weather.phase;
@@ -538,7 +553,7 @@
         p.needsUpdate=n.needsUpdate=true;
       }
       sun.intensity*=1-.21*haze;sun.color.lerp(copperSun,haze*.36);
-      scene.fog.color.lerp(copperFog,haze*.62);scene.fog.density=.010+haze*.0032;
+      scene.fog.color.lerp(copperFog,haze*.62);scene.fog.density=.010+haze*.0032+(weather.storm||0)*.0075;
       skyMat.uniforms.top.value.lerp(copperDome,haze*.79);skyMat.uniforms.horizon.value.lerp(copperHorizon,haze*.68).lerp(afterglow,clear*.42);
       dustTime.value=t;
       rotorTime=(rotorTime+dt*(1.0+weather.intensity*4.5))%(Math.PI*12);

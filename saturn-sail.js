@@ -140,24 +140,57 @@
     const socketGeo=new T.TorusGeometry(.49,.065,8,36);
     const lanternGeo=new T.OctahedronGeometry(.43,0);
     const streakGeo=new T.ConeGeometry(.17,.76,5);
+    // A faint bulb 'shadow' inside the empty lantern shows where the light belongs.
+    const ghostMat=new T.MeshBasicMaterial({color:0xfff1c8,transparent:true,opacity:.22,depthWrite:false});
+    // Shared, built-once ornaments: a stepped turned plinth, a star badge, a
+    // little gear, a domed lantern roof and a turned wheel hub.
+    const lath=(pts,n)=>new T.LatheGeometry(pts.map(([r,y])=>new T.Vector2(r,y)),n);
+    const plinthTopG=lath([[0,0],[1,0],[1.04,.04],[1.04,.10],[.98,.15],[.90,.17],[.86,.22],[0,.22]],40);
+    const starShape=new T.Shape();for(let i=0;i<10;i++){const a=Math.PI/2+i*Math.PI/5,r=i%2?.42:1;i?starShape.lineTo(Math.cos(a)*r,Math.sin(a)*r):starShape.moveTo(Math.cos(a)*r,Math.sin(a)*r);}
+    const starG=new T.ExtrudeGeometry(starShape,{depth:.18,bevelEnabled:true,bevelThickness:.08,bevelSize:.08,bevelSegments:1});starG.center();
+    const gearShape=new T.Shape();
+    for(let i=0;i<=48;i++){const a=i/48*TAU,tooth=(Math.floor(i/2)%2)?1:.84;const x=Math.cos(a)*tooth,y=Math.sin(a)*tooth;i?gearShape.lineTo(x,y):gearShape.moveTo(x,y);}
+    const gearHole=new T.Path();gearHole.absarc(0,0,.42,0,TAU,true);gearShape.holes.push(gearHole);
+    const gearG=new T.ExtrudeGeometry(gearShape,{depth:.12,bevelEnabled:true,bevelThickness:.03,bevelSize:.03,bevelSegments:1,curveSegments:8});gearG.center();
+    const roofG=lath([[.66,0],[.62,.08],[.50,.20],[.32,.32],[.14,.40],[0,.42]],28);
+    const hubG=lath([[0,.20],[.10,.19],[.20,.14],[.27,.07],[.30,0],[0,0]],24);hubG.rotateX(Math.PI/2);
+    const glassCylG=new T.CylinderGeometry(.42,.42,1.0,24,1,true);
     for(let leg=0;leg<ships.length;leg++){
       const s=ships[leg];s.leg=leg;s.visited=false;s.stops=[];
       for(const def of stopsByShip[leg]){
         const y=ground(def.x),g=group(root,def.x,y,-.65);
         g.name=['Dönen buz kapısı','Buz ışığı yuvası','Çoban ayı kanalı'][['winch','lantern','moon'].indexOf(def.kind)];
         const shade=leg===1?mats.gem[1]:leg===2?mats.gem[2]:mats.gem[0];
+        // Stepped enamel plinth with a brass bevelled top, rivets and a coral band.
         part(g,shapes.cyl,mats.ink,0,.12,-.30,1.68,.24,.78);
-        part(g,shapes.cyl,mats.brass,0,.28,-.30,1.51,.10,.66);
-        for(const side of [-1,1])strut(g,[side*1.37,.25,-.35],[side*1.09,1.83,-.35],.075,mats.steel);
-        // The hub only belongs behind the winch; on drag stops it read as a second dark 'moon'.
-        if(def.kind==='winch')part(g,shapes.sphere,mats.petrol,0,1.70,-.30,.50,.48,.18);
+        part(g,shapes.cyl,mats.coral,0,.205,-.30,1.70,.05,.80);
+        part(g,plinthTopG,mats.brass,0,.24,-.30,1.55,.70,.68);
+        for(let r=0;r<12;r++){const a=r/12*TAU;part(g,shapes.sphere,mats.porcelain,Math.cos(a)*1.62,.135,-.30+Math.sin(a)*.75,.045);}
+        for(const side of [-1,1]){
+          strut(g,[side*1.37,.36,-.35],[side*1.09,1.83,-.35],.07,mats.brass);
+          part(g,shapes.sphere,mats.brass,side*1.37,.37,-.35,.12);
+          part(g,shapes.sphere,mats.coral,side*1.09,1.86,-.35,.11);
+          part(g,shapes.ring,mats.porcelain,side*1.24,1.05,-.35,.09,.09,.09).rotation.x=Math.PI/2;
+        }
         const lamp=part(g,shapes.sphere,mats.milk,0,.46,.40,.18,.18,.11);
-        const q={...def,leg,root:g,y,done:false,amount:0,target:0,selected:false,owner:null,dragged:false,angle:0,visual:0,lamp};
+        part(g,shapes.ring,mats.brass,0,.46,.40,.22,.22,.22);
+        const q={...def,leg,root:g,y,done:false,amount:0,target:0,selected:false,owner:null,dragged:false,angle:0,visual:0,lamp,tx:-1.12,ty:1.95,fx:-1.12,fy:1.95,cue:0};
         if(def.kind==='winch'){
+          // Ship's wheel: brass rim, turned spokes with beads, round coral
+          // grips beyond the rim, a domed hub with a star, and a little gear
+          // behind that turns the other way (secondary motion).
+          q.gear=group(g,0,2.10,-.22);
+          part(q.gear,gearG,mats.petrol,0,0,0,.62,.62,1);
           q.handle=group(g,0,2.10,.08);
           part(q.handle,winchGeo,mats.brass,0,0,0);
-          for(let j=0;j<4;j++){const a=j*Math.PI/2;strut(q.handle,[0,0,0],[Math.cos(a)*.86,Math.sin(a)*.86,0],.045,mats.porcelain);}
-          part(q.handle,shapes.sphere,shade,0,0,.03,.26,.26,.13);
+          part(q.handle,shapes.ring,mats.coral,0,0,.02,.66,.66,.66);
+          for(let j=0;j<8;j++){const a=j*TAU/8,c=Math.cos(a),sn=Math.sin(a);
+            strut(q.handle,[c*.2,sn*.2,0],[c*1.12,sn*1.12,0],.04,mats.porcelain);
+            part(q.handle,shapes.sphere,mats.brass,c*.55,sn*.55,0,.07);
+            part(q.handle,shapes.sphere,mats.coral,c*1.16,sn*1.16,0,.10,.10,.10);}
+          if(weldToy)weldToy(q.handle);
+          part(q.handle,hubG,shade,0,0,.02,1.05,1.05,1.05);
+          part(q.handle,starG,mats.milk,0,0,.26,.12,.12,.12);
           q.floes=[];
           for(const side of [-1,1]){
             const gate=group(g,side*1.43,.45,-1.55);
@@ -169,21 +202,35 @@
           strut(g,[-1.65,.36,-.15],[1.70,.36,-.15],.055,mats.steel);
           q.receiver=group(g,1.12,1.95,.16);q.receiverY=1;
           if(def.kind==='lantern'){
-            part(q.receiver,shapes.box,mats.petrol,0,0,-.22,.98,1.30,.22);
-            part(q.receiver,shapes.cyl,mats.brass,0,-.61,0,.60,.12,.40);
-            part(q.receiver,shapes.cyl,mats.porcelain,0,.61,0,.59,.12,.40);
-            for(const side of[-1,1])strut(q.receiver,[side*.48,-.55,.13],[side*.48,.55,.13],.048,mats.brass);
-            const glass=new T.MeshStandardMaterial({color:0xa3dfdf,transparent:true,opacity:.18,roughness:.25,depthWrite:false});
-            part(q.receiver,shapes.box,glass,0,0,.08,.84,1.1,.24);
-            part(q.receiver,shapes.box,mats.porcelain,-.30,.12,.24,.025,.60,.018);
+            // A real little lantern: turned brass foot, oval enamel back,
+            // round glass, two posts, a coral dome roof with a finial and ring.
+            part(q.receiver,shapes.cyl,mats.petrol,0,0,-.22,.52,.20,.62).rotation.x=Math.PI/2;
+            part(q.receiver,plinthTopG,mats.brass,0,-.70,0,.52,.75,.40);
+            part(q.receiver,shapes.cyl,mats.brass,0,-.56,0,.50,.06,.40);
+            part(q.receiver,shapes.cyl,mats.brass,0,.56,0,.50,.06,.40);
+            part(q.receiver,roofG,mats.coral,0,.58,0,.80,.80,.62);
+            part(q.receiver,shapes.sphere,mats.brass,0,.96,0,.08);
+            part(q.receiver,shapes.ring,mats.brass,0,1.12,0,.12,.12,.12);
+            for(const side of[-1,1]){strut(q.receiver,[side*.46,-.55,.13],[side*.46,.55,.13],.05,mats.brass);part(q.receiver,shapes.sphere,mats.coral,side*.46,.60,.13,.07);}
+            for(let r=0;r<6;r++){const a=r/6*TAU;part(q.receiver,shapes.sphere,mats.porcelain,Math.cos(a)*.47,-.56,Math.sin(a)*.36,.035);}
+            const glass=new T.MeshStandardMaterial({color:0xa3dfdf,transparent:true,opacity:.16,roughness:.25,depthWrite:false});
+            part(q.receiver,glassCylG,glass,0,0,0,1,1.1,.62);
+            part(q.receiver,shapes.box,mats.porcelain,-.26,.12,.24,.025,.60,.018);
+            q.ghost=part(q.receiver,shapes.sphere,ghostMat,0,.02,.12,.35,.49,.30);
           }else{
-            part(q.receiver,shapes.box,mats.petrol,0,0,-.26,1.22,1.23,.18);
-            part(q.receiver,shapes.cyl,mats.brass,0,-.53,.12,.72,.13,.49);
-            for(const side of[-1,1])strut(q.receiver,[side*.54,-.49,.14],[side*.54,.48,.14],.07,mats.porcelain);
-            part(q.receiver,shapes.box,mats.porcelain,0,.54,.12,1.22,.12,.27);
-            part(q.receiver,moonBody,mats.ink,0,0,-.11,.64,.64,.24);
+            // Round brass porthole for the moon: riveted frame, night-blue
+            // window with tiny stars, a cradle below and a star on top.
+            part(q.receiver,shapes.cyl,mats.petrol,0,0,-.18,.66,.16,.66).rotation.x=Math.PI/2;
+            part(q.receiver,socketGeo,mats.brass,0,0,0,1.38,1.38,1.38);
+            part(q.receiver,shapes.ring,mats.coral,0,0,-.04,.56,.56,.56);
+            for(let r=0;r<10;r++){const a=r/10*TAU;part(q.receiver,shapes.sphere,mats.porcelain,Math.cos(a)*.68,Math.sin(a)*.68,.08,.04);}
+            for(const [sx,sy,sz] of [[-.36,.30,.07],[.38,-.22,.055],[.30,.36,.045]])part(q.receiver,starG,mats.milk,sx,sy,-.08,sz,sz,sz);
+            part(q.receiver,plinthTopG,mats.brass,0,-.86,.02,.45,.6,.35);
+            part(q.receiver,starG,mats.brass,0,.80,.02,.16,.16,.16);
+            part(q.receiver,moonBody,mats.ink,0,0,-.08,.64,.64,.24);
           }
 
+          if(weldToy)weldToy(q.receiver);
           q.token=group(g,-1.12,1.95,.20);
           if(def.kind==='lantern'){const bulb=part(q.token,shapes.sphere,shade,0,0,0,.35,.49,.30);part(q.token,shapes.cyl,mats.brass,0,-.41,0,.22,.17,.22);part(q.token,shapes.box,mats.milk,-.12,.14,.27,.035,.29,.02);}else part(q.token,moonBody,shade,0,0,0);
           if(def.kind==='lantern'){
@@ -224,11 +271,11 @@
         if(weldToy)weldToy(g);
       }
     }
-    let riding=null,inputId=null,heldDir=0,clock=0,lastAir=false,completed=0;
+    let riding=null,inputId=null,heldDir=0,clock=0,lastAir=false,completed=0,cheer=0;
     function finishStop(q){
       if(q.done)return;
-      q.done=true;q.target=q.amount=1;q.selected=false;q.owner=null;completed++;
-      M.sfx('saturn-cradle');M.celebrate(q.x,q.y+2.1);
+      q.done=true;q.target=q.amount=1;q.selected=false;q.owner=null;completed++;if(q.kind==='winch')q.turnAngle=(q.turnAngle||0)+(q.turnDirection||1)*.6;
+      M.sfx('saturn-cradle');M.celebrate(q.x,q.y+2.1);cheer=1.8;dog.emote='happy';
       if(riding?.stop===q){riding.phase='sail';riding.stop=null;riding.boost=0;riding.v=0;riding.wants=0;riding.dir=riding.cruiseDir;player.facing=dog.facing=riding.dir;heldDir=0;inputId=null;}
     }
     function stopAt(s,q){
@@ -240,27 +287,33 @@
         const active=riding?.stop===q,near=Math.abs(player.x-q.x)<14;
         if(!near&&!q.done)continue;
         // Gentle auto-help for a 4-year-old: after ~16 s on one stop without a finger on it, the part finishes itself.
-        if(active&&!q.done&&riding.phase==='moor'){q.helpT=(q.helpT||0)+dt*(window.SATURN_HELP_FAST?12:1);if(q.helpT>16&&!q.owner&&inputId===null){finishStop(q);continue;}}
+        if(active&&!q.done&&riding.phase==='moor'){q.helpT=(q.helpT||0)+dt*(window.SATURN_HELP_FAST?12:1);if(q.helpT>16&&q.owner===null&&inputId===null){finishStop(q);continue;}}
         q.visual=M.damp(q.visual,q.target,active?9:4,dt);
         q.lamp.scale.setScalar(q.done?.24:.18+(active?.035*Math.sin(clock*3.5):0));
         q.attention.visible=!M.playGuideActive&&active&&!q.done;
         if(q.attention.visible){
-          q.attention.position.set(q.kind==='winch'?0:q.selected?1.12:q.token.position.x,q.kind==='winch'?2.10:1.95,.29);
+          q.attention.position.set(q.kind==='winch'?0:q.owner!==null?1.12:q.tx,q.kind==='winch'?2.10:q.owner!==null?1.95:q.ty,.29);
           q.attention.scale.setScalar((q.kind==='winch'?1:.67)+.045*Math.sin(clock*3.5));
           q.attention.rotation.z=0;
         }
         if(q.kind==='winch'){
-          q.handle.rotation.z=q.turnAngle||0;
+          q.handle.rotation.z=q.turnAngle||0;q.gear.rotation.z=-(q.turnAngle||0)*1.7+.08*Math.sin(clock*.6);
           for(let j=0;j<2;j++){
             q.floes[j].rotation.z=(j?1:-1)*q.visual*1.16;
             q.floes[j].position.x=(j?1:-1)*(1.43+q.visual*.82);
           }
         }else{
-          q.token.position.x=M.lerp(-1.12,1.12,q.visual);
-          q.token.position.y=1.95+(q.kind==='lantern'?.26*Math.sin(Math.PI*q.visual):0);
+          // The light/moon really travels with the finger. Dropped near its
+          // socket it seats itself; dropped elsewhere it floats home.
+          const holding=q.owner!==null&&!q.done;
+          const gx=q.done?1.12:holding?q.fx:-1.12,gy=q.done?1.95:holding?q.fy:1.95;
+          q.tx=M.damp(q.tx,gx,holding?18:q.done?9:5,dt);q.ty=M.damp(q.ty,gy,holding?18:q.done?9:5,dt);
+          const near=!q.done&&Math.hypot(q.tx-1.12,q.ty-1.95)<.95;
+          q.token.position.set(q.tx,q.ty+(q.done||holding?0:.07*Math.sin(clock*2.4)),.20+(holding?.25:0));
+          q.token.scale.setScalar(holding?1.12:1);
           q.token.rotation.y=clock*.23;
-          q.receiver.rotation.z=0;
-          const socketSize=1;
+          q.receiver.rotation.z=0;if(q.ghost){q.ghost.visible=!q.done;q.ghost.material.opacity=.16+.1*Math.sin(clock*3);}
+          const socketSize=1+(near?.08+.04*Math.sin(clock*9):active&&!q.done?.03*Math.sin(clock*3.5):0);
           q.receiver.scale.set(socketSize,socketSize*q.receiverY,socketSize);
         }
         q.flow.material.opacity=(q.done?.76:active?.45:.17);
@@ -277,37 +330,50 @@
     function stopPointer(type,p,e){
       const s=riding,q=s?.stop,id=e?.pointerId??0;
       if(!q||q.done)return false;
-      if(type==='cancel') {if(e&&id===q.owner){finishStop(q);return false;}if(!e||id===q.owner){q.owner=null;q.dragged=false;}return false;}
-      // Keep the hand already moving this object. Another finger may use the
-      // source-to-socket assistance after release, but cannot steal a held grip.
+      // Lifting or losing a finger never finishes a stop by itself: the wheel
+      // keeps its turn, and a light or moon floats back to be tried again.
+      if(type==='cancel'){if(!e||id===q.owner){q.owner=null;q.dragged=false;}return false;}
       if(q.owner!==null&&id!==q.owner)return type==='down';
-      if(q.kind==='winch')q.handle.localToWorld(va.set(0,0,.03));else q.token.getWorldPosition(va);const camera=M.camera;if(camera?.position.z){const k=(camera.position.z-va.z)/camera.position.z;vb.set(camera.position.x+(p.x-camera.position.x)*k,camera.position.y+(p.y-camera.position.y)*k,va.z);p=vb;}
+      const camera=M.camera;
+      if(q.kind==='winch')q.handle.localToWorld(va.set(0,0,.03));else va.set(q.x,q.y,q.root.position.z+.2);
+      if(camera?.position.z){const k=(camera.position.z-va.z)/camera.position.z;vb.set(camera.position.x+(p.x-camera.position.x)*k,camera.position.y+(p.y-camera.position.y)*k,va.z);p=vb;}
+      const x=p.x-q.x,y=p.y-q.y;
       if(type==='down'){
-        // While the boat is moored there is only one job, so any touch on the
-        // whole machine (wheel, gate, lantern, moon or socket) grabs it. A tap
-        // or any short drag then finishes the stop on release.
-        const x=p.x-q.x,y=p.y-q.y;
-        if(Math.abs(x)>3.4||y<-.7||y>4.6)return false;
-        q.owner=id;q.dragged=false;
-        if(q.kind==='winch')q.angle=Math.atan2(y-2.1,x);else{q.selected=true;q.pressX=x;}
+        if(q.kind==='winch'){
+          // The whole wheel and its frame is a big, forgiving handle.
+          if(Math.hypot(x,y-2.10)>2.3)return false;
+          q.owner=id;q.dragged=false;q.angle=Math.atan2(y-2.1,x);q.lastX=x;q.lastY=y;
+          q.helpT=Math.min(q.helpT||0,9);return true;
+        }
+        // Grab the light or moon itself (generous circle around it).
+        if(Math.hypot(x-q.tx,y-q.ty)>1.35)return false;
+        q.owner=id;q.dragged=false;q.selected=true;q.pressX=x;q.pressY=y;q.offX=q.tx-x;q.offY=q.ty-y;
+        q.fx=q.tx;q.fy=q.ty;q.helpT=Math.min(q.helpT||0,9);M.sfx('saturn-magnet');
         return true;
       }
       if(q.owner!==id)return false;
       if(type==='move'){
         if(q.kind==='winch'){
-          const a=Math.atan2(p.y-q.y-2.10,p.x-q.x);let delta=a-q.angle;
-          if(delta>Math.PI)delta-=TAU;if(delta<-Math.PI)delta+=TAU;
-          q.angle=a;q.turnAngle=(q.turnAngle||0)+delta;if(Math.abs(delta)>.012){q.dragged=true;q.turnDirection=Math.sign(delta);}
-          q.amount=clamp(q.amount+Math.abs(delta)/2.35,0,1);q.target=q.amount;
+          const r=Math.hypot(x,y-2.10);let delta;
+          if(r<.32){delta=-(x-q.lastX)*.9;}
+          else{const a=Math.atan2(y-2.10,x);delta=a-q.angle;q.angle=a;if(delta>Math.PI)delta-=TAU;if(delta<-Math.PI)delta+=TAU;}
+          q.lastX=x;q.lastY=y;delta=clamp(delta,-.7,.7);
+          q.turnAngle=(q.turnAngle||0)+delta;if(Math.abs(delta)>.012){q.dragged=true;q.turnDirection=Math.sign(delta);}
+          const before=q.amount;
+          // About three quarters of a circle in either direction opens the gate.
+          q.amount=clamp(q.amount+Math.abs(delta)/4.0,0,1);q.target=q.amount;
+          if(Math.floor(before*3)<Math.floor(q.amount*3)&&q.amount<.97)M.sfx('saturn-magnet');
           if(q.amount>.97)finishStop(q);
         }else{
-          if(Math.abs(p.x-q.x-q.pressX)>.08)q.dragged=true;
-          q.target=clamp((p.x-q.x+1.12)/2.24,0,1);
-          if(q.target>.6&&Math.abs(p.y-q.y-1.95)<1.6){finishStop(q);return true;}
+          if(Math.hypot(x-q.pressX,y-q.pressY)>.08)q.dragged=true;
+          q.fx=clamp(x+q.offX,-2.6,2.6);q.fy=clamp(y+q.offY,.7,3.7);
+          // Close enough: it clicks into its socket while still held.
+          if(Math.hypot(q.fx-1.12,q.fy-1.95)<.62){q.tx=q.fx;q.ty=q.fy;finishStop(q);}
         }
       }else if(type==='up'){
-        // A plain tap or any short drag is enough for a 4-year-old.
-        finishStop(q);
+        if(q.kind!=='winch'&&Math.hypot(q.fx-1.12,q.fy-1.95)<.95)finishStop(q);
+        else{q.selected=false;if(q.kind==='winch'&&!q.dragged){q.turnAngle=(q.turnAngle||0)-.35;q.amount=clamp(q.amount+.06,0,.9);q.target=q.amount;M.sfx('saturn-magnet');}}
+        q.owner=null;
       }
       return true;
     }
@@ -389,6 +455,7 @@
     }
     function update(dt,t){
       clock+=dt;
+      if(cheer>0){cheer-=dt;if(cheer<=0&&dog.emote==='happy')dog.emote='';}
       const justLanded=lastAir&&!player.locked&&player.grounded;
       lastAir=!player.locked&&!player.grounded;
       const camera=M.camera;
@@ -428,7 +495,7 @@
             player.x=s.x+.59;player.y=y+.49;player.z=-.18;
             dog.x=s.x-.67;dog.y=y+.50;dog.z=-.11;
             player.mode=dog.mode='idle';player.skating=s.v/6.4;dog.skating=player.skating;
-            M.setCameraTarget(s.x+s.v*.23,y+1.95,.93,.91);
+            M.setCameraTarget(s.x+s.v*.23,y+1.95,innerWidth<innerHeight?1.2:.93,.91);
             if(Math.abs(s.x-s.atX)>1.8)s.beenAway=true;
             const atEdge=(s.x<=s.lo+.012&&s.v<-.17)||(s.x>=s.hi-.012&&s.v>.17);
             if(atEdge&&(s.beenAway||s.timer>.53)){
@@ -442,7 +509,7 @@
             dog.x=s.x-.67;dog.y=y+.50;dog.z=-.11;
             player.mode=dog.mode='idle';player.skating=dog.skating=0;
             dog.lookX=clamp((s.stop.x-dog.x)*.11,-.5,.5);dog.lookY=.48;
-            M.setCameraTarget((s.x+s.stop.x)*.5,ground(s.x)+.35+ringLift(s)+2.0,.89,.95);
+            M.setCameraTarget((s.x+s.stop.x)*.5,ground(s.x)+.35+ringLift(s)+2.0,innerWidth<innerHeight?1.38:.89,.95);
           }else{
             const u=ease(s.timer/.68),h=Math.sin(Math.PI*u)*.22;
             s.root.position.set(s.x,M.lerp(s.fromHeight,ground(s.x)+.31,u),M.lerp(-.18,parkDepth(),u));
@@ -523,7 +590,7 @@
     addEventListener('keyup',event=>{if(downKeys.delete(event.code)&&inputId===null){heldDir=0;for(const code of downKeys)heldDir=keyDirection(code);}});
     addEventListener('blur',()=>{downKeys.clear();heldDir=0;inputId=null;});
     for(let i=0;i<ships.length;i++){
-      const ship=ships[i],point=new T.Vector3();lessons.push({id:'saturn-sail-'+i+'-board',x:()=>ship.x,y:()=>ship.root.getWorldPosition(point).y,goal:'boat',completed:()=>ship.visited||ship.phase!=='dock',enabled:()=>!ship.visited&&!riding&&!player.locked,describe(step){if(riding||player.locked||ship.visited||Math.abs(player.x-ship.x)>5.5)return false;ship.root.localToWorld(step.from.set(.15,.36,.45));step.to.copy(step.from);step.action='tap';step.sourceIcon='footsteps';step.goalIcon='boat';step.progress=0;step.total=1;return true;}});
+      const ship=ships[i],point=new T.Vector3();lessons.push({id:'saturn-sail-'+i+'-board',x:()=>ship.x,y:()=>ship.root.getWorldPosition(point).y,goal:'boat',completed:()=>ship.visited||ship.phase!=='dock',enabled:()=>!ship.visited&&!riding&&!player.locked,describe(step){if(riding||ship.visited||Math.abs(player.x-ship.x)>9)return false;ship.root.localToWorld(step.from.set(.15,.36,.45));step.to.copy(step.from);step.action='tap';step.sourceIcon='footsteps';step.goalIcon='boat';step.progress=0;step.total=1;return true;}});
       for(let j=0;j<ship.stops.length;j++){const q=ship.stops[j];lessons.push({id:'saturn-sail-'+i+'-stop-'+j,x:q.x,y:q.y+1.2,goal:q.kind==='winch'?'ice-gate':q.kind==='lantern'?'lantern':'moon-socket',completed:()=>q.done,enabled:()=>riding?.stop===q,describe(step){if(q.done||riding?.stop!==q)return false;step.progress=0;step.total=1;if(q.kind==='winch'){const turn=(q.turnDirection||-1)*2.4*(1-q.amount);q.handle.localToWorld(step.from.set(.91,0,.03));q.handle.localToWorld(step.to.set(Math.cos(turn)*.91,Math.sin(turn)*.91,.03));if(step.pivot?.isVector3){q.handle.getWorldPosition(step.pivot);step.startAngle=Math.atan2(step.from.y-step.pivot.y,step.from.x-step.pivot.x);step.endAngle=Math.atan2(step.to.y-step.pivot.y,step.to.x-step.pivot.x);}step.action='turn';step.sourceIcon='wheel';step.goalIcon='ice-gate';}else{q.token.getWorldPosition(step.from);q.receiver.getWorldPosition(step.to);step.action='drag';step.sourceIcon=q.kind==='lantern'?'light':'moon';step.goalIcon=q.kind==='lantern'?'lantern':'moon-socket';}return true;}});}
     }
     return {lessons,update,pointer,interact,jump,
