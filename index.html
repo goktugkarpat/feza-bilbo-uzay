@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#12243c"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Feza ve Bilbo · Uzay Macerası</title>
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png"><link rel="icon" href="icons/icon.svg" type="image/svg+xml"><link rel="stylesheet" href="hub.css">
+<style>
+*{box-sizing:border-box}html,body,#hub,#expedition{width:100%;height:100%;margin:0}body{background:#101d35;color:#fff6dc;font-family:system-ui,sans-serif}#hub,#expedition{position:fixed;inset:0}#expedition{border:0;background:#101d35}button{font:inherit}#hub[hidden]{display:none}
+</style>
+<script>
+// A completed service-worker update reloads an older open build exactly once.
+if(location.protocol.startsWith('http')){const manifest=document.createElement('link');manifest.rel='manifest';manifest.href='manifest.webmanifest';document.head.appendChild(manifest);}
+if(location.protocol.startsWith('http')&&'serviceWorker'in navigator){
+ let controlled=!!navigator.serviceWorker.controller, updateReady=false, refreshTimer=0;
+ const held=new Set();
+ // Consume the handoff before waiting for the hub, even on a restored tab.
+ try{
+  const handoff=history.state?.fezaStationUpdate;
+  if(handoff){
+   history.replaceState(handoff.previous??null,'');
+   const navigation=performance.getEntriesByType('navigation')[0];
+   const reloaded=navigation?navigation.type==='reload':performance.navigation?.type===1;
+   if(reloaded&&Date.now()-handoff.time<120000){
+    document.addEventListener('DOMContentLoaded',()=>dispatchEvent(new CustomEvent('feza:restore-postcards',{detail:handoff.cards})),{once:true});
+   }
+  }
+ }catch(_){}
+ function refreshAtStation(){
+  clearTimeout(refreshTimer);
+  if(!updateReady||held.size||document.hidden||document.getElementById('expedition'))return;
+  refreshTimer=setTimeout(()=>{
+   if(held.size||document.hidden||document.getElementById('expedition')||!document.querySelector('.orb-planet'))return;
+   updateReady=false;
+   const cards={};
+   dispatchEvent(new CustomEvent('feza:collect-postcards',{detail:cards}));
+   if(Object.keys(cards).length){
+    try{history.replaceState({fezaStationUpdate:{cards,previous:history.state,time:Date.now()}},'');}catch(_){}
+   }
+   location.reload();
+  },1800);
+ }
+ // A child's finger may still be resting on a planet when new files arrive.
+ addEventListener('pointerdown',e=>{held.add(e.pointerId);clearTimeout(refreshTimer);},true);
+ for(const type of ['pointerup','pointercancel'])addEventListener(type,e=>{held.delete(e.pointerId);refreshAtStation();},true);
+ addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){held.add(e.key);clearTimeout(refreshTimer);}},true);
+ addEventListener('keyup',e=>{held.delete(e.key);refreshAtStation();},true);
+ addEventListener('blur',()=>{held.clear();refreshAtStation();});
+ document.addEventListener('visibilitychange',()=>{if(document.hidden)held.clear();refreshAtStation();});
+ addEventListener('load',refreshAtStation);
+ navigator.serviceWorker.addEventListener('controllerchange',()=>{
+  const previous=controlled;
+  controlled=!!navigator.serviceWorker.controller;
+  if(previous&&controlled){updateReady=true;refreshAtStation();}
+ });
+ addEventListener('feza:station-ready',refreshAtStation);
+ addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
+</head><body>
+<main id="hub" aria-label="Dünya yörüngesindeki uzay üssü"></main>
+<script src="core.js"></script><script src="hub.js"></script><script src="flight.js"></script>
+</body></html>

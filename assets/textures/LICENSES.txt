@@ -1,0 +1,20 @@
+Surface texture assets are CC0 1.0 / public domain.
+
+Rock Face03 — Dario Barresi (photography), Rico Cilliers (processing)
+https://polyhaven.com/a/rock_face_03
+
+Dry Ground Rocks — Rob Tuytel
+https://polyhaven.com/a/dry_ground_rocks
+
+Sand03 — Charlotte Baglioni
+https://polyhaven.com/a/sand_03
+
+Ice002 — Lennart Demes / ambientCG
+https://ambientcg.com/view?id=Ice002
+
+Primary licenses verified on2026-11-05:
+https://polyhaven.com/license
+https://docs.ambientcg.com/license/
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Maps are adapted/recompressed: diffuse desaturated and normalized for authored Mars tint; OpenGL normals retained; roughness512px. Source URLs/hashes are in SOURCES.json. No API or network service is used by the game.

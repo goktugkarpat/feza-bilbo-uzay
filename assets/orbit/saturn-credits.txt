@@ -1,0 +1,13 @@
+Saturn colour map and radial ring profile by Solar System Scope / INOVE.
+Source: https://www.solarsystemscope.com/textures/
+Originals: https://www.solarsystemscope.com/textures/download/2k_saturn.jpg
+https://www.solarsystemscope.com/textures/download/2k_saturn_ring_alpha.png
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+Adaptation for this game: resampled, recompressed, and lit and tinted at draw time.
+
+Ring-ice surface: Ice002 by Lennart Demes / ambientCG (CC0 1.0).
+https://ambientcg.com/view?id=Ice002
+The game combines the existing ice source with original tileable fracture strata.
+
+Distant crystalline ring-field panorama: original generated artwork for this game (OpenAI ImageGen), recompressed locally. The 3-D planet and ring system are separate from this painting.

@@ -1,0 +1,109 @@
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#bc8065;font-family:ui-rounded,"SF Pro Rounded","Arial Rounded MT Bold",system-ui,-apple-system,sans-serif;color:#fff8e9;touch-action:none;overscroll-behavior:none}button{font:inherit;cursor:pointer;color:inherit;touch-action:none;user-select:none;border:0}button:focus-visible{outline:3px solid #e6fffb;outline-offset:5px}#app,#game{position:absolute;inset:0;width:100%;height:100%}#game{display:block;outline:0}.hidden{display:none!important}.screen{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:20}.eyebrow{font-size:11px;font-weight:800;letter-spacing:3px;color:#ffdfaa}.primary{padding:17px 25px;background:linear-gradient(150deg,#278c93,#166974);border:1px solid #b2ece56b;border-radius:17px;box-shadow:0 7px 0 #154d5999,0 15px 40px #34251b33;display:flex;align-items:center;justify-content:space-between;gap:30px;font-size:18px;font-weight:750;transition:transform .12s,filter .12s}.primary:active{transform:translateY(3px);filter:brightness(1.1)}.primary span{font-size:25px;color:#b8f7e4}.small-button{border:1px solid #fff3;background:#2f344344;border-radius:50px;padding:9px 15px}header{position:absolute;left:max(25px,env(safe-area-inset-left));right:max(25px,env(safe-area-inset-right));top:calc(20px + env(safe-area-inset-top));display:flex;justify-content:space-between;align-items:center;gap:18px;pointer-events:none}.planet-pill{display:flex;gap:11px;align-items:center;background:linear-gradient(110deg,#372d31bb,#45373c80);border:1px solid #f3d4ac44;border-radius:18px;padding:9px 16px 9px 10px;box-shadow:0 6px 24px #402f2430}.planet-pill b{font-size:11px;letter-spacing:3px}.planet-pill small{display:block;font-size:12px;color:#f1d5b8;margin-top:3px}.tiny-planet{width:34px;height:34px;flex:none;border-radius:50%;background:var(--globe) center / var(--globe-size,205%) auto no-repeat;position:relative}.round-button{width:48px;height:48px;border-radius:50%;background:#372f3aa6;border:1px solid #f3d4ac66;pointer-events:auto;font-size:21px;line-height:1}#notice{position:absolute;left:50%;top:105px;transform:translate(-50%,-15px);background:#263e45df;border:1px solid #d1e5b755;padding:14px 24px;border-radius:18px;font-size:17px;max-width:70%;text-align:center;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;box-shadow:0 7px 26px #281d222f}#notice.visible{opacity:1;transform:translate(-50%,0)}footer{position:absolute;bottom:calc(22px + env(safe-area-inset-bottom));left:max(26px,env(safe-area-inset-left));right:max(26px,env(safe-area-inset-right));display:flex;align-items:flex-end;gap:16px;pointer-events:none}#hint{margin-right:auto;display:flex;align-items:center;gap:11px;max-width:min(600px,55vw);padding:11px 16px 11px 11px;border-radius:18px;background:#342c36a3;border:1px solid #edd5b12c;font-size:13px;color:#ffe9c7;line-height:1.4;box-shadow:0 5px 15px #31262822;pointer-events:none}.hint-orb{display:grid;place-items:center;color:#b9f2db;border-radius:50%;height:26px;min-width:26px;background:#1b697777;font-size:20px}.action-button{pointer-events:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;width:76px;height:76px;border-radius:26px;background:linear-gradient(145deg,#f8dbb1ee,#c48b69ef);border:2px solid #fff0c5cc;box-shadow:0 6px 0 #754e3b55,0 8px 25px #51352644;color:#614437;flex-shrink:0}.action-button svg{height:36px;width:36px;fill:none;stroke:currentColor;stroke-width:3.3;stroke-linecap:round;stroke-linejoin:round}.action-button small{font-weight:750;font-size:10px;margin-top:1px;letter-spacing:.5px}.action-button:active,.action-button.pressed{transform:translateY(3px);filter:brightness(1.12)}.action-button.jump{width:94px;height:94px;border-radius:50%;background:linear-gradient(145deg,#56b4c1eb,#287e98f5);border-color:#c8ffffd9;color:#f1ffff;box-shadow:0 6px 0 #1c536377,0 8px 28px #433c3144}.jump svg{width:45px;height:45px}.jump small{font-size:11px}.menu-card{width:min(440px,88vw);padding:40px 35px 28px;border:1px solid #ffe1b86b;background:linear-gradient(155deg,#533b3bf5,#2c3a45f8);border-radius:30px;box-shadow:0 25px 100px #201f2866;text-align:center}.menu-card h2{font-size:44px;margin:8px 0 14px;letter-spacing:-1.5px}.menu-card p{line-height:1.5;font-size:15px;color:#e9d5bf;margin-bottom:25px}.menu-card .primary{width:100%;font-size:17px}.setting-row{display:flex;align-items:center;justify-content:space-between;margin-top:22px;gap:20px;font-size:13px;text-align:left}.toggle{padding:9px 13px;border-radius:10px;background:#ffffff12;border:1px solid #ffffff22;font-size:12px}.toggle{background:#29768199;border-color:#8ac7c366}.secondary{background:none;border:1px solid #f7d7ac55;border-radius:12px;padding:11px 18px;color:#f1d8b5;font-size:13px;margin-top:23px}.menu-note{display:block;color:#cfbca9;font-size:10px;line-height:1.8;margin-top:24px}#pause,#ending{background:#25273548}.loading-track{width:240px;height:5px;border-radius:10px;overflow:hidden;background:#ffffff32;margin:20px 0 6px}.loading-track i{display:block;width:2%;height:100%;background:#bbf0df;transition:width .2s}#loading{flex-direction:column;background:linear-gradient(145deg,#464657,#b87d68 68%,#e2aa79)}#loading h1{font-size:32px;margin:10px 0}#loading-label{font-size:12px;color:#f2ddc7}#performance{position:absolute;top:95px;left:20px;background:#10232bdc;color:#b9f8e3;font:11px/1.6 ui-monospace,monospace;padding:10px 14px;border-radius:10px;white-space:pre;pointer-events:none;z-index:40}
+@media(max-width:700px){header{left:15px;right:15px;top:calc(13px + env(safe-area-inset-top));gap:8px}.planet-pill{padding:8px 12px 8px 8px;gap:7px}.planet-pill small{font-size:10px}.tiny-planet{width:26px;height:26px}.round-button{height:42px;width:42px}footer{left:15px;right:15px;bottom:calc(18px + env(safe-area-inset-bottom));gap:12px}#hint{position:absolute;left:0;bottom:110px;font-size:11px;max-width:75vw;padding:8px 10px;background:#342c367a}.action-button{margin-left:auto;height:70px;width:70px;border-radius:23px}.action-button.jump{margin-left:0;height:92px;width:92px}.menu-card{padding:30px 23px 22px}#notice{font-size:14px;max-width:87%;top:86px}.primary{font-size:17px}}
+@media(max-height:560px){.primary{padding:12px 20px}.menu-card{padding:18px 28px 15px;width:420px}.menu-card h2{font-size:32px;margin:5px 0}.menu-card p{margin:8px 0 14px}.setting-row{margin-top:12px}.menu-note{margin-top:12px}.menu-card .secondary{margin-top:12px}.action-button.jump{width:76px;height:76px}.action-button{width:64px;height:64px}#hint{font-size:11px}}
+
+/* Play is communicated through objects and gesture; text aids are optional for adults. */
+body:not(.captions) #hint,body:not(.captions) #notice{display:none!important}.action-button.jump{margin-left:auto}
+
+@media(pointer:coarse) and (min-height:600px){.action-button.jump{width:112px;height:112px}.jump svg{width:51px;height:51px}.round-button{width:54px;height:54px}}
+.menu-card{max-height:calc(100dvh - 40px - env(safe-area-inset-top) - env(safe-area-inset-bottom));overflow:auto}.menu-card::-webkit-scrollbar{width:4px}.menu-card::-webkit-scrollbar-thumb{background:#8ac7c366;border-radius:4px}
+
+html,body{touch-action:manipulation}#game,#hud{touch-action:none}.menu-card{touch-action:pan-y}
+
+.jump.show-how svg{animation:jump-how 2.2s ease-in-out 6}@keyframes jump-how{0%,65%,100%{transform:translateY(0)}78%{transform:translateY(-7px)}90%{transform:translateY(-2px)}}
+
+.replay{display:inline-flex;align-items:center;justify-content:center;gap:9px}.replay svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+
+/* Four-year-old touch targets: one large jump control. */
+.action-button.jump{width:108px;height:108px}.jump svg{width:52px;height:52px;stroke-width:3.7}
+@media(pointer:coarse) and (min-height:600px){.action-button.jump{width:134px;height:134px}.jump svg{width:65px;height:65px}}
+@media(max-width:600px){.action-button.jump{width:114px;height:114px}.jump svg{width:55px;height:55px}#notice{top:154px}#performance{top:144px}}
+@media(max-height:560px){.action-button.jump{width:90px;height:90px}.jump svg{width:45px;height:45px}}
+.icon-library{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
+.orbit-nav{display:flex;align-items:flex-start;gap:clamp(14px,1.6vw,24px);pointer-events:none}
+.orbit-nav button{pointer-events:auto}
+#hud header{align-items:flex-start}
+.station-button{
+ display:flex;flex-direction:column;align-items:center;justify-content:center;
+ width:clamp(91px,8.5vw,108px);min-height:75px;padding:3px 7px 6px;
+ background:radial-gradient(ellipse at 62% 42%,#325c76,#163651 68%,#102a44);
+ border:2px solid #ffe3a0;border-radius:24px;color:#fff1cd;
+ box-shadow:inset 0 1px 1px #fff6,0 3px 0 #6e5845,0 5px 12px #101d3366;
+}
+.station-button .station-mark{width:100%;height:47px;display:block}
+.station-button span{font-size:clamp(14px,1.3vw,17px);font-weight:750;line-height:1.1;white-space:nowrap}
+.station-button:active{transform:translateY(2px);box-shadow:inset 0 1px 1px #fff6,0 1px 0 #6e5845}
+#pause-button{margin-top:3px;min-width:44px;min-height:44px}
+#pause-home,#loading-home{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px}
+#pause-home .station-mark,#loading-home .station-mark{width:42px;height:27px}
+@media(pointer:coarse) and (min-width:650px) and (min-height:550px){
+ .station-button{width:108px;min-height:85px}.station-button .station-mark{height:54px}
+}
+@media(max-height:560px){.station-button{width:80px;min-height:59px;padding:2px 5px 4px;border-radius:18px}.station-button .station-mark{height:35px}.station-button span{font-size:12px}}
+@media(max-width:400px){.orbit-nav{gap:10px}.planet-pill{min-width:0}.planet-pill small{overflow-wrap:anywhere}}
+#end-home{justify-content:center;gap:12px}#end-home svg{width:52px;height:35px}
+#pause-home{margin-right:10px}#loading-home{margin:12px}
+body[data-planet="mars"]{--globe:url("assets/orbit/mars-globe.webp")}
+body[data-planet="saturn"]{--globe:url("assets/orbit/saturn-globe.webp");--globe-size:126%}
+body[data-planet="neptune"]{--globe:url("assets/orbit/neptune-globe.webp")}
+body[data-planet="saturn"] #loading{background:linear-gradient(155deg,#263245,#735773 58%,#b79173)}
+body[data-planet="neptune"] #loading{background:linear-gradient(155deg,#15223c,#294b74 58%,#578b9e)}
+@media(max-width:600px){#notice{top:85px}#performance{top:80px}}
+
+/* A frame from the actual expedition lies on its own colour of photo stock. */
+#ending{background:linear-gradient(180deg,#111f302d,#11213686)}
+#ending .menu-card{--paper:#f4dfbd;--edge:#bd8463;--card:#443e40;width:min(440px,90vw);background:linear-gradient(155deg,var(--card),#213340 84%);padding:22px 26px 23px}
+body[data-planet=saturn] #ending .menu-card{--paper:#f5e2b6;--edge:#c79a63;--card:#514238}
+body[data-planet=neptune] #ending .menu-card{--paper:#d4ede7;--edge:#72b5c4;--card:#334961}
+.voyage-photo{position:relative;margin:0 auto 17px;padding:6px 6px 13px;background:var(--paper);border:1px solid var(--edge);border-radius:5px;box-shadow:0 4px 13px #0a12294d;max-width:340px;transform:rotate(-2deg)}
+.voyage-photo[hidden]{display:none}
+.voyage-photo canvas{width:100%;height:auto;display:block;border-radius:2px}
+.voyage-photo .tiny-planet{position:absolute;bottom:-7px;right:12px;width:30px;height:30px;outline:2px solid var(--paper);box-shadow:0 1px 4px #28242144}
+#ending .eyebrow{color:var(--paper)}
+#ending h2{font-size:clamp(25px,3.6vw,36px);line-height:1.08}
+#ending .primary{justify-content:center;gap:12px}
+#ending .secondary{min-height:44px}
+@media(max-height:570px) and (min-aspect-ratio:3/2){
+ #ending .menu-card{width:min(670px,92vw);display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:20px;align-items:center;padding:22px}
+ .voyage-photo{margin:0;width:100%}
+}
+@media(prefers-reduced-motion:no-preference){#ending:not(.hidden) .voyage-photo{animation:place-photo .42s ease-out both}}
+@keyframes place-photo{from{opacity:.2;transform:translateY(8px) rotate(-4deg)}to{opacity:1;transform:rotate(-2deg)}}
+
+.arrival-window{position:relative;width:min(330px,61vw,52vh);aspect-ratio:1.64;pointer-events:none}
+#arrival-globe{display:block;width:100%;height:100%;object-fit:contain}
+.arrival-shuttle{position:absolute;width:25%;left:3%;bottom:4%;transform:rotate(-8deg)}
+@media(prefers-reduced-motion:no-preference){.arrival-shuttle{animation:arrival-glide 3s ease-out both}}
+@keyframes arrival-glide{from{transform:translate(-22%,16%) rotate(-12deg) scale(1.08)}to{transform:translate(18%,-14%) rotate(-4deg)}}
+#loading{background:radial-gradient(ellipse at 55% 39%,#754f50 0,#4a3a49 38%,#192638 85%)}
+body[data-planet="saturn"] #loading{background:radial-gradient(ellipse at 55% 39%,#675367,#3b344e 45%,#18263d 85%)}
+body[data-planet="neptune"] #loading{background:radial-gradient(ellipse at 55% 39%,#36586f,#263b58 45%,#172039 85%)}
+@media(max-height:440px){.arrival-window{width:165px}#loading h1{font-size:25px;margin:4px}#loading .loading-track{margin-top:8px}#loading-label{margin:5px}}
+
+#pause-button svg{display:block;width:25px;height:25px;margin:auto}
+
+#walk-guide{position:absolute;left:69%;top:51%;width:clamp(70px,8vw,100px);pointer-events:none;filter:drop-shadow(0 2px 3px #12233c65)}
+#walk-guide[hidden]{display:none}
+#walk-guide svg{display:block;width:100%;height:auto}
+@media(prefers-reduced-motion:no-preference){
+ #walk-guide .press-wave{transform-origin:33px 19px;animation:walk-press 1.9s ease-out 3}
+ #walk-guide .press-hand{animation:walk-hand 1.9s ease-in-out 3}
+}
+@keyframes walk-press{0%,15%{transform:scale(.5);opacity:.2}40%{opacity:1}80%,100%{transform:scale(1.4);opacity:0}}
+@keyframes walk-hand{0%,90%,100%{transform:translateY(4px)}24%,64%{transform:translateY(0)}}
+
+#loading.recovering{z-index:35}
+
+.voyage-photo .tiny-planet{background-color:#21354b}
+
+header #notice{top:calc(100% + 10px);width:max-content;max-width:min(560px,94%)}
+.menu-card{max-width:calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right))}
+#hud button{-webkit-touch-callout:none}
+@media(max-width:700px){
+ header,footer{left:max(15px,env(safe-area-inset-left));right:max(15px,env(safe-area-inset-right))}
+ #hint{bottom:calc(100% + 12px)}
+}
+
+
+.toggle{min-height:44px;min-width:58px}
+

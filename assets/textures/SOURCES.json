@@ -1,0 +1,201 @@
+{
+  "license": "CC0-1.0",
+  "verified": "2026-11-05",
+  "licensePrimarySources": [
+    "https://polyhaven.com/license",
+    "https://docs.ambientcg.com/license/"
+  ],
+  "assets": [
+    {
+      "title": "Rock Face03",
+      "author": "Dario Barresi (photography), Rico Cilliers (processing)",
+      "page": "https://polyhaven.com/a/rock_face_03"
+    },
+    {
+      "title": "Dry Ground Rocks",
+      "author": "Rob Tuytel",
+      "page": "https://polyhaven.com/a/dry_ground_rocks"
+    },
+    {
+      "title": "Sand03",
+      "author": "Charlotte Baglioni",
+      "page": "https://polyhaven.com/a/sand_03"
+    },
+    {
+      "title": "Ice002",
+      "author": "Lennart Demes / ambientCG",
+      "page": "https://ambientcg.com/view?id=Ice002"
+    }
+  ],
+  "embedded": [
+    {
+      "key": "rockColor",
+      "asset": "rock_face_03",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_face_03/rock_face_03_diff_1k.jpg",
+      "sourceSha256": "ea48e0e47ad42c8bd312476178b1248ec66f0eb19156a26a1c222f2a40caaf2d",
+      "embeddedSha256": "82b81ec0ebe46e3dc2e2add31f412469bd6478c60d15dec993e7e877a00f644f",
+      "bytes": 345510,
+      "size": [
+        1024,
+        1024
+      ],
+      "adaptation": "Diffuse desaturated/normalized for Mars tint; JPEG recompressed. Roughness512px."
+    },
+    {
+      "key": "rockNormal",
+      "asset": "rock_face_03",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_face_03/rock_face_03_nor_gl_1k.jpg",
+      "sourceSha256": "c6423169583f31715cf0636954bad524e806848a5f2861fcea6794275f726ff0",
+      "embeddedSha256": "01bc17d31fcc6602ea8ee8cc2622b6054c7578e71b6e038a5f23a90b3245600f",
+      "bytes": 383498,
+      "size": [
+        1024,
+        1024
+      ],
+      "adaptation": "Diffuse desaturated/normalized for Mars tint; JPEG recompressed. Roughness512px."
+    },
+    {
+      "key": "rockRoughness",
+      "asset": "rock_face_03",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_face_03/rock_face_03_rough_1k.jpg",
+      "sourceSha256": "9e3d9a2fd75244892e7acb6bab2eaed1279299510a7970672c0ee27ff1c19fea",
+      "embeddedSha256": "bd4818a3eebaa9f8ead3dd5b1f37e535d0590655382e8f55b2b837e033266c63",
+      "bytes": 40185,
+      "size": [
+        512,
+        512
+      ],
+      "adaptation": "Diffuse desaturated/normalized for Mars tint; JPEG recompressed. Roughness512px."
+    },
+    {
+      "key": "soilColor",
+      "asset": "dry_ground_rocks",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/dry_ground_rocks/dry_ground_rocks_diff_1k.jpg",
+      "sourceSha256": "491ac5be54859171730c620ad768a615f600b81ce00d83bbeab8a7aed7b199d8",
+      "embeddedSha256": "23f43b184339bd9864fc2d10eeec09249e61261f7dbaa72794ccc2cc819c73ba",
+      "bytes": 491746,
+      "size": [
+        1024,
+        1024
+      ],
+      "adaptation": "Diffuse desaturated/normalized for Mars tint; JPEG recompressed. Roughness512px."
+    },
+    {
+      "key": "soilNormal",
+      "asset": "dry_ground_rocks",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/dry_ground_rocks/dry_ground_rocks_nor_gl_1k.jpg",
+      "sourceSha256": "0bba49a710d0d1f7497ac7c72db2f0ed622ed07397539ce2d5ba756bf5fb3051",
+      "embeddedSha256": "268f40d692bb2b258653ae3fcf74a41c10b2b442c2f605839c21557e1a7fce7c",
+      "bytes": 431126,
+      "size": [
+        1024,
+        1024
+      ],
+      "adaptation": "Diffuse desaturated/normalized for Mars tint; JPEG recompressed. Roughness512px."
+    },
+    {
+      "key": "soilRoughness",
+      "asset": "dry_ground_rocks",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/dry_ground_rocks/dry_ground_rocks_rough_1k.jpg",
+      "sourceSha256": "7138e6101ccc994eab22d9b02289e72668d2b2c0863e22141cb42b1043e9f122",
+      "embeddedSha256": "57d4a76021bb3e4a22167f930291af3331767de77b29ec3f87a9d8f375a7222c",
+      "bytes": 58055,
+      "size": [
+        512,
+        512
+      ],
+      "adaptation": "Diffuse desaturated/normalized for Mars tint; JPEG recompressed. Roughness512px."
+    },
+    {
+      "key": "sandColor",
+      "asset": "sand_03",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/sand_03/sand_03_diff_1k.jpg",
+      "sourceSha256": "e72144f9d7b81bdb7bbdb34222b53431738dcef79346dd89412d2abd541e4d30",
+      "embeddedSha256": "d29e85bb1c19079278d36fe7d1b87b63511eeada864719fd1172e48ee114299e",
+      "bytes": 257479,
+      "size": [
+        1024,
+        1024
+      ],
+      "adaptation": "Diffuse desaturated/normalized for Mars tint; JPEG recompressed. Roughness512px."
+    },
+    {
+      "key": "sandNormal",
+      "asset": "sand_03",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/sand_03/sand_03_nor_gl_1k.jpg",
+      "sourceSha256": "1bde5f49ea78f94bcad73592696bf3949711c4ac197133b710c0c8521b6e996b",
+      "embeddedSha256": "3de0ec5f505177d2930edefe3ed57517acca5c0b376abf0918878f999d0cf534",
+      "bytes": 245933,
+      "size": [
+        1024,
+        1024
+      ],
+      "adaptation": "Diffuse desaturated/normalized for Mars tint; JPEG recompressed. Roughness512px."
+    },
+    {
+      "key": "sandRoughness",
+      "asset": "sand_03",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/sand_03/sand_03_rough_1k.jpg",
+      "sourceSha256": "5c9ead290a94913cfa2d0452a576ba527b50301fe208f2ffc4861e42a8fea45b",
+      "embeddedSha256": "691c4955610702d480ce054c6d24ac1cd5e4ef862b76e0d11522d23dfacf9fb7",
+      "bytes": 1370,
+      "size": [
+        512,
+        512
+      ],
+      "adaptation": "Diffuse desaturated/normalized for Mars tint; JPEG recompressed. Roughness512px."
+    },
+    {
+      "key": "iceColor",
+      "asset": "Ice002",
+      "url": "https://ambientcg.com/get?file=Ice002_1K-JPG.zip",
+      "sourceSha256": "9aa010f0fa4e01a982e593eb5b06f82671acc9023a67d9451bbc94cacd7ef44c",
+      "embeddedSha256": "f6d2885a786fae4a2e1f75a8bcd2dd7dc96fc58eaf214d4fc83853b60b29db83",
+      "bytes": 68705,
+      "size": [
+        1024,
+        1024
+      ],
+      "adaptation": "Diffuse desaturated/normalized for Mars tint; JPEG recompressed. Roughness512px."
+    },
+    {
+      "key": "iceNormal",
+      "asset": "Ice002",
+      "url": "https://ambientcg.com/get?file=Ice002_1K-JPG.zip",
+      "sourceSha256": "f2c190e341fede5bec99c86757529e4df387dba8a1ab8127bcc85b7ed528a018",
+      "embeddedSha256": "7e722912591c05cd816531ade721ba108d7fcdfd661a2bf99cba871543afeb2d",
+      "bytes": 118351,
+      "size": [
+        1024,
+        1024
+      ],
+      "adaptation": "Diffuse desaturated/normalized for Mars tint; JPEG recompressed. Roughness512px."
+    },
+    {
+      "key": "iceRoughness",
+      "asset": "Ice002",
+      "url": "https://ambientcg.com/get?file=Ice002_1K-JPG.zip",
+      "sourceSha256": "52a806348c7ddb23f201e4c1fc677e33914f0921ba7253163533daee3c4de121",
+      "embeddedSha256": "7fada0ac06bc6abd97fc805cd9191693388fe61aaf41af3566ae6f0b83dd8093",
+      "bytes": 17925,
+      "size": [
+        512,
+        512
+      ],
+      "adaptation": "Diffuse desaturated/normalized for Mars tint; JPEG recompressed. Roughness512px."
+    },
+    {
+      "key": "iceFrostColor",
+      "asset": "Ice002",
+      "url": "https://ambientcg.com/get?file=Ice002_1K-JPG.zip",
+      "sourceSha256": "9aa010f0fa4e01a982e593eb5b06f82671acc9023a67d9451bbc94cacd7ef44c",
+      "embeddedSha256": "4afd0f442a927dd5a8c96499fa6d9a23bf253d4e11fc43f36baf0de33e55b123",
+      "bytes": 10731,
+      "size": [
+        1024,
+        1024
+      ],
+      "adaptation": "Blurred and strongly reduced contrast for matte glacial frost, with source micro-normal map retained separately."
+    }
+  ]
+}

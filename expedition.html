@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ad5e41"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<script>
+// Let the chosen landscape download alongside Three.js and the two astronauts.
+if(location.protocol.startsWith('http')){
+ const planet=new URLSearchParams(location.search).get('planet');
+ const preload=document.createElement('link');
+ preload.rel='preload';preload.as='script';
+ const scene={mars:'world-assets.js',saturn:'assets/orbit/saturn-surfaces.js',neptune:'neptune.js',jupiter:'jupiter.js',venus:'venus.js'};
+ preload.href=Object.hasOwn(scene,planet)?scene[planet]:scene.mars;
+ document.head.appendChild(preload);
+}
+</script>
+<title>Feza ve Bilbo · Gezegen keşfi</title>
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png"><link rel="icon" href="icons/icon.svg" type="image/svg+xml"><link rel="stylesheet" href="style.css">
+<style>
+body[data-planet="jupiter"]{--globe:url("assets/orbit/jupiter-globe.webp")}
+body[data-planet="venus"]{--globe:url("assets/orbit/venus-globe.webp")}
+body[data-planet="jupiter"] #loading{background:radial-gradient(ellipse at 55% 39%,#937451,#4a3b49 45%,#19253b 85%)}
+body[data-planet="venus"] #loading{background:radial-gradient(ellipse at 55% 39%,#a17b4a,#5c4852 45%,#252c4d 85%)}
+body[data-planet="jupiter"] #ending .menu-card{--paper:#f4dfb5;--edge:#be9569;--card:#4e4245}
+body[data-planet="venus"] #ending .menu-card{--paper:#f6e5ba;--edge:#c79a5f;--card:#51455d}
+body[data-planet="jupiter"] .planet-pill,body[data-planet="venus"] .planet-pill{background:linear-gradient(110deg,#302b49c9,#44394c90);border-color:#ead7ab55}
+</style>
+
+</head>
+<body>
+<main id="app">
+ <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><defs>
+  <linearGradient id="stationHull" x2="0.28" y2="1"><stop stop-color="#fff9d4"/><stop offset=".47" stop-color="#e6eee5"/><stop offset="1" stop-color="#9dc1cb"/></linearGradient>
+  <symbol id="station-drawing" viewBox="0 0 86 50">
+   <path d="M4 36C1 21 12 9 26 8" fill="none" stroke="#ffd584" stroke-width="3.4" stroke-linecap="round"/>
+   <path d="m20 4 9 3-6 7" fill="none" stroke="#ffd584" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+   <g transform="rotate(-11 46 26)">
+    <path d="M14 26h65" stroke="#aac7cd" stroke-width="4"/>
+    <g fill="#4883af" stroke="#b2eff2" stroke-width="1.6"><rect x="12" y="18" width="23" height="16" rx="2"/><rect x="58" y="18" width="23" height="16" rx="2"/></g>
+    <path d="M20 19v14m7-14v14m39-14v14m7-14v14M13 26h21m25 0h21" fill="none" stroke="#b5e4ef" stroke-width="1.25"/>
+    <path d="M45 8V4m0 3 5-2" fill="none" stroke="#ffce75" stroke-width="2.3" stroke-linecap="round"/>
+    <rect x="38" y="11" width="15" height="28" rx="6.3" fill="url(#stationHull)" stroke="#98bdc7" stroke-width="1.1"/>
+    <path d="M39 15q6.5-5 13 0l-.5 2q-6-3-12 0Z" fill="#f0a462"/>
+    <rect x="40.7" y="19" width="9.6" height="7.5" rx="2.8" fill="#183b59" stroke="#eaf8f5" stroke-width="1"/>
+    <path d="M42.7 21.6h4" stroke="#a6ecf0" stroke-width="1.45" stroke-linecap="round"/>
+    <path d="M38.8 31h13.4M41.4 39h8.1l-.6 3.8h-6.9z" fill="#738f9d" stroke="#8eaab6" stroke-width="1.4"/>
+   </g>
+   <path d="m75 4 1.3 3.7L80 9l-3.7 1.3L75 14l-1.3-3.7L70 9l3.7-1.3z" fill="#fff1ac"/>
+  </symbol>
+ </defs></svg>
+ <canvas tabindex="-1" id="game" aria-label="Gezegende Feza ve Bilbo ile keşif"></canvas>
+ <div id="loading" class="screen"><div class="arrival-window" aria-hidden="true"><img id="arrival-globe" alt=""><img class="arrival-shuttle" src="assets/orbit/shuttle.webp" alt=""></div><p class="eyebrow">BİR UZAY MACERASI HAZIRLANIYOR</p><h1 id="destination-title">Gezegene doğru…</h1><div class="loading-track"><i id="loading-fill"></i></div><p id="loading-label">Keşif çantaları hazırlanıyor</p><button id="loading-home" class="small-button"><svg class="station-mark" viewBox="0 0 86 50" aria-hidden="true" focusable="false"><use href="#station-drawing"/></svg> Üsse dön</button></div>
+ <div id="hud" class="hidden">
+  <header><div class="planet-pill"><span class="tiny-planet"></span><div><b id="planet-name"></b><small id="zone-name"></small></div></div><div class="orbit-nav"><button id="pause-button" class="round-button" aria-label="Mola"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z" fill="currentColor"/></svg></button><button id="home-button" class="station-button" aria-label="Uzay üssüne dön"><svg class="station-mark" viewBox="0 0 86 50" aria-hidden="true" focusable="false"><use href="#station-drawing"/></svg><span>Uzay üssü</span></button></div><div id="notice" role="status"></div></header>
+  <div id="walk-guide" aria-hidden="true" hidden>
+   <svg viewBox="0 0 108 68" focusable="false">
+    <ellipse class="press-wave" cx="33" cy="19" rx="14" ry="8" fill="none" stroke="#baf5ed" stroke-width="2.5"/>
+    <path d="M55 20h35m-9-9 10 9-10 9" fill="none" stroke="#243e50" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M55 20h35m-9-9 10 9-10 9" fill="none" stroke="#ffe29c" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path class="press-hand" d="M34 55 20 38c-3-4 1-9 5-6l6 5-4-23c-.9-5 6-7 7-1l3 15c-.4-5 5-7 7-2 1-5 6-5 8 0 1-4 6-4 7 0l3 14c1 4-.8 9-3 13l-1.6 4z" fill="#fff0cf" stroke="#254257" stroke-width="2.5" stroke-linejoin="round"/>
+   </svg>
+  </div>
+  <div id="interaction-label" class="hidden"></div>
+  <footer><div id="hint"><span class="hint-orb">✦</span><span id="hint-text">Feza ile Bilbo keşfe hazır!</span></div><button id="jump-button" class="action-button jump" aria-label="Zıpla"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M12 29L24 16l12 13M12 38l12-13 12 13"/></svg></button></footer>
+ </div>
+ <section id="pause" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="pause-title"><div class="menu-card"><span class="eyebrow">FEZA VE BİLBO</span><h2 id="pause-title">Mola</h2><p>Bilbo yanında. Macera seni bekliyor.</p><button id="resume" class="primary">Maceraya dön <span>▶</span></button><div class="setting-row"><span>Sesler ve müzik</span><button id="sound-toggle" class="toggle" aria-label="Sesler ve müzik">Açık</button></div><div class="setting-row"><span>Yazılı ipuçları</span><button id="captions-toggle" class="toggle" aria-label="Yazılı ipuçları">Kapalı</button></div><button id="pause-home" class="secondary"><svg class="station-mark" viewBox="0 0 86 50" aria-hidden="true" focusable="false"><use href="#station-drawing"/></svg> Uzay üssüne dön</button><button id="restart" class="secondary">Baştan keşfet</button><small class="menu-note">Yürümek için basılı tut · Zıplamak için büyük oka dokun<br>Klavye: A/D veya oklar · Boşluk · E</small></div></section>
+ <section id="ending" class="screen hidden" role="dialog" aria-modal="true" aria-labelledby="ending-title"><div class="menu-card"><figure class="voyage-photo" hidden><canvas id="souvenir" role="img" aria-label="Feza ve Bilbo’nun bu keşifte çekilen fotoğrafı"></canvas><i class="tiny-planet" aria-hidden="true"></i></figure><div class="ending-actions"><span class="eyebrow">KEŞİF TAMAMLANDI</span><h2 id="ending-title"></h2><p id="ending-note"></p><button id="end-home" class="primary"><svg class="station-mark" viewBox="0 0 86 50" aria-hidden="true" focusable="false"><use href="#station-drawing"/></svg> Uzay üssüne dön</button><button id="again" class="secondary replay"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M25 11A11 11 0 1 0 26 22M25 4v8h-8"/></svg><span>Bir daha oynayalım</span></button></div></div></section>
+ <output aria-live="off" aria-label="Performans ölçümü" id="performance" class="hidden"></output>
+</main>
+<script src="vendor/three.js"></script><script src="core.js"></script>
+<script src="model-data/feza-original.js"></script><script src="feza-astronaut.js"></script>
+<script src="model-data/bilbo-original.js"></script><script src="bilbo-astronaut.js"></script>
+<script src="characters.js"></script><script src="workshop-art.js"></script><script src="play-guide.js"></script><script src="audio.js"></script><script src="expedition-boot.js"></script>
+</body></html>
