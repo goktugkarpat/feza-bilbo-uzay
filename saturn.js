@@ -761,7 +761,7 @@
         wasTotal=total;
       }
       update(0,0);
-      return {pointer,update,describe(step){if(seen||player.locked||Math.abs(player.x-x)>8.1)return false;moon.getWorldPosition(step.from);const cam=M.camera?.position,parallax=cam?.z ? .505/(cam.z-z-.065):0;step.to.set(cam?(cam.x-x)*parallax:0,solarY+(cam?cam.y-baseY-solarY:0)*parallax,.57);theatre.localToWorld(step.to);step.action='drag';step.progress=0;step.total=1;step.sourceIcon='moon';step.goalIcon='eclipse';return true;},interact(){if(seen||Math.abs(player.x-x)>4.7)return false;toggle();return true;},
+      return {pointer,update,describe(step){if(seen||player.locked||Math.abs(player.x-x)>8.1)return false;moon.getWorldPosition(step.from);const cam=M.camera?.position,parallax=cam?.z ? .505/(cam.z-z-.065):0;step.to.set(cam?(cam.x-x)*parallax:0,solarY+(cam?cam.y-baseY-solarY:0)*parallax,.57);theatre.localToWorld(step.to);step.action='drag';step.progress=0;step.total=1;step.sourceIcon='moon';step.goalIcon='eclipse';return true;},help(){if(seen)return false;if(Math.abs(target)>.22||Math.abs(position)<.22)toggle();return true;},interact(){if(seen||Math.abs(player.x-x)>4.7)return false;toggle();return true;},
         get state(){return wasTotal?'total':alignment>.03?'partial':'open';},get seen(){return seen;},get watching(){return attention>0;},get moonPosition(){return x+position;}};
     }
     const eclipse=createEclipseTheatre(eclipseX);
@@ -859,7 +859,7 @@
     }
     function grabWheel(id,e,p){
       if(spinPointer!==null||Math.abs(player.x-wheelX)>7.8||!onRing(e,p))return false;
-      if(wheelLocal.x*wheelLocal.x+wheelLocal.y*wheelLocal.y>2.39*2.39)return false;
+      if(wheelLocal.x*wheelLocal.x+wheelLocal.y*wheelLocal.y>3.0*3.0)return false;
       spinPointer=id;lastX=wheelLocal.x;lastY=wheelLocal.y;dragAngle=Math.atan2(lastY,lastX);
       dragDistance=0;lastStamp=e?.timeStamp??performance.now();shine=.79;spin=0;return true;
     }
@@ -996,7 +996,7 @@
         if(player.locked)return false;
         for(let i=0;i<blooms.length;i++){
           const b=blooms[i];
-          if(Math.abs(player.x-b.x)<14&&Math.abs(p.x-b.x)<1.13&&Math.abs(p.y-b.flower.position.y)<1.13)return bloom(i);
+          if(Math.abs(player.x-b.x)<14&&Math.abs(p.x-b.x)<1.55&&Math.abs(p.y-b.flower.position.y)<1.5)return bloom(i);
         }
         return false;
       }
@@ -1037,7 +1037,7 @@
       }
       update(0,0);
       const lessons=blooms.map((b,i)=>({id:'saturn-ice-flower-'+i,x:b.x,y:b.y,goal:'flowers',sourceIcon:'bud',range:14,completed:()=>b.opened,enabled:()=>!player.locked,describe(step){if(b.opened||player.locked||Math.abs(player.x-b.x)>=14)return false;b.flower.localToWorld(step.from.set(0,.30*(1-b.openness),.15));step.to.copy(step.from);step.action='tap';step.progress=0;step.total=1;step.sourceIcon='bud';step.goalIcon='flowers';return true;}}));
-      return {lessons,touch,interact,update,park(){if(collected===3||player.locked||Math.abs(player.x-xs[1])>=6.6)return;const parkX=player.x>168.2?168.65:164.95;M.parkForActivity(parkX,parkX-2.95,1);M.frameActivity(xs[0]-4.2,xs[2]+2.0,ground(xs[1])+1.75,1.20);},get collected(){return collected;},get nextX(){return blooms.find(b=>!b.opened)?.x??null;}};
+      return {lessons,touch,interact,update,help(){const i=blooms.findIndex(b=>!b.opened);return i>=0&&bloom(i);},park(){if(collected===3||player.locked||Math.abs(player.x-xs[1])>=6.6)return;const parkX=player.x>168.2?168.65:164.95;M.parkForActivity(parkX,parkX-2.95,1);M.frameActivity(xs[0]-4.2,xs[2]+2.0,ground(xs[1])+1.75,1.20);},get collected(){return collected;},get nextX(){return blooms.find(b=>!b.opened)?.x??null;}};
     }
     const garden=createIceGarden();
     const harp=[],offsets=[-2.48,0,2.48],heights=[2.34,2.62,2.32],moonHeights=[3.55,3.82,3.55],moonLights=[];
@@ -1309,7 +1309,7 @@
         }
         if(selected&&owner===null&&Math.abs(player.x-nurseryX)<9)M.setCameraTarget(nurseryX,y+2.0,.87,.60);
       }
-      return {demoSources:seeds.map(q=>q.seed),pointer,update,describe(step){if(player.locked||Math.abs(player.x-nurseryX)>11||count===3)return false;let q=selected;for(let i=0;!q&&i<seeds.length;i++)if(!seeds[i].placed)q=seeds[i];if(!q||q.placed)return false;q.seed.getWorldPosition(step.from);step.to.set(q.x,q.y,-.13);step.demoObject=q.seed;step.action='drag';step.progress=count;step.total=3;step.sourceIcon='sample';step.goalIcon='flowers';return true;},interact(){
+      return {demoSources:seeds.map(q=>q.seed),pointer,update,describe(step){if(player.locked||Math.abs(player.x-nurseryX)>11||count===3)return false;let q=selected;for(let i=0;!q&&i<seeds.length;i++)if(!seeds[i].placed)q=seeds[i];if(!q||q.placed)return false;q.seed.getWorldPosition(step.from);step.to.set(q.x,q.y,-.13);step.demoObject=q.seed;step.action='drag';step.progress=count;step.total=3;step.sourceIcon='sample';step.goalIcon='flowers';return true;},help(){if(count===3)return false;if(selected)place(selected);else{selected=seeds.find(q=>!q.placed)||null;if(selected)selected.pulse=1;}return true;},interact(){
         if(Math.abs(player.x-nurseryX)>7)return false;
         if(selected)place(selected);else{selected=seeds.find(q=>!q.placed)||null;if(selected)selected.pulse=1;}
         return true;
@@ -1754,6 +1754,7 @@
       garden.update(dt,time);garden.park();view.iceBlooms=garden.collected;
       nursery.update(dt,time);view.nurserySeeds=nursery.planted;view.wheelTurned=wheelTurned;
       eclipse.update(dt,time);view.eclipse=eclipse.state;view.eclipseSeen=eclipse.seen;
+      autoHelp(dt);
       if(!ride&&!sails.riding){
         if(!tasks[1]&&close(dockX,6.4))M.parkForActivity(dockX-3.7,dockX-5.1,1);
         else if(!nursery.complete&&close(nurseryX,6.4))M.parkForActivity(nurseryX-3.7,nurseryX-5.0,1);
@@ -1901,6 +1902,7 @@
       return false;
     }
     function pointer(type,p,e){
+      if(type==='down')helpInputAt=clock;
       if((type==='cancel'||!ride)&&eclipse.pointer(type,p,e))return true;
       if((type==='cancel'||!ride)&&sails.pointer(type,p,e))return true;
       if((type==='cancel'||!ride)&&familyPointer(type,p,e))return true;
@@ -1918,6 +1920,28 @@
       if(flight&&flight.id===id)carryDrag(type,p,id);
       if(id===spinPointer){if(type==='move')dragWheel(e,p);else if(type==='up')releaseWheel(e,false);}
       const owned=held.has(id);if(type==='up')held.delete(id);return owned;
+    }
+    // Otomatik yardım (4 yaş): yakındaki mini oyunda 16 sn ilerleme ve dokunuş yoksa
+    // sıradaki adımı oyun kendisi yapar; sonra her 2,2 sn'de bir adım daha.
+    let helpKey='',helpT=0,helpInputAt=-99,helping=false;
+    function helpTarget(){
+      if(ride||sails.riding||player.locked)return '';
+      if(!tasks[0]&&close(harpX,12))return 'harp'+view.chimes;
+      if(!tasks[1]&&close(dockX,12)&&player.x<dockX+5)return 'dock'+view.samples+(flight?flight.phase:'')+undocked;
+      if(!wheelTurned&&Math.abs(player.x-wheelX)<7.8)return 'wheel';
+      if(garden.collected<3&&garden.nextX!==null&&Math.abs(player.x-garden.nextX)<6)return 'garden'+garden.collected;
+      if(!eclipse.seen&&Math.abs(player.x-eclipseX)<8)return 'eclipse';
+      if(!nursery.complete&&close(nurseryX,11))return 'nursery'+nursery.planted;
+      if(close(eyeX,9)&&familyReady()&&!view.finished&&shutter<0&&!photoPending)return 'family'+familyFeza+familyBilbo+finalePhase;
+      return '';
+    }
+    function autoHelp(dt){
+      const key=helpTarget();view.help=key;
+      if(key!==helpKey){helpKey=key;if(!key)helping=false;helpT=helping&&key?13.8:0;return;}
+      if(!key||held.size||flight?.id!=null||spinPointer!==null)return;
+      if(clock-helpInputAt<4){helpT=Math.min(helpT,12);helping=false;}
+      helpT+=dt*(window.SATURN_HELP_FAST?12:1);
+      if(helpT>16){helpT=13.8;helping=true;if(key.startsWith('garden'))garden.help();else if(key==='wheel')impulse(1);else if(key==='eclipse')eclipse.help();else if(key.startsWith('nursery'))nursery.help();else interact();}
     }
     function interact(){
       if(!ride&&sails.interact())return true;

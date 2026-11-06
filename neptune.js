@@ -1563,7 +1563,7 @@
     let drag=null,dragPointer=null;
     function clearDrag(){drag=null;dragPointer=null;journey.drag=false;}
     function beginJourneyStop(index){
-      clearDrag();journey.index=index;journey.stage=0;journey.value=0;journey.reply=0;journey.baseY=null;
+      clearDrag();journey.index=index;journey.stage=0;journey.value=0;journey.reply=0;journey.baseY=null;journey.wait=0;
       journey.kind=index===0?(ride.route>0?'sunMirror':'dewShell'):index===1?(ride.route>0?'kiteWeave':'whaleGuide'):index===2?'silkGate':'windDelivery';
       if(journeySolved[journey.kind]){journey.completed[index]=true;ride.phase='flying';return;}
       ride.phase='stop';helpElapsed=0;M.sfx('ring');
@@ -1589,15 +1589,14 @@
         journey.value=Math.max(journey.value,clamp((angle+.9)/1.55,0,1));
         journey.handleX=1.4+Math.cos(-.9+journey.value*1.55)*1.1;journey.handleY=2.2+Math.sin(-.9+journey.value*1.55)*1.1;
         journey.targetX=1.4+Math.cos(.65)*1.1;journey.targetY=2.2+Math.sin(.65)*1.1;
-        if(journey.value>.94)completeJourneyStop();
+        if(journey.value>.72)completeJourneyStop();
       }else if(journey.kind==='silkGate'||journey.kind==='windDelivery'){
         const delivery=journey.kind==='windDelivery',base=delivery?2.05:3.1,span=delivery?-.80:-2.0;journey.value=Math.max(journey.value,clamp((y-base)/span,0,1));journey.handleY=base+journey.value*span;
-        if(journey.value>(delivery ? .83 : .94))completeJourneyStop();
+        if(journey.value>(delivery ? .62 : .55))completeJourneyStop();
       }else{
         journey.handleX=clamp(x,-2.6,4.4);journey.handleY=clamp(y,.65,4.1);
-        if(Math.hypot(x-journey.targetX,y-journey.targetY)<.72){
-          if(journey.index===1&&journey.stage<2){journey.stage++;journey.targetX=eventPoints[journey.stage][0];journey.targetY=eventPoints[journey.stage][1];M.sfx('ring');}
-          else completeJourneyStop();
+        if(Math.hypot(x-journey.targetX,y-journey.targetY)<1.25){
+          completeJourneyStop();
         }
       }
       return true;
@@ -1652,17 +1651,18 @@
       else setGuide(journey.worldX+journey.targetX,journey.worldY+journey.targetY);
       if(M.frameActivity){if(upright)M.frameActivity(ride.x-3.8,ride.x+6.0,journey.baseY+4.8,1.03);else M.frameActivity(ride.x-3.4,ride.x+11.2,journey.baseY+2.45,.88);}else M.setCameraTarget(ride.x+(upright?1.1:3.9),journey.baseY+(upright?4.8:2.45),upright?1.03:.84,1);
       if(settled){journey.reply+=dt;if(journey.reply>2.6){ride.phase='flying';}}
+      else if(!drag){journey.wait=(journey.wait||0)+dt;if(journey.wait>16)completeJourneyStop();}else journey.wait=Math.min(journey.wait||0,8);
     }
     function moveGardenHandle(p){
       const prop=drag?.prop;if(!prop)return false;
       const x=p.x-prop.x,y=p.y-prop.y;
       if(prop===dew){
         dew.dropX=clamp(x,-2.2,2.4);dew.dropY=clamp(y,.6,2.45);
-        if(Math.hypot(x-1.23,y-.81)<.70){gardenGoals.dew=true;dew.water=1;dew.flowClock=2.5;clearDrag();M.sfx('beacon');M.celebrate(dew.x+1.2,dew.y+1.3);}
+        if(Math.hypot(x-1.23,y-.81)<1.1){gardenGoals.dew=true;dew.water=1;dew.flowClock=2.5;clearDrag();M.sfx('beacon');M.celebrate(dew.x+1.2,dew.y+1.3);}
       }else if(prop===loom){
         loom.shuttleX=clamp(x,-2.1,2.2);loom.shuttleY=clamp(y,.55,2.4);
         const next=loom.points[loom.step];
-        if(next&&Math.hypot(x-next[0],y-next[1])<.62){loom.step++;M.sfx('ring');if(loom.step===3){gardenGoals.loom=true;clearDrag();M.sfx('complete');M.celebrate(loom.x,loom.y+2.2);}}
+        if(next&&Math.hypot(x-next[0],y-next[1])<.95){loom.step=3;M.sfx('ring');if(loom.step===3){gardenGoals.loom=true;clearDrag();M.sfx('complete');M.celebrate(loom.x,loom.y+2.2);}}
       }else if(prop===pump){
         pump.lever=Math.max(pump.lever,clamp((Math.atan2(y-1.01,x-.63)-.1095)/.93,0,1));
       }
@@ -1715,6 +1715,7 @@
       if(pump.phase==='work'){
         player.mode='dig';player.emote='happy';dog.mode='dig';dog.emote='happy';
         const compress=.035*Math.sin(t*5.0);dog.y=ground(dog.x)+.20+compress;pump.pad.position.y=.10+compress;
+        pump.wait=(pump.wait||0)+dt;if(pump.wait>14&&!drag)pump.lever=Math.min(1,pump.lever+dt*.6);
         pump.pressure=Math.min(1,pump.pressure+dt*.45*clamp((pump.lever-.75)*4,0,1));
         if(M.frameActivity)M.frameActivity(pump.x-2.8,pump.x+4.2,pump.y+1.72,innerHeight>innerWidth?1.62:1.1);else M.setCameraTarget(pump.x-.15,pump.y+1.72,.98,1);
         if(!drag)setTurnGuide(pump.x+.63,pump.y+1.01,.1095+pump.lever*.93,1.0395,.916);
@@ -2137,7 +2138,7 @@
       }
       if(finaleState.phase!=='idle')return false;
       if(ride.phase==='stop'){
-        journeyPlanePoint(p,start);const rx=journey.kind==='windDelivery'?.90:journey.kind==='whaleGuide'?1.0:journey.kind==='dewShell'?.80:.68,ry=journey.kind==='whaleGuide'?.80:journey.kind==='dewShell'?.90:journey.kind==='windDelivery'?.50:.55;if(journey.reply>0||!hit(start,journey.worldX+journey.handleX,journey.worldY+journey.handleY,rx,ry))return false;
+        journeyPlanePoint(p,start);const rx=journey.kind==='whaleGuide'||journey.kind==='windDelivery'?1.25:1.1,ry=1.05;if(journey.reply>0||!hit(start,journey.worldX+journey.handleX,journey.worldY+journey.handleY,rx,ry))return false;
         drag={scope:'journey'};dragPointer=id;journey.drag=true;moveJourneyHandle(p);helpElapsed=0;return true;
       }
       if(ride.phase==='choice'){
@@ -2145,17 +2146,17 @@
       }
       if(pump.phase==='work'){
         pump.handle.getWorldPosition(start);
-        if(!hit(p,start.x,start.y,.88,.76))return false;
+        if(!hit(p,start.x,start.y,1.25,1.1))return false;
         drag={scope:'garden',prop:pump};dragPointer=id;moveGardenHandle(p);return true;
       }
       if(!freeGame())return false;
       for(const prop of gardenProps){
         if(!prop.group.visible||!near(prop.x,10)||gardenGoals[gardenNames[prop.kind]])continue;
-        if(prop===dew&&hit(p,prop.x+dew.dropX,prop.y+dew.dropY,.85,.90)){drag={scope:'garden',prop};dragPointer=id;helpElapsed=0;return true;}
-        if(prop===loom&&hit(p,prop.x+loom.shuttleX,prop.y+loom.shuttleY,.85,.80)){drag={scope:'garden',prop};dragPointer=id;helpElapsed=0;return true;}
+        if(prop===dew&&hit(p,prop.x+dew.dropX,prop.y+dew.dropY,1.2,1.15)){drag={scope:'garden',prop};dragPointer=id;helpElapsed=0;return true;}
+        if(prop===loom&&hit(p,prop.x+loom.shuttleX,prop.y+loom.shuttleY,1.2,1.1)){drag={scope:'garden',prop};dragPointer=id;helpElapsed=0;return true;}
         if(prop===pump&&hit(p,prop.x-1.62,prop.y+.28,1.05,.80))return startPump();
       }
-      if(!tasks[0]&&near(finale,14))for(let i=0;i<3;i++)if(!fans[i].on&&hit(p,arrivalFans[i].x,arrivalFans[i].y,.72,.78))return fanOn(fans[i]);
+      if(!tasks[0]&&near(finale,14))for(let i=0;i<3;i++)if(!fans[i].on&&hit(p,arrivalFans[i].x,arrivalFans[i].y,1.05,1.05))return fanOn(fans[i]);
       for(let i=0;i<bells.length;i++){const b=bells[i];if(!bellNotes[i]&&near(b.x,10)&&hit(p,b.x,b.y-.30,.90,1.0))return ringCloudBell(i);}
       for(const b of bellows)if(!b.launches&&near(b.x,7)&&hit(p,b.x,b.y-.02,1.83,.95))return startGust(b);
       for(const f of fans)if(!f.on&&near(f.x,10)&&hit(p,f.x,f.y,1.48,1.48)){helpElapsed=0;return fanOn(f);}
@@ -2295,7 +2296,7 @@
         enabled:()=>ride.phase==='stop'&&journey.kind===kind,completed:()=>ride.phase==='stop'&&journey.kind===kind&&journeySolved[kind],
         describe(step){
           if(ride.phase!=='stop'||journey.kind!==kind||journey.reply>0)return false;
-          const ok=lessonStep(step,kind==='sunMirror'?'turn':kind==='windDelivery'?'press':'drag',journey.worldX+journey.handleX,journey.worldY+journey.handleY,.30,journey.worldX+journey.targetX,journey.worldY+journey.targetY,.30,journey.index===1?journey.stage:0,journey.index===1?3:1);
+          const ok=lessonStep(step,kind==='sunMirror'?'turn':kind==='windDelivery'?'press':'drag',journey.worldX+journey.handleX,journey.worldY+journey.handleY,.30,journey.worldX+journey.targetX,journey.worldY+journey.targetY,.30,0,1);
           if(kind==='whaleGuide')step.sourceIcon='fish';
           if(kind==='sunMirror'){step.centerX=journey.worldX+1.4;step.centerY=journey.worldY+2.2;if(step.pivot)step.pivot.set(step.centerX,step.centerY,.30);step.radius=1.1;step.startAngle=-.9+journey.value*1.55;step.endAngle=.65;}return ok;
         }});

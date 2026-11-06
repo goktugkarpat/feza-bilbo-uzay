@@ -195,3 +195,9 @@ img,canvas,svg{-webkit-user-drag:none}
   .orb-planet:nth-child(5) .orb-globe { animation-delay: 5.4s; }
 }
 @keyframes globe-invitation { 0%,100% { translate:0 0; } 48% { translate:0 -5px; } }
+
+/* Four-year-old pass: larger, friendlier planet pictures in the same dock. */
+.orb-planet .orb-globe { scale:1.28; transform-origin:50% 62%; }
+.orb-planet span { position:relative; z-index:1; margin-top:2px; font-size:clamp(17px,1.5vw,22px); }
+@media(max-height:520px) and (orientation:portrait) { .orb-planet .orb-globe { scale:1.1; } }
+@media(orientation:portrait) and (min-height:521px) { .orb-dock { padding-top:24px; } }

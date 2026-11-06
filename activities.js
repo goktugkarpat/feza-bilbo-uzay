@@ -605,6 +605,7 @@
     function helperTarget(){if(taxiAvailable())return{x:taxi.at,y:ground(taxi.at)+1.23};if(player.x<24)return{x:player.x+3,y:ground(player.x+3)+.08};if(nearby(70,14)){const h=robotHintTarget();if(h)return h;}if(nearby(182,16)||nearby(roverState.x,9)){if(roverState.phase==='build'){const i=selected>=0?selected:parts.findIndex(q=>!q.placed);if(i>=0){if(selected>=0)return dests[i];const p=sources[i],q=dests[i],u=M.clamp(((elapsed%3.5)-.65)/1.9,0,1),v=u*u*(3-2*u);return{x:p.x+(q.x-p.x)*v,y:p.y+(q.y-p.y)*v+.45*Math.sin(v*Math.PI)};}}if(!done[1]&&roverState.phase==='ready')return{x:roverState.x+(roverState.x>210?-1.8:1.8),y:ground(roverState.x)+.95};}if(!done[2]&&mission.garden&&nearby(slideState.x,14)&&slideState.phase==='ready')return{x:slideState.x+(slideState.x>315?-1.1:1.1),y:ground(slideState.x)+.58};if(nearby(fx,12)){const i=campReady()?camp.parts.indexOf(false):-1;return i>=0?{x:fx+campPieces[i].x,y:fg+1.1}:{x:fx+1.8,y:fg+1.8};}return null;}
 
     function pointer(type,p,event){
+      if(!helpBusy&&type==='down')helpT=0;
       if(routeRockPointer(type,p,event))return true;
       if(routePlugPointer(type,p,event))return true;
       if(type==='cancel'){bridgeWorkshop.pointer(type,p,event);gateWorkshop.pointer(type,p,event);}
@@ -693,8 +694,23 @@
       call('frameActivity',Math.min(player.x-.8,dog.x-1.15,q.x-2.4),Math.max(player.x+.8,dog.x+.9,q.x+2.4),ground(q.x)+2.0,.96);
       if(u>=1){transit=null;if(board){q.phase=tr.kind==='rover'?'drive':'slide';q.time=0;}else{q.phase='ready';release();task(tr.kind==='rover'?1:2);sound('success');}}
     }
+    // Takılan çocuğa yardım: 18 sn ilerleme yoksa gösterilen hareketi oyun kendisi bir kez yapar.
+    const helpStep={from:new T.Vector3(),to:new T.Vector3(),action:'',progress:0,total:0},helpMid=new T.Vector3(),helpEvent={pointerId:-77,autoHelp:true};let helpT=0,helpKey='',helpBusy=false,helpClock=0;
+    function autoHelp(){
+      const now=performance.now(),dt=helpClock?Math.min(.25,(now-helpClock)/1000):0;helpClock=now;
+      let L=null;for(const e of lessons){if(e.enabled()&&!e.completed()&&Math.abs(player.x-(typeof e.x==='function'?e.x():e.x))<(e.range||10)){L=e;break;}}
+      if(!L||L.id==='mars-taxi'||drag||transit||taxi.airborne||(!player.locked&&Math.abs(player.vx)>.25)){helpT=0;return;}
+      helpStep.action='';helpStep.demoObject=null;if(!L.describe(helpStep)){helpT=0;return;}
+      const key=L.id+'|'+helpStep.progress+'|'+helpStep.action+'|'+(slideState.phase==='slide'?sledPlay.state().collected:'');
+      if(key!==helpKey){helpKey=key;helpT=0;return;}
+      if(helpStep.action!=='drag'&&helpStep.action!=='tap'&&helpStep.action!=='press'){helpT=0;return;}
+      helpT+=dt;if(helpT<18)return;helpT=6;helpBusy=true;
+      if((L.id==='mars-rover-stop-0'||L.id==='mars-rover-stop-1')&&helpStep.action==='drag'){helpBusy=false;const q=routeTarget(true);if(q&&!routeOpening())commitRouteAction(q);return;}
+      try{pointer('down',helpStep.from,helpEvent);if(helpStep.action==='drag'){helpMid.lerpVectors(helpStep.from,helpStep.to,.5);pointer('move',helpMid,helpEvent);pointer('move',helpStep.to,helpEvent);}pointer('up',helpStep.action==='drag'?helpStep.to:helpStep.from,helpEvent);}catch(_){pointer('cancel',null,helpEvent);}
+      helpBusy=false;
+    }
     function update(dt,t){
-      elapsed=t||elapsed+dt;idle+=dt;noteClock+=dt;if(!player.locked&&Math.abs(player.vx)>.25)idle=0;
+      elapsed=t||elapsed+dt;idle+=dt;autoHelp();noteClock+=dt;if(!player.locked&&Math.abs(player.vx)>.25)idle=0;
       if(taxi.airborne){taxiUpdate(dt);return;}
       updateCamp(dt);
       if(camp.phase==='joining')return;

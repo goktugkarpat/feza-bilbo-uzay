@@ -238,6 +238,8 @@
       for(const q of stops){
         const active=riding?.stop===q,near=Math.abs(player.x-q.x)<14;
         if(!near&&!q.done)continue;
+        // Gentle auto-help for a 4-year-old: after ~16 s on one stop without a finger on it, the part finishes itself.
+        if(active&&!q.done&&riding.phase==='moor'){q.helpT=(q.helpT||0)+dt*(window.SATURN_HELP_FAST?12:1);if(q.helpT>16&&!q.owner&&inputId===null){finishStop(q);continue;}}
         q.visual=M.damp(q.visual,q.target,active?9:4,dt);
         q.lamp.scale.setScalar(q.done?.24:.18+(active?.035*Math.sin(clock*3.5):0));
         q.attention.visible=!M.playGuideActive&&active&&!q.done;
@@ -282,7 +284,7 @@
       if(type==='down'){
         const x=p.x-q.x,y=p.y-q.y;
         if(q.kind==='winch'){
-          if(Math.hypot(x,y-2.10)>1.48)return false;
+          if(Math.hypot(x,y-2.10)>1.85)return false;
           q.angle=Math.atan2(y-2.1,x);q.owner=id;q.dragged=false;return true;
         }
         if(Math.abs(x-1.12)<.94&&Math.abs(y-1.95)<1.05){
@@ -291,7 +293,7 @@
           if(q.selected){finishStop(q);return true;}
           return false;
         }
-        if(Math.abs(x-q.token.position.x)<1.02&&Math.abs(y-q.token.position.y)<1.08){q.owner=id;q.dragged=false;q.selected=true;q.pressX=x;return true;}
+        if(Math.abs(x-q.token.position.x)<1.35&&Math.abs(y-q.token.position.y)<1.35){q.owner=id;q.dragged=false;q.selected=true;q.pressX=x;return true;}
         return false;
       }
       if(q.owner!==id)return false;
@@ -305,10 +307,11 @@
         }else{
           if(Math.abs(p.x-q.x-q.pressX)>.08)q.dragged=true;
           q.target=clamp((p.x-q.x+1.12)/2.24,0,1);
-          if(q.target>.79&&Math.abs(p.y-q.y-1.95)<1.15){finishStop(q);return true;}
+          if(q.target>.6&&Math.abs(p.y-q.y-1.95)<1.6){finishStop(q);return true;}
         }
       }else if(type==='up'){
-        if(q.kind==='winch'&&!q.dragged)finishStop(q);
+        // A plain tap or a half-way drag is enough for a 4-year-old.
+        if(!q.dragged||q.target>.45)finishStop(q);
         q.owner=null;
       }
       return true;

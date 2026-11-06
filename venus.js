@@ -319,7 +319,8 @@
       const handCanvas=document.createElement('canvas');handCanvas.width=handCanvas.height=128;const hi=handCanvas.getContext('2d');hi.lineJoin=hi.lineCap='round';hi.fillStyle='#ffe6a4';hi.strokeStyle='#34314f';hi.lineWidth=7;hi.beginPath();hi.moveTo(40,101);hi.lineTo(23,73);hi.quadraticCurveTo(18,58,31,62);hi.lineTo(46,75);hi.lineTo(46,29);hi.bezierCurveTo(46,13,65,13,65,30);hi.lineTo(65,56);hi.quadraticCurveTo(74,48,82,59);hi.quadraticCurveTo(94,53,100,66);hi.quadraticCurveTo(113,63,111,79);hi.lineTo(106,103);hi.lineTo(93,116);hi.lineTo(56,116);hi.closePath();hi.stroke();hi.fill();
       const handTex=new T.CanvasTexture(handCanvas);handTex.colorSpace=T.SRGBColorSpace;const hand=new T.Sprite(new T.SpriteMaterial({map:handTex,transparent:true,depthTest:false,depthWrite:false,fog:false}));hand.renderOrder=5;hand.name='Venus local hand fallback';root.add(hand);
       const finalCordPos=new Float32Array(12),finalCordG=new T.BufferGeometry();finalCordG.setAttribute('position',new T.BufferAttribute(finalCordPos,3));const finalCords=new T.LineSegments(finalCordG,new T.LineBasicMaterial({color:C.cream}));finalCords.frustumCulled=false;finalCords.visible=false;root.add(finalCords);
-      const seatP=new T.Vector3(),seatD=new T.Vector3(),craneTip=new T.Vector3();let owner=null,drag=null,help=0,lastT=0,lastCrawlerX=72,dogCue=0;
+      const seatP=new T.Vector3(),seatD=new T.Vector3(),craneTip=new T.Vector3();let autoT=0;const autoIds=new Set(['cabinetPump','cabinetAir','cabinetStore','coreDrill','core']);function autoJob(j){return autoIds.has(j.id)||/(Gas|Launch)$/.test(j.id)||j.id==='balloon1Canopy'||j.id==='balloon2Canopy';}
+      let owner=null,drag=null,help=0,lastT=0,lastCrawlerX=72,dogCue=0;
       function near(x,d=10){return Math.abs(player.x-x)<d;}
       function showHint(x,y,toX=x,toY=y){Object.assign(hint,{visible:true,x,y,toX,toY,swipe:Math.abs(toX-x)+Math.abs(toY-y)>.05});}
       function source(j){return {x:j.station.x+j.x,y:j.station.y+j.y};}
@@ -400,7 +401,7 @@
         }else if(j.mode==='press'){
           const v=clamp((y-j.from[1])/(j.to[1]-j.from[1]),0,1);j.progress=v;j.x=mix(j.from[0],j.to[0],j.progress);j.y=mix(j.from[1],j.to[1],j.progress);
         }else{
-          j.x=clamp(x,-3.55,3.55);j.y=clamp(y,.18,3.75);j.progress=Math.hypot(j.x-j.to[0],j.y-j.to[1])<.56?1:0;
+          j.x=clamp(x,-3.55,3.55);j.y=clamp(y,.18,3.75);j.progress=Math.hypot(j.x-j.to[0],j.y-j.to[1])<1.05?1:0;if(j.progress===1){finishJob(j);return true;}
         }
         help=0;return true;
       }
@@ -443,10 +444,14 @@
           if(!s&&!player.locked)s=workshops.find(w=>!finished(w)&&near(w.x,7.7));
           const j=drag?.job||s&&firstJob(s);pathJob=j||null;if(j&&!j.done){showHint(j.station.x+j.x+j.hitOffset[0],j.station.y+j.y+j.hitOffset[1],j.station.x+j.to[0]+j.hitOffset[0],j.station.y+j.to[1]+j.hitOffset[1]);}
           if(!player.locked&&s&&j){if(!drag&&M.parkForActivity){const side=player.x>s.x?1:-1;M.parkForActivity(s.x+side*3.65,s.x+side*5.0,-side);}const a=Math.min(player.x-1.1,s.x-3.5),b=Math.max(player.x+1.1,s.x+3.5);if(M.frameActivity)M.frameActivity(a,b,s.y+2.0,1.08);else M.setCameraTarget((a+b)*.5,s.y+2.0,.93,1);}
-          else if(!player.locked&&near(vehicle.x,7)&&!status.crawlComplete){anchor(boardingHandle,lessonPoint);showHint(lessonPoint.x,lessonPoint.y);if(!drag&&M.parkForActivity)M.parkForActivity(vehicle.x-3.85,vehicle.x-5.1,1);}
+          else if(!player.locked&&near(vehicle.x,7)&&!status.crawlComplete){anchor(boardingHandle,lessonPoint);showHint(lessonPoint.x,lessonPoint.y);if(!drag&&help>20&&vehicle.phase==='ready'){help=0;startRide(vehicle.late);}if(!drag&&M.parkForActivity)M.parkForActivity(vehicle.x-3.85,vehicle.x-5.1,1);}
           else if(!player.locked&&near(finaleX,10)){if(!status.crawlComplete){anchor(callHandle,lessonPoint);showHint(lessonPoint.x,lessonPoint.y);}else if(workshops.every(finished)){showHint(finaleX+.6,observatory.y+2.09);if(M.frameActivity)M.frameActivity(finaleX-5.7,finaleX+5.7,observatory.y+2.6,.94);}}
         }
         if(drag?.job){const j=drag.job;showHint(j.station.x+j.to[0],j.station.y+j.to[1]);}
+        // Soyut makine adımları (pompa, hava, kilit, matkap, balon gazı, kalkış) Feza'nın önceki hamlesinden sonra kendiliğinden çalışır.
+        if(!drag&&pathJob&&!pathJob.done&&requiresDone(pathJob)&&(vehicle.phase==='stop'||!player.locked)&&autoJob(pathJob)){autoT+=dt;if(autoT>.85){autoT=0;finishJob(pathJob);help=0;}}else autoT=0;
+        // Takılınca yardım: 20 sn hiç ilerleme yoksa sıradaki parça kendiliğinden yerine oturur.
+        if(!drag&&help>15){if(pathJob&&!pathJob.done&&requiresDone(pathJob)&&(vehicle.phase==='stop'||!player.locked)){finishJob(pathJob);help=0;}else if(ending.phase==='pull'){ending.pull=1;ending.phase='open';ending.clock=0;M.sfx('robot');help=0;}}
         hand.visible=!M.playGuideActive&&hint.visible&&!drag&&help>3&&((help-3)%6.4)<2.6;
         if(hand.visible){const u=hint.swipe?ease(clamp(((help-3)%6.4-.40)/1.6,0,1)):0;let hx=mix(hint.x,hint.toX,u),hy=mix(hint.y,hint.toY,u);if(pathJob?.mode==='turn'){const j=pathJob,a=-.9+1.62*u;hx=j.station.x+j.center[0]+Math.cos(a)*j.radius;hy=j.station.y+j.center[1]+Math.sin(a)*j.radius;}hand.position.set(hx+.18,hy-.27,2.05);hand.scale.setScalar(.82);}
         refreshState();
@@ -461,8 +466,8 @@
           if(Math.hypot(p.x-drag.startX,p.y-drag.startY)>.10)drag.moved=true;
           if(drag.moved){if(drag.type==='job')moveJob(drag.job,p);else if(drag.type==='ending')moveEnding(p);}
           if(type==='up'){
-            if(drag.moved&&drag.type==='job'&&drag.job.progress>.94)finishJob(drag.job);
-            if(drag.moved&&drag.type==='ending'&&ending.pull>.94){ending.phase='open';ending.clock=0;M.sfx('robot');}
+            if(drag.moved&&drag.type==='job'&&drag.job.progress>.70)finishJob(drag.job);
+            if(drag.moved&&drag.type==='ending'&&ending.pull>.70){ending.phase='open';ending.clock=0;M.sfx('robot');}
             owner=null;drag=null;
           }
           refreshState();return true;
@@ -470,7 +475,7 @@
         if(type!=='down')return false;
         if(owner!==null)return owner===id;
         if(ending.phase==='pull'){
-          if(pointHit(p,finaleX+.60,observatory.y+2.09-ending.pull*1.13,.81,.70)){owner=id;drag={type:'ending',startX:p.x,startY:p.y,moved:false};help=0;return true;}return false;
+          if(pointHit(p,finaleX+.60,observatory.y+2.09-ending.pull*1.13,1.4,1.3)){owner=id;drag={type:'ending',startX:p.x,startY:p.y,moved:false};help=0;return true;}return false;
         }
         if(ending.phase!=='idle')return false;
         if(vehicle.phase==='board'||vehicle.phase==='return'||vehicle.phase==='exit'||vehicle.phase==='recall')return false;
@@ -479,9 +484,9 @@
         for(const s of available){if(!near(s.x,12)||!s.group.visible)continue;for(const j of s.jobs){if(j.done||!requiresDone(j))continue;const dx=(p.x-s.x-j.x-j.hitOffset[0])/Math.max(.66,j.size*1.55),dy=(p.y-s.y-j.y-j.hitOffset[1])/Math.max(.61,j.size*1.38),d=dx*dx+dy*dy;if(d<=1&&d<score){score=d;selected=j;}}}
         if(selected){owner=id;drag={type:'job',job:selected,startX:p.x,startY:p.y,moved:false};help=0;return true;}
         if(player.locked)return false;
-        anchor(callHandle,lessonPoint);if(!vehicle.called&&!status.crawlComplete&&vehicle.phase==='ready'&&near(lessonPoint.x,10)&&pointHit(p,lessonPoint.x,lessonPoint.y,.67,.64))return summonForward();
-        if(near(finaleX,14)&&status.crawlComplete&&workshops.every(finished)&&pointHit(p,finaleX+.60,observatory.y+2.09,.70,.65))return startEnding();
-        anchor(boardingHandle,lessonPoint);if(vehicle.phase==='ready'&&!status.crawlComplete&&near(vehicle.x,10)&&pointHit(p,lessonPoint.x,lessonPoint.y,.70,.62))return startRide(vehicle.late);
+        anchor(callHandle,lessonPoint);if(!vehicle.called&&!status.crawlComplete&&vehicle.phase==='ready'&&near(lessonPoint.x,10)&&pointHit(p,lessonPoint.x,lessonPoint.y,1.25,1.15))return summonForward();
+        if(near(finaleX,14)&&status.crawlComplete&&workshops.every(finished)&&pointHit(p,finaleX+.60,observatory.y+2.09,1.35,1.25))return startEnding();
+        anchor(boardingHandle,lessonPoint);if(vehicle.phase==='ready'&&!status.crawlComplete&&near(vehicle.x,10)&&(pointHit(p,lessonPoint.x,lessonPoint.y,1.2,1.1)||pointHit(p,vehicle.x+.24,ground(vehicle.x)+1.3,2.9,1.5)))return startRide(vehicle.late);
         return false;
       }
       function interact(){if(player.locked)return true;if(near(finaleX,10)&&status.crawlComplete&&workshops.every(finished))return startEnding();if(vehicle.phase==='ready'&&!status.crawlComplete&&near(vehicle.x,7))return startRide(vehicle.late);return false;}

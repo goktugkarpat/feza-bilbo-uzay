@@ -127,6 +127,8 @@
  function worldPoint(e){const r=canvas.getBoundingClientRect();ndc.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);raycaster.setFromCamera(ndc,camera);raycaster.ray.intersectPlane(plane,hit);return hit;}
  canvas.addEventListener('pointerdown',e=>{if(disposed||phase!=='play'||graphicsLost||e.button>0)return;e.preventDefault();M.audio.start();const p=worldPoint(e);guide?.noticeInput();const discovery=discoveries?.pointer?discoveries.pointer('down',p,e):discoveries?.touch(p);const activity=!discovery&&activities?.pointer('down',p,e);const teaching=!discovery&&!activity&&guide?.pointer('down',p);const used=discovery||activity||teaching;if(discovery||activity)guide?.feedback(p,e.pointerId);pointers.set(e.pointerId,{used,activity,discovery});try{canvas.setPointerCapture(e.pointerId);}catch(_){}if(!used&&activeWalk===null){activeWalk=e.pointerId;steer=p.x>=player.x?1:-1;}});
  canvas.addEventListener('pointermove',e=>{if(disposed||phase!=='play'||graphicsLost)return;const q=pointers.get(e.pointerId);if(!q)return;if(q.discovery||q.activity)guide?.moveContact(worldPoint(e),e.pointerId);if(q.discovery)discoveries?.pointer?.('move',worldPoint(e),e);else if(q.activity)activities?.pointer('move',worldPoint(e),e);else if(activeWalk===e.pointerId){const p=worldPoint(e),dx=p.x-player.x;steer=Math.abs(dx)<.3?0:Math.sign(dx);}});
+ // Automatic help after a long pause: one gentle touch along the demo path, like a parent's finger.
+ function autoTouch(points){if(disposed||phase!=='play'||!points.length)return false;const e={pointerId:-77,pointerType:'touch',button:0,isPrimary:true,clientX:0,clientY:0,preventDefault(){},stopPropagation(){}},first=points[0],last=points[points.length-1];const d=discoveries?.pointer?discoveries.pointer('down',first,e):discoveries?.touch?.(first);const a=!d&&activities?.pointer('down',first,e);if(!d&&!a)return false;for(let i=1;i<points.length;i++){if(d)discoveries?.pointer?.('move',points[i],e);else activities.pointer('move',points[i],e);}if(d)discoveries?.pointer?.('up',last,e);else activities.pointer('up',last,e);return true;}
  function pointerEnd(e,type){const q=pointers.get(e.pointerId);if(q?.discovery||q?.activity)guide?.releaseContact(worldPoint(e),e.pointerId,type==='cancel');if(q?.discovery)discoveries?.pointer?.(type,worldPoint(e),e);else if(q?.activity)activities?.pointer(type,worldPoint(e),e);pointers.delete(e.pointerId);if(activeWalk===e.pointerId){activeWalk=null;steer=0;}}
  canvas.addEventListener('pointerup',e=>pointerEnd(e,'up'));canvas.addEventListener('pointercancel',e=>pointerEnd(e,'cancel'));canvas.addEventListener('lostpointercapture',e=>{if(pointers.has(e.pointerId))pointerEnd(e,'cancel');});canvas.addEventListener('contextmenu',e=>e.preventDefault());
  addEventListener('blur',clearInput);document.addEventListener('visibilitychange',()=>{clearInput();prev=renderSlot=lastDisplayTick=displayPeriod=0;resetPacingWindow();if(!document.hidden)requestFrame();});addEventListener('resize',queueResize);
@@ -245,7 +247,7 @@
  }
  let showFirstSteps=M.device.tablet||matchMedia('(pointer:coarse)').matches;
  const walkGuide=$('walk-guide');
- let learnedWalk=false;
+ let learnedWalk=false,walkStartX=NaN;
  let hintClock=0,zoneLast='',learnedJump=false,jumpPrompt=false;
  const obsoleteSpokenHints=new Set(['robot','ringsScout','windRide','windChoice','observatory']);
  const welcomeCue=M.destination.welcomeCue||(M.planet==='mars'?'arrival':M.planet==='saturn'?'ringsHello':'windHello');
@@ -285,7 +287,8 @@
   if(phase==='play')time+=dt;
   if(phase==='play'){
    const n=Math.max(1,Math.ceil(dt/.012));for(let i=0;i<n;i++)physics(dt/n);
-   if(!learnedWalk&&Math.abs(player.x-8)>.45)learnedWalk=true;
+   if(walkStartX!==walkStartX)walkStartX=player.x;
+   if(!learnedWalk&&Math.abs(player.x-walkStartX)>.45)learnedWalk=true;
    if(showFirstSteps){
     if(learnedWalk||player.locked||time-startedAt>18){
      walkGuide.hidden=true;showFirstSteps=false;
@@ -293,6 +296,10 @@
      const shouldHide=!player.grounded||time-startedAt<=3.2;
      if(walkGuide.hidden!==shouldHide)walkGuide.hidden=shouldHide;
     }
+   }else{
+    // After a finished game, a still child sees the same "hold right" picture again.
+    const wantWalk=!!guide?.state?.().walkHint;
+    if(walkGuide.hidden===wantWalk)walkGuide.hidden=!wantWalk;
    }
    activities.update(dt,time);if(discoveries)discoveries.update(dt,time);pathDepth(dt);const shouldPrompt=M.planet==='mars'&&!learnedJump&&player.x>24&&player.x<55;if(shouldPrompt!==jumpPrompt){jumpPrompt=shouldPrompt;$('jump-button').classList.toggle('show-how',jumpPrompt);}const activityState=activities.state();state.activity=activityState.active||null;state.completed=activityState.finished;state.rover=player.mode==='ride';state.celebrate=Math.max(0,state.celebrate-dt*.7);
    const spokenCue=narratorCue(activityState);M.audio.setCue(obsoleteSpokenHints.has(spokenCue)?'':spokenCue);M.audio.update();
@@ -420,7 +427,7 @@
     footprints=M.createFootprints(scene,world);
     discoveries=M.createMarsDiscoveries({scene,world,player,dog});
   }
-  M.activities=activities;M.discoveries=discoveries;guide=M.createPlayGuide({scene,world,player,dog,lessons:[...(activities.lessons||[]),...(discoveries?.lessons||[])]});M.guide=guide;M.playGuideActive=guide.lessons.length>0;guide.prepare(renderer);createFamilyPhoto();progress(84,'Işıklar ve gölgeler hazırlanıyor');await tick();
+  M.activities=activities;M.discoveries=discoveries;guide=M.createPlayGuide({scene,world,player,dog,autoTouch,lessons:[...(activities.lessons||[]),...(discoveries?.lessons||[])]});M.guide=guide;M.playGuideActive=guide.lessons.length>0;guide.prepare(renderer);createFamilyPhoto();progress(84,'Işıklar ve gölgeler hazırlanıyor');await tick();
   actors.feza.root.position.set(player.x,player.y,player.z||0);actors.bilbo.root.position.set(dog.x,dog.y,dog.z??.3);cameraUpdate(1);actors.update(0,0,state);footprints?.warm(true);
   // Compile against the initial lighting, then upload the different scenery behind
   // the loading screen. A small viewport exercises the same programs and textures.

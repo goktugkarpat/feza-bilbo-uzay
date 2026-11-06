@@ -85,12 +85,12 @@ body[data-planet="neptune"] #loading{background:radial-gradient(ellipse at 55% 3
 
 #pause-button svg{display:block;width:25px;height:25px;margin:auto}
 
-#walk-guide{position:absolute;left:69%;top:51%;width:clamp(70px,8vw,100px);pointer-events:none;filter:drop-shadow(0 2px 3px #12233c65)}
+#walk-guide{position:absolute;left:69%;top:51%;width:clamp(104px,12vw,150px);pointer-events:none;filter:drop-shadow(0 2px 3px #12233c65)}
 #walk-guide[hidden]{display:none}
 #walk-guide svg{display:block;width:100%;height:auto}
 @media(prefers-reduced-motion:no-preference){
- #walk-guide .press-wave{transform-origin:33px 19px;animation:walk-press 1.9s ease-out 3}
- #walk-guide .press-hand{animation:walk-hand 1.9s ease-in-out 3}
+ #walk-guide .press-wave{transform-origin:33px 19px;animation:walk-press 1.9s ease-out infinite}
+ #walk-guide .press-hand{animation:walk-hand 1.9s ease-in-out infinite}
 }
 @keyframes walk-press{0%,15%{transform:scale(.5);opacity:.2}40%{opacity:1}80%,100%{transform:scale(1.4);opacity:0}}
 @keyframes walk-hand{0%,90%,100%{transform:translateY(4px)}24%,64%{transform:translateY(0)}}

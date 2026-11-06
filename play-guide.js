@@ -154,15 +154,24 @@
   if(!p||!node||!M.camera)return false;for(let q=node;q;q=q.parent)if(!q.visible)return false;node.updateWorldMatrix(true,true);
   for(let k=0;k<5;k++){const dx=k===1?slop:k===2?-slop:0,dy=k===3?slop:k===4?-slop:0;gameDirection.set(p.x+dx,p.y+dy,0).sub(M.camera.position).normalize();gameRay.set(M.camera.position,gameDirection);gameRay.camera=M.camera;gameHits.length=0;gameRay.intersectObject(node,true,gameHits);if(gameHits.length)return true;}return false;
  };
- M.createPlayGuide=function({scene,world,player,dog,lessons}){
+ M.createPlayGuide=function({scene,world,player,dog,lessons,autoTouch}){
   const entries=(lessons||[]).filter(Boolean),root=new T.Group();root.name='İşaretli oyun alanları';scene.add(root);
   const hud=document.getElementById('hud'),card=document.createElement('canvas');card.id='play-goal';card.width=760;card.height=232;card.hidden=true;card.setAttribute('aria-label','Yakındaki oyunun resimli amacı');hud.append(card);
   const style=document.createElement('style');style.textContent='#play-goal{position:absolute;top:calc(env(safe-area-inset-top,0px) + 102px);left:50%;transform:translateX(-50%);width:min(390px,76vw);height:auto;pointer-events:none;filter:drop-shadow(0 5px 9px #10232c55)}@media(max-width:700px){#play-goal{top:calc(env(safe-area-inset-top,0px) + 98px);width:min(330px,76vw)}}';document.head.append(style);
-  const context=card.getContext('2d'),hand=M.WorkshopArt.hand(root,1.10);hand.visible=false;hand.renderOrder=40;
+  const context=card.getContext('2d'),hand=M.WorkshopArt.hand(root,1.55);hand.visible=false;hand.renderOrder=40;
   const handImage=hand.material.map.image;
-  const touchImage=document.createElement('canvas');touchImage.width=touchImage.height=192;const tc=touchImage.getContext('2d');tc.strokeStyle='#fff0cc';tc.lineWidth=5;tc.beginPath();tc.arc(96,96,45,0,Math.PI*2);tc.stroke();tc.strokeStyle='#b9ebe0';tc.lineWidth=3;for(let i=0;i<4;i++){const a=i*Math.PI*.5+.35;tc.beginPath();tc.arc(96,96,72,a,a+.58);tc.stroke();}const touchMap=new T.CanvasTexture(touchImage);touchMap.colorSpace=T.SRGBColorSpace;
+  const touchImage=document.createElement('canvas');touchImage.width=touchImage.height=192;const tc=touchImage.getContext('2d');tc.strokeStyle='#fff0cc';tc.lineWidth=9;tc.beginPath();tc.arc(96,96,45,0,Math.PI*2);tc.stroke();tc.strokeStyle='#b9ebe0';tc.lineWidth=5;for(let i=0;i<4;i++){const a=i*Math.PI*.5+.35;tc.beginPath();tc.arc(96,96,72,a,a+.58);tc.stroke();}const touchMap=new T.CanvasTexture(touchImage);touchMap.colorSpace=T.SRGBColorSpace;
   const touchPulse=new T.Sprite(new T.SpriteMaterial({map:touchMap,transparent:true,depthWrite:false,depthTest:false}));touchPulse.name='Gerçek dokunma yankısı';touchPulse.renderOrder=43;touchPulse.visible=false;root.add(touchPulse);
-  const touchHand=new T.Sprite(new T.SpriteMaterial({map:hand.material.map,transparent:true,depthWrite:false,depthTest:false}));touchHand.name='Dokunuş onayı';touchHand.renderOrder=44;touchHand.visible=false;touchHand.scale.setScalar(.82);root.add(touchHand);let touchedAt=-20,contactOwner=null;
+  const touchHand=new T.Sprite(new T.SpriteMaterial({map:hand.material.map,transparent:true,depthWrite:false,depthTest:false}));touchHand.name='Dokunuş onayı';touchHand.renderOrder=44;touchHand.visible=false;touchHand.scale.setScalar(.82);root.add(touchHand);
+  // One soft ring on the real object to touch, one golden ring on the goal (made once).
+  const sourceRing=new T.Sprite(new T.SpriteMaterial({map:touchMap,color:0x2fcfbf,transparent:true,depthWrite:false,depthTest:false}));sourceRing.name='Dokunulacak nesne halkası';sourceRing.renderOrder=41;sourceRing.visible=false;root.add(sourceRing);
+  const goalRing=new T.Sprite(new T.SpriteMaterial({map:touchMap,color:0xffb238,transparent:true,depthWrite:false,depthTest:false}));goalRing.name='Hedef halkası';goalRing.renderOrder=41;goalRing.visible=false;root.add(goalRing);
+  let helpKey='',helpAt=0;const helpPoints=Array.from({length:12},()=>new T.Vector3());
+  // The same path the demo hand shows, used once by the automatic helper.
+  function helpPoint(u,out){out.copy(step.from);if(typeof step.pointAt==='function'){step.pointAt(u,out);return out;}
+   if(step.action==='drag'||step.action==='press')return out.lerp(step.to,u);
+   if(step.action==='turn'){const px=Number.isFinite(step.pivot.x)?step.pivot.x:Number.isFinite(step.centerX)?step.centerX:(step.from.x+step.to.x)*.5,py=Number.isFinite(step.pivot.y)?step.pivot.y:Number.isFinite(step.centerY)?step.centerY:(step.from.y+step.to.y)*.5;const a=Number.isFinite(step.startAngle)?step.startAngle:Math.atan2(step.from.y-py,step.from.x-px),b=Number.isFinite(step.endAngle)?step.endAngle:Math.atan2(step.to.y-py,step.to.x-px);const da=Number.isFinite(step.startAngle)&&Number.isFinite(step.endAngle)?b-a:Math.atan2(Math.sin(b-a),Math.cos(b-a));const r=Math.hypot(step.from.x-px,step.from.y-py)||step.radius;out.x=px+Math.cos(a+da*u)*r;out.y=py+Math.sin(a+da*u)*r;out.z=step.from.z+(step.to.z-step.from.z)*u;}
+   return out;}let touchedAt=-20,contactOwner=null;
   function feedback(p,owner){successUntil=0;successLesson=null;contactOwner=owner??null;touchedAt=clock;info.acceptedTouches++;touchPulse.position.set(p.x,p.y,.02);touchHand.position.set(p.x-.022,p.y+.33,.02);lastInput=clock;hand.visible=false;}
 
   // The marker is planted in the world. Only its cloth faces the camera.
@@ -177,7 +186,7 @@
   }
   const stakeGeo=stakeGeometry(),stakeMat=new T.MeshStandardMaterial({vertexColors:true,metalness:.32,roughness:.69}),stakes=new T.InstancedMesh(stakeGeo,stakeMat,Math.max(1,entries.length)),stakePose=new T.Object3D();stakes.name='Zemine sabitlenmiş oyun direkleri';stakes.instanceMatrix.setUsage(T.DynamicDrawUsage);stakes.frustumCulled=false;stakes.count=0;root.add(stakes);
   const layout={
-   'mars-robot':[-7.5,-1],'mars-rover-build':[-9,-1],'mars-rover-ride':[-9,-1],'mars-rover-stop-0':[-3.8,-1],'mars-rover-stop-1':[-3.5,-1],'mars-rover-stop-2':[-3.5,-1],'mars-rover-stop-3':[-5,-1],'mars-greenhouse':[4.2,1],'mars-solar':[5.2,1],'mars-helicopter':[-6.0,-1],'mars-water':[3.4,1],'mars-magnifier':[-4.4,-1],'mars-constellation':[4.5,1],'mars-camp':[6,1],'mars-sled':[3.5,1],'mars-wind-mail':[-6.5,-1],
+   'mars-robot':[-7.5,-1],'mars-rover-build':[-9,-1],'mars-rover-ride':[-9,-1],'mars-rover-stop-0':[-7.6,-1],'mars-rover-stop-1':[-7.6,-1],'mars-rover-stop-2':[-7.6,-1],'mars-rover-stop-3':[-7.6,-1],'mars-greenhouse':[4.2,1],'mars-solar':[5.2,1],'mars-helicopter':[-6.0,-1],'mars-water':[3.4,1],'mars-magnifier':[-4.4,-1],'mars-constellation':[4.5,1],'mars-camp':[6,1],'mars-sled':[3.5,1],'mars-wind-mail':[-6.5,-1],
    'saturn-harp':[-5.3,-1],'saturn-probe-samples':[-6.7,-1],'saturn-orrery':[-3.0,-1],'saturn-eclipse':[-4.1,-1],'saturn-nursery':[-5.3,-1],'saturn-family-photo':[4.3,1],'saturn-taxi-call':[6,1],'saturn-taxi-board':[-3.0,-1],
    'jupiter-station-prepare':[-4.8,-1],'jupiter-io-samples':[-5.9,-1],'jupiter-io-lava-window':[-5.8,-1],'jupiter-io-camera':[-4.5,-1],'jupiter-europa-ice-hatch':[-5.8,-1],'jupiter-europa-sub-samples':[-8.9,-1],'jupiter-europa-float-lab':[-5.7,-1],'jupiter-museum-displays':[10.6,1],'jupiter-museum-delivery':[-8.6,-1],
    'venus-crawler-board':[5.2,1],'venus-crawler-call':[-6.15,-1],'venus-observatory':[-8,-1],'venus-observatory-open':[-8.6,-1]
@@ -257,18 +266,23 @@
    if(active?.completed?.()){successLesson=active;successUntil=clock+2.4;lastSuccessAt=clock;selected=null;successSource=lastValidLesson===active?lastValidSource:'';successGoal=lastValidLesson===active?lastValidGoal:active.goal;if(!successSource){completionStep.sourceIcon=completionStep.goalIcon='';if(active.describe(completionStep)){successSource=completionStep.sourceIcon;successGoal=completionStep.goalIcon||successGoal;}}}
    if(nearest!==active){active=nearest;entered=clock;paintKey='';}
    if(successLesson&&clock<successUntil&&Math.abs(player.x-value(successLesson.x))<(successLesson.range||10)+1)nearest=null;else successLesson=null;
-   hand.visible=false;info.active=active?.id||null;info.card=false;
+   hand.visible=false;sourceRing.visible=goalRing.visible=false;info.active=active?.id||null;info.card=false;
    if(successLesson){info.action=null;step.sourceIcon=successSource;step.goalIcon=successGoal;info.goal=step.goalIcon;showCard(true);updateCard(successLesson,true);return;}
    if(!active){showCard(false);info.action=null;info.walkHint=lastSuccessAt>=0&&clock-lastSuccessAt>3&&clock-lastInput>3&&!player.locked&&player.grounded&&Math.abs(player.vx)<.4&&player.x<world.length-10;return;}
    step.demoObject=null;step.pointAt=null;step.targetId='';step.action='tap';step.progress=0;step.total=1;step.sourceIcon='';step.goalIcon='';step.radius=.55;step.pivot.set(NaN,NaN,NaN);step.centerX=step.centerY=step.startAngle=step.endAngle=NaN;step.from.set(0,0,0);step.to.set(0,0,0);
    const available=active.describe(step);if(!available){if(lastValidLesson===active&&clock-lastValidAt<2.8){showCard(true);info.action='wait';}else showCard(false);return;}lastValidLesson=active;lastValidAt=clock;lastValidSource=step.sourceIcon;lastValidGoal=step.goalIcon||active.goal;info.demoAvailable=!!(step.demoObject&&ghostBySource.get(step.demoObject));
    info.action=step.action;info.goal=step.goalIcon||active.goal;info.progress=step.progress;info.total=step.total;step.from.toArray(info.source);step.to.toArray(info.target);showCard(true);updateCard(active,false);
+   if(step.action!=='wait'&&contactOwner===null){const beat=.5+.5*Math.sin(clock*4.2);sourceRing.position.copy(step.from);sourceRing.position.z+=.03;sourceRing.scale.setScalar(1.7+.35*beat);sourceRing.material.opacity=.55+.4*beat;sourceRing.visible=true;
+    if((step.action==='drag'||step.action==='press')&&step.from.distanceToSquared(step.to)>.09){goalRing.position.copy(step.to);goalRing.position.z+=.03;goalRing.scale.setScalar(2.1+.2*beat);goalRing.material.opacity=.85;goalRing.visible=true;}}
+   // Stuck for about 20 s on the same step: the lesson may help itself (optional lesson.autoHelp).
+   const key=active.id+':'+step.progress;if(key!==helpKey){helpKey=key;helpAt=clock;}
+   if(clock-helpAt>23&&contactOwner===null){helpAt=clock;try{if(typeof active.autoHelp==='function')active.autoHelp(step);else if(autoTouch&&step.action!=='wait'){const n=helpPoints.length-1;for(let i=0;i<=n;i++)helpPoint(i/n,helpPoints[i]);autoTouch(helpPoints);}}catch(err){console.warn('autoHelp',active.id,err);}}
    const demo=contactOwner===null&&step.action!=='wait'&&(clock-entered<3.4||clock-lastInput>3.1)&&clock-lastInput>.7&&Math.abs(player.vx)<3.2;
    if(demo){const t=(clock-entered)%4.5;hand.visible=t<3.25;let u=M.clamp((t-.45)/1.95,0,1);u=u*u*(3-2*u);hand.position.copy(step.from);
     if(typeof step.pointAt==='function')step.pointAt(u,hand.position);
     else if(step.action==='drag'||step.action==='press')hand.position.lerp(step.to,u);
     else if(step.action==='turn'){const px=Number.isFinite(step.pivot.x)?step.pivot.x:Number.isFinite(step.centerX)?step.centerX:(step.from.x+step.to.x)*.5,py=Number.isFinite(step.pivot.y)?step.pivot.y:Number.isFinite(step.centerY)?step.centerY:(step.from.y+step.to.y)*.5;let a=Number.isFinite(step.startAngle)?step.startAngle:Math.atan2(step.from.y-py,step.from.x-px),b=Number.isFinite(step.endAngle)?step.endAngle:Math.atan2(step.to.y-py,step.to.x-px);let da=Number.isFinite(step.startAngle)&&Number.isFinite(step.endAngle)?b-a:Math.atan2(Math.sin(b-a),Math.cos(b-a));const radius=Math.hypot(step.from.x-px,step.from.y-py)||step.radius;hand.position.x=px+Math.cos(a+da*u)*radius;hand.position.y=py+Math.sin(a+da*u)*radius;hand.position.z=step.from.z+(step.to.z-step.from.z)*u;}
-    else hand.position.y-=.10*Math.sin(M.clamp(t/1.1,0,1)*Math.PI);
+    else hand.position.y-=.16*Math.abs(Math.sin(M.clamp(t/2.4,0,1)*Math.PI*2));
     if((step.action==='drag'||step.action==='turn')&&step.demoObject&&hand.visible&&t>.45&&t<2.9){const ghost=ghostBySource.get(step.demoObject);if(ghost){step.demoObject.updateWorldMatrix(true,false);step.demoObject.matrixWorld.decompose(ghost.position,ghost.quaternion,ghost.scale);ghost.position.x+=hand.position.x-step.from.x;ghost.position.y+=hand.position.y-step.from.y;ghost.position.z+=hand.position.z-step.from.z+.025;const fade=Math.min(1,(t-.45)*3,(2.9-t)*4);for(const part of ghost.children)part.material.opacity=.34*Math.max(0,fade);ghost.visible=true;shownGhost=ghost;info.demoVisible=true;}}
     hand.position.x-=.03;hand.position.y+=.44;hand.material.opacity=Math.min(1,t*4,(3.25-t)*4);
    }
@@ -278,10 +292,10 @@
   function releaseContact(p,owner,cancel=false){if(contactOwner!==owner)return;moveContact(p,owner);contactOwner=null;touchedAt=cancel?-20:clock;}
   function clearContact(){contactOwner=null;touchedAt=-20;touchPulse.visible=touchHand.visible=false;}
   function noticeInput(){lastInput=clock;hand.visible=false;}
-  function dispose(){disposed=true;M.playGuideActive=false;card.remove();style.remove();root.removeFromParent();for(const map of flagMaps)map.dispose();stakeGeo.dispose();stakeMat.dispose();for(const g of ghostGeometry)g.dispose();for(const mat of ghostMaterials)mat.dispose();for(const material of flagMaterials)material.dispose();hand.material.dispose();touchMap.dispose();touchPulse.material.dispose();touchHand.material.dispose();}
+  function dispose(){disposed=true;sourceRing.material.dispose();goalRing.material.dispose();M.playGuideActive=false;card.remove();style.remove();root.removeFromParent();for(const map of flagMaps)map.dispose();stakeGeo.dispose();stakeMat.dispose();for(const g of ghostGeometry)g.dispose();for(const mat of ghostMaterials)mat.dispose();for(const material of flagMaterials)material.dispose();hand.material.dispose();touchMap.dispose();touchPulse.material.dispose();touchHand.material.dispose();}
   function prepare(renderer){for(const map of[...flagMaps,touchMap,hand.material.map])renderer.initTexture?.(map);for(const ghost of ghosts){ghost.visible=true;renderer.compile(ghost,M.camera,scene);ghost.visible=false;}}
   function warm(renderer,camera){if(!ghosts.length)return;for(const ghost of ghosts)ghost.visible=true;renderer.render(scene,camera);for(const ghost of ghosts)ghost.visible=false;}
   function frameBounds(){const f=flags.find(f=>f.entry===active&&f.sprite.visible);if(!f)return null;framing.minX=f.poleX+(f.side<0?-1.25*f.size:-.25);framing.maxX=f.poleX+(f.side>0?1.25*f.size:.25);return framing;}
-  return{update,pointer,warm,frameBounds,feedback,moveContact,releaseContact,clearContact,prepare,noticeInput,dispose,state:()=>info,lessons:entries};
+  return{helpNow:()=>{helpAt=-1e9;},update,pointer,warm,frameBounds,feedback,moveContact,releaseContact,clearContact,prepare,noticeInput,dispose,state:()=>info,lessons:entries};
  };
 })(window.MARS);

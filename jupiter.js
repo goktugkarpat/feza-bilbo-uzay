@@ -595,7 +595,7 @@
     const completionCount=completionLamps.reduce((n,q)=>n+q.lamps.length,0),completionBatch=new T.InstancedMesh(new T.SphereGeometry(1,8,5),new T.MeshBasicMaterial({color:0xffffff}),completionCount),completionPose=new T.Object3D(),completionColour=new T.Color(),completionPoint=new T.Vector3();completionBatch.instanceMatrix.setUsage(T.DynamicDrawUsage);completionBatch.frustumCulled=false;completionBatch.castShadow=completionBatch.receiveShadow=false;root.add(completionBatch);for(let i=0;i<completionCount;i++){completionPose.scale.setScalar(0);completionPose.updateMatrix();completionBatch.setMatrixAt(i,completionPose.matrix);completionBatch.setColorAt(i,completionColour.setHex(0xe58c4a));}
     // Fixed count navigation beads trace the current physical target after an
     // idle pause. They are a demonstration on the object, never a new button.
-    const guide=ring(root,C.gold,0,0,.4,.45);guide.visible=false;let idle=0;
+    const guide=ring(root,C.gold,0,0,.4,.45);guide.visible=false;let idle=0,helpClock=0;
     const pathPreview=M.createGesturePathPreview({scene:root,highlight:guide}),pathGates={idle:0,available:false,completed:false,paused:false,active:false,owned:false,moving:false},pathDescriptors=new Map();
     for(const t of targets)pathDescriptors.set(t,{id:t.id,kind:t.mode,source:{object:t.pickNode},receiver:t.endNode?{object:t.endNode}:null,pivot:t.mode==='rotate'?{object:t.control}:null,axis:t.mode==='rotate'?{object:t.control.parent,direction:new T.Vector3(0,0,1)}:null});
     let pointerOwner=null,dragTarget=null,selectedTarget=null,focusedTarget=null,dragStartX=0,dragStartY=0,dragMoved=false,dragAngle=0;
@@ -619,7 +619,7 @@
       if(pointerOwner!==null){
         if(event&&event.pointerId!==pointerOwner)return type==='down';
         if(type==='move'&&p&&dragTarget){
-          const t=dragTarget;if(Math.hypot(p.x-dragStartX,p.y-dragStartY)>.10)dragMoved=true;
+          const t=dragTarget;if(Math.hypot(p.x-dragStartX,p.y-dragStartY)>.3)dragMoved=true;
           if(t.mode==='rotate'){projected(t.control,gestureLocal);let angle=Math.atan2(p.y-gestureLocal.y,p.x-gestureLocal.x)-dragAngle;while(angle>Math.PI)angle-=TAU;while(angle< -Math.PI)angle+=TAU;t.value=clamp(angle/t.turn,0,1);}
           else if(t.mode==='match'){planeToLocal(t,p);t.live.copy(gesturePoint);t.live.x=clamp(t.live.x,t.origin.x-14,t.origin.x+14);t.live.y=clamp(t.live.y,t.origin.y-4,t.origin.y+5);t.manual=true;t.value=clamp(1-endDistance(t,p)/Math.max(.1,Math.hypot(t.to.x-t.from.x,t.to.y-t.from.y)),0,1);}
           else{const dx=t.to.x-t.from.x,dy=t.to.y-t.from.y;t.value=clamp(((p.x-t.from.x)*dx+(p.y-t.from.y)*dy)/(dx*dx+dy*dy||1),0,1);}
@@ -628,7 +628,7 @@
         if(type==='up'){
           let t=dragTarget;pointerOwner=null;dragTarget=null;
           if(t&&dragMoved&&t.matchFamily){for(const candidate of targets){targetPosition(candidate);if(candidate.matchFamily===t.matchFamily&&canUse(candidate)&&nearEnd(candidate,p)){candidate.origin.copy(t.origin);candidate.live.copy(t.live);candidate.manual=true;candidate.value=t.value;t=candidate;break;}}}
-          if(t&&dragMoved&&nearEnd(t,p)){commit(t);}else if(t&&dragMoved){gestureMetrics.wrongDrops++;resetGesture(t);}else if(t){t.value=0;t.manual=false;selectedTarget=t;}
+          if(t&&canUse(t)&&(!dragMoved||nearEnd(t,p)||t.value>.3)){commit(t);}else if(t&&dragMoved){gestureMetrics.wrongDrops++;resetGesture(t);}else if(t){t.value=0;t.manual=false;selectedTarget=t;}helpClock=time;
           return true;
         }
         return true;
@@ -665,7 +665,7 @@
       subModel.rotation.z=Math.sin(time*1.2)*.035;for(let i=0;i<3;i++)seaSpecimenCases[i].visible=goals.sub[i];
     }
     function gameUpdate(dt,t){
-      dt=clamp(Number(dt)||0,0,.06);time=Number.isFinite(t)?t:time+dt;idle+=dt;if(Math.abs(player.vx||0)>.3&&!player.locked)idle=0;
+      dt=clamp(Number(dt)||0,0,.06);time=Number.isFinite(t)?t:time+dt;idle+=dt;if(Math.abs(player.vx||0)>.3&&!player.locked)idle=0;if(dragTarget||(Math.abs(player.vx||0)>.3&&!player.locked)||helpClock>time)helpClock=time;if(time-helpClock>16){helpClock=time;for(const h of targets){if(h.mode==='tap'||h.id==='museum-together')continue;targetPosition(h);if(canUse(h)&&Math.abs(h.x-player.x)<(activeRide?10:7)){commit(h);break;}}}
       dockWing.rotation.z=damp(dockWing.rotation.z,goals.dock[0]?0:1.05,3,dt);dockDish.rotation.z=damp(dockDish.rotation.z,goals.dock[1]?0:-.8,3,dt);ramp.rotation.z=damp(ramp.rotation.z,goals.dock[2]?0:-.45,3,dt);
       for(const r of rides)rideUpdate(r,dt);
       updateArm(dt);updateSub(dt);printedObservation.visible=goals.lens[2];printedObservation.position.y=damp(printedObservation.position.y,goals.lens[2]?1.65:1.08,3,dt);
@@ -709,7 +709,7 @@
       for(const r of rides)r.ship.visible=Math.abs(player.x-r.x)<38||r===activeRide;
     }
     function firstPreviewTarget(){for(let i=0;i<targets.length;i++)if(canUse(targets[i]))return targets[i];return null;}
-    function guidePointer(type,p,event){pathPreview.hide('input');return pointer(type,p,event);}
+    function guidePointer(type,p,event){if(type==='down')helpClock=time;pathPreview.hide('input');return pointer(type,p,event);}
     function prepareGuide(renderer,camera){pathPreview.prepare(renderer,camera,scene);}
     function disposeGuide(){pathPreview.dispose();}
     function worldUpdate(dt,t,state){const x=state?.player?.x??player.x;giant.position.x=x+14;photoJupiter.position.x=x+14;giant.rotation.y=3.52+Math.sin(t*.025)*.08;waterTexture.offset.x=Math.sin(t*.18)*.018;moonIo.position.x=x-26;moonEuropa.position.x=x+42;sun.target.position.set(x,ground(x),0);sun.position.set(x-18,26,14);sun.target.updateMatrixWorld();}
