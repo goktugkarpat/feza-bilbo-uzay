@@ -1559,6 +1559,8 @@
     const shipRibbon=mesh(ship,roofRibbonGeo,new T.MeshStandardMaterial({map:vaneMap,color:coral,roughness:.89,side:T.DoubleSide}),-2.58,4.43,-.1,-.56,.90,.90);shipRibbon.visible=false;
     const journey={index:-1,completed:[false,false,false,false],stage:0,value:0,handleX:0,handleY:0,targetX:0,targetY:0,worldX:0,worldY:0,baseY:null,kind:'',drag:false,reply:0,highVisits:0,lowVisits:0};
     const journeySolved={sunMirror:false,dewShell:false,kiteWeave:false,whaleGuide:false,silkGate:false,windDelivery:false};
+    // The mirror stop waits past the bell greenhouse so the ship, its big fan and the bells do not overlap.
+    const sunMirrorStopU=.405;
     const journeyStops=[.31,.51,.72,.91],eventPoints=[[.15,2.6],[1.4,3.65],[2.66,2.6]];
     let drag=null,dragPointer=null;
     function clearDrag(){drag=null;dragPointer=null;journey.drag=false;}
@@ -2069,7 +2071,7 @@
         if(ride.phase==='flying'){
           ride.u=Math.min(1,ride.u+dt/ride.cruise);
           if(ride.route===0&&ride.u>=.17){ride.u=.17;ride.phase='choice';M.sfx('ring');helpElapsed=0;}
-          else if(ride.route){const next=journey.completed.findIndex(v=>!v);if(next>=0&&ride.u>=journeyStops[next]){ride.u=journeyStops[next];beginJourneyStop(next);}}
+          else if(ride.route){const next=journey.completed.findIndex(v=>!v);const stopU=next===0&&ride.route>0?sunMirrorStopU:journeyStops[next];if(next>=0&&ride.u>=stopU){ride.u=stopU;beginJourneyStop(next);}}
         }
         ride.x=mix(ride.from,ride.to,ride.u);positionShip(t);seat(player,0);seat(dog,1);
         M.setCameraTarget(ride.x+ride.dir*1.7,ship.position.y+(ride.phase==='choice'?3.5:2.0),.85,1);

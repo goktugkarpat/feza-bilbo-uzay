@@ -175,7 +175,7 @@
   // One soft ring on the real object to touch, one golden ring on the goal (made once).
   const sourceRing=new T.Sprite(new T.SpriteMaterial({map:touchMap,color:0x2fcfbf,transparent:true,depthWrite:false,depthTest:false}));sourceRing.name='Dokunulacak nesne halkası';sourceRing.renderOrder=41;sourceRing.visible=false;root.add(sourceRing);
   const goalRing=new T.Sprite(new T.SpriteMaterial({map:touchMap,color:0xffb238,transparent:true,depthWrite:false,depthTest:false}));goalRing.name='Hedef halkası';goalRing.renderOrder=41;goalRing.visible=false;root.add(goalRing);
-  let helpKey='',helpAt=0,helpClock=0,helpReal=0;const helpPoints=Array.from({length:12},()=>new T.Vector3());
+  let helpKey='',helpAt=0,helpClock=0,helpReal=0,helpGame=0,helpGameAt=0;const helpPoints=Array.from({length:12},()=>new T.Vector3());
   // The same path the demo hand shows, used once by the automatic helper.
   function helpPoint(u,out){out.copy(step.from);if(typeof step.pointAt==='function'){step.pointAt(u,out);return out;}
    if(step.action==='drag'||step.action==='press')return out.lerp(step.to,u);
@@ -256,7 +256,7 @@
   function showCard(on){const hidden=!on;if(card.hidden!==hidden)card.hidden=hidden;info.card=on;}
   function value(v){return typeof v==='function'?v():v;}
   function updateCard(lesson,complete){const goal=step.goalIcon||lesson.goal,source=step.sourceIcon||lesson.sourceIcon||({samples:'rock',museum:'rock',flowers:'seed',bridge:'rock',balloon:'wind',kite:'kite',light:'light',ice:'sun',water:'ice',robot:'robot',boat:'wind',camera:'camera'})[goal]||goal;if(paintKey&&paintedLesson===lesson&&paintedGoal===goal&&paintedSource===source&&paintedProgress===step.progress&&paintedTotal===step.total&&paintedComplete===complete)return;paintKey='painted';paintedLesson=lesson;paintedGoal=goal;paintedSource=source;paintedProgress=step.progress;paintedTotal=step.total;paintedComplete=complete;const c=context;c.clearRect(0,0,760,232);c.fillStyle='rgba(24,54,66,.94)';c.beginPath();c.roundRect(8,8,744,215,38);c.fill();c.strokeStyle='#cfb680';c.lineWidth=4;c.stroke();c.strokeStyle='#70999b';c.lineWidth=1;c.beginPath();c.roundRect(17,17,726,197,31);c.stroke();picture(c,source,181,111,157);picture(c,goal,557,111,162,step.progress,step.total);c.strokeStyle=complete?'#a5e9c4':'#f1ce87';c.lineWidth=13;c.lineCap='round';c.lineJoin='round';c.beginPath();if(complete){c.moveTo(337,116);c.lineTo(369,146);c.lineTo(422,80);}else{c.moveTo(326,113);c.lineTo(429,113);c.moveTo(405,88);c.lineTo(431,113);c.lineTo(405,138);}c.stroke();}
-  function update(dt,time){if(disposed)return;info.walkHint=false;info.demoVisible=false;info.demoAvailable=false;if(shownGhost){shownGhost.visible=false;shownGhost=null;}clock=time;{const now=performance.now();let real=helpReal?(now-helpReal)/1000:dt;helpReal=now;if(!(real>=0)||real>.25)real=dt||0;helpClock+=real;}if(Math.abs(player.vx)>.4)lastInput=clock;const touchAge=clock-touchedAt;touchPulse.visible=contactOwner!==null||touchAge>=0&&touchAge<.42;touchHand.visible=touchAge>=0&&touchAge<.28;if(touchPulse.visible){touchPulse.scale.setScalar(contactOwner!==null?.48:.22+touchAge*2.5);touchPulse.material.opacity=contactOwner!==null?.55:.72*(1-touchAge/.42);}if(touchHand.visible)touchHand.material.opacity=Math.min(1,(.28-touchAge)*9);let nearest=null,distance=Infinity;
+  function update(dt,time){if(disposed)return;info.walkHint=false;info.demoVisible=false;info.demoAvailable=false;if(shownGhost){shownGhost.visible=false;shownGhost=null;}clock=time;{const now=performance.now();let real=helpReal?(now-helpReal)/1000:dt;helpReal=now;if(!(real>=0)||real>.25)real=dt||0;helpClock+=real;helpGame+=dt>0&&dt<1?dt:0;}if(Math.abs(player.vx)>.4)lastInput=clock;const touchAge=clock-touchedAt;touchPulse.visible=contactOwner!==null||touchAge>=0&&touchAge<.42;touchHand.visible=touchAge>=0&&touchAge<.28;if(touchPulse.visible){touchPulse.scale.setScalar(contactOwner!==null?.48:.22+touchAge*2.5);touchPulse.material.opacity=contactOwner!==null?.55:.72*(1-touchAge/.42);}if(touchHand.visible)touchHand.material.opacity=Math.min(1,(.28-touchAge)*9);let nearest=null,distance=Infinity;
    let stakeCount=0;
    for(let k=0;k<flags.length;k++){
     const flag=flags[k],e=flag.entry;flag.enabled=!e.enabled||!!e.enabled();flag.done=!!e.completed?.();flag.x=Number(value(e.x));if(flag.enabled)flag.seen=true;
@@ -285,8 +285,9 @@
     if((step.action==='drag'||step.action==='press')&&step.from.distanceToSquared(step.to)>.09){goalRing.position.copy(step.to);goalRing.position.z+=.03;goalRing.scale.setScalar(2.1+.2*beat);goalRing.material.opacity=.85;goalRing.visible=true;}}
    // Stuck for about 20 s on the same step: the lesson may help itself (optional lesson.autoHelp).
    // Real seconds (performance.now), so slow frames do not stretch the wait; update() is not called while paused.
-   const key=active.id+':'+step.progress;if(key!==helpKey){helpKey=key;helpAt=helpClock;}
-   if(helpClock-helpAt>23&&contactOwner===null){helpAt=helpClock;try{if(typeof active.autoHelp==='function')active.autoHelp(step);else if(autoTouch&&step.action!=='wait'){const n=helpPoints.length-1;for(let i=0;i<=n;i++)helpPoint(i/n,helpPoints[i]);autoTouch(helpPoints);}}catch(err){console.warn('autoHelp',active.id,err);}}
+   const key=active.id+':'+step.progress;if(key!==helpKey){helpKey=key;helpAt=helpClock;helpGameAt=helpGame;}
+   // Backup only: planets help themselves after 14-20 s of GAME time, so wait 23 s of both real and game time (slow frames cannot let it overtake them).
+   if(helpClock-helpAt>23&&helpGame-helpGameAt>23&&contactOwner===null){helpAt=helpClock;helpGameAt=helpGame;info.backups=(info.backups||0)+1;info.backupKey=key;try{if(typeof active.autoHelp==='function')active.autoHelp(step);else if(autoTouch&&step.action!=='wait'){const n=helpPoints.length-1;for(let i=0;i<=n;i++)helpPoint(i/n,helpPoints[i]);autoTouch(helpPoints);}}catch(err){console.warn('autoHelp',active.id,err);}}
    const demo=contactOwner===null&&step.action!=='wait'&&(clock-entered<3.4||clock-lastInput>3.1)&&clock-lastInput>.7&&Math.abs(player.vx)<3.2;
    if(demo){const tap=step.action==='tap'&&typeof step.pointAt!=='function',shown=tap?4.6:3.25,t=(clock-entered)%(tap?5.2:4.5);hand.visible=t<shown;let u=M.clamp((t-.45)/1.95,0,1);u=u*u*(3-2*u);hand.position.copy(step.from);
     if(typeof step.pointAt==='function')step.pointAt(u,hand.position);
@@ -306,6 +307,6 @@
   function prepare(renderer){for(const map of[...flagMaps,touchMap,hand.material.map])renderer.initTexture?.(map);for(const ghost of ghosts){ghost.visible=true;renderer.compile(ghost,M.camera,scene);ghost.visible=false;}}
   function warm(renderer,camera){if(!ghosts.length)return;for(const ghost of ghosts)ghost.visible=true;renderer.render(scene,camera);for(const ghost of ghosts)ghost.visible=false;}
   function frameBounds(){const f=flags.find(f=>f.entry===active&&f.sprite.visible);if(!f)return null;framing.minX=f.poleX+(f.side<0?-1.25*f.size:-.25);framing.maxX=f.poleX+(f.side>0?1.25*f.size:.25);return framing;}
-  return{helpNow:()=>{helpAt=-1e9;},update,pointer,warm,frameBounds,feedback,moveContact,releaseContact,clearContact,prepare,noticeInput,dispose,state:()=>info,lessons:entries};
+  return{helpNow:()=>{helpAt=helpGameAt=-1e9;},update,pointer,warm,frameBounds,feedback,moveContact,releaseContact,clearContact,prepare,noticeInput,dispose,state:()=>info,lessons:entries};
  };
 })(window.MARS);

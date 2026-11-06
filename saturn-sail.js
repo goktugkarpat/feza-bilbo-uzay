@@ -277,25 +277,20 @@
     function stopPointer(type,p,e){
       const s=riding,q=s?.stop,id=e?.pointerId??0;
       if(!q||q.done)return false;
-      if(type==='cancel') {if(!e||id===q.owner){q.owner=null;q.dragged=false;}return false;}
+      if(type==='cancel') {if(e&&id===q.owner){finishStop(q);return false;}if(!e||id===q.owner){q.owner=null;q.dragged=false;}return false;}
       // Keep the hand already moving this object. Another finger may use the
       // source-to-socket assistance after release, but cannot steal a held grip.
       if(q.owner!==null&&id!==q.owner)return type==='down';
       if(q.kind==='winch')q.handle.localToWorld(va.set(0,0,.03));else q.token.getWorldPosition(va);const camera=M.camera;if(camera?.position.z){const k=(camera.position.z-va.z)/camera.position.z;vb.set(camera.position.x+(p.x-camera.position.x)*k,camera.position.y+(p.y-camera.position.y)*k,va.z);p=vb;}
       if(type==='down'){
+        // While the boat is moored there is only one job, so any touch on the
+        // whole machine (wheel, gate, lantern, moon or socket) grabs it. A tap
+        // or any short drag then finishes the stop on release.
         const x=p.x-q.x,y=p.y-q.y;
-        if(q.kind==='winch'){
-          if(Math.hypot(x,y-2.10)>1.85)return false;
-          q.angle=Math.atan2(y-2.1,x);q.owner=id;q.dragged=false;return true;
-        }
-        if(Math.abs(x-1.12)<.94&&Math.abs(y-1.95)<1.05){
-          // Assistance still starts at the real lantern or moon. An empty
-          // socket by itself only leaves the source's invitation ring visible.
-          if(q.selected){finishStop(q);return true;}
-          return false;
-        }
-        if(Math.abs(x-q.token.position.x)<1.35&&Math.abs(y-q.token.position.y)<1.35){q.owner=id;q.dragged=false;q.selected=true;q.pressX=x;return true;}
-        return false;
+        if(Math.abs(x)>3.4||y<-.7||y>4.6)return false;
+        q.owner=id;q.dragged=false;
+        if(q.kind==='winch')q.angle=Math.atan2(y-2.1,x);else{q.selected=true;q.pressX=x;}
+        return true;
       }
       if(q.owner!==id)return false;
       if(type==='move'){
@@ -311,9 +306,8 @@
           if(q.target>.6&&Math.abs(p.y-q.y-1.95)<1.6){finishStop(q);return true;}
         }
       }else if(type==='up'){
-        // A plain tap or a half-way drag is enough for a 4-year-old.
-        if(!q.dragged||q.target>.45)finishStop(q);
-        q.owner=null;
+        // A plain tap or any short drag is enough for a 4-year-old.
+        finishStop(q);
       }
       return true;
     }
