@@ -149,6 +149,8 @@
       const w=widthAt(is,x1),w2=widthAt(is,x2);
       pipe(x1,ground(x1)-.31,w+.03,x2,ground(x2)-.31,w2+.03,.045,brass);
     }
+    // Cila: matte cloud puffs hug each raft's underbelly (instanced per 31 m stretch, no shadows).
+    const puffPaint=new T.MeshStandardMaterial({roughness:1,metalness:0,emissive:0x5d7da3,emissiveIntensity:.3}),puffGeo=new T.SphereGeometry(1,16,10);
     islands.forEach((is,ii)=>{
       deckSections.push({vertex:deckPositions.length/3,index:deckIndices.length});
       const [top,bright,dark]=deckPalette[ii%deckPalette.length],topColor=new T.Color(top);
@@ -176,6 +178,11 @@
       for(const sign of [-1,1]){
         pipe(cx+sign*(is.b-is.a)*.29,cy-.52,1.32,cx+sign*1.26,cy-2.5,.69,.085,brass);
         pipe(cx+sign*1.26,cy-2.5,.69,cx,cy-2.86,0,.068,indigo);
+      }
+      for(let x=is.a+.8,k=0;x<is.b-.6;x+=1.7,k++){
+        const w=widthAt(is,x),sp=w-1.14,y=ground(x),h=Math.sin(k*2.17+ii*1.3);
+        stamp(puffGeo,k%2?0xe9f2fc:0xd6e5f5,x,y-1.12-sp*.63,w*.43,.92+.2*h,.46+.08*h,.78,0,puffPaint);
+        stamp(puffGeo,0xf0f6fd,x+.85,y-.95-sp*.40,w*.74,.58+.12*h,.33,.5,0,puffPaint);
       }
       if(ii===islands.length-1)return;
       const a=is.b,b=islands[ii+1].a,steps=Math.ceil((b-a)/.34);
@@ -427,6 +434,54 @@
       const w=lane===0?24:15,depthY=lane===0?-.96:lane===1?-2.37:-3.6;
       const q=mesh(root,cloudGeos[i%2],cloudMat,x,depthY+1.1*Math.sin(i*2.631),d,w*(1+.20*Math.sin(i*1.49)),w*.335,1);
       q.renderOrder=lane-4;clouds.push({q,x,y:q.position.y,i});
+    }
+    // Cila: festive pennant garlands droop between the brass rivets on each raft's near lip.
+    // One merged mesh; the tips flutter in the vertex shader with the shared cloud-wind clock.
+    {
+      const bp=[],bc=[],bs=[],dyes=[coral,0xf6cf6a,teal,lilac,cream,0x7fd6a8].map(c=>new T.Color(c));
+      islands.forEach((is,ii)=>{
+        const anchors=[];for(let x=is.a+1.4;x<is.b-1;x+=2.4)anchors.push(x);
+        for(let k=0;k<anchors.length-1;k++){
+          const x0=anchors[k],x1=anchors[k+1],n=6;
+          for(let j=0;j<n;j++){
+            const u0=(j+.12)/n,u1=(j+.88)/n,um=(j+.5)/n,col=dyes[(j+k*2+ii)%dyes.length];
+            const pt=u=>{const x=mix(x0,x1,u);return [x,ground(x)-.30-.2*Math.sin(u*Math.PI),widthAt(is,x)+.16];};
+            const A=pt(u0),B=pt(u1),C=pt(um);
+            bp.push(A[0],A[1],A[2],C[0],C[1]-.25,C[2]+.01,B[0],B[1],B[2]);
+            for(let v=0;v<3;v++){bc.push(col.r,col.g,col.b);bs.push(v===1?1:0);}
+          }
+        }
+      });
+      const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(bp,3));g.setAttribute('color',new T.Float32BufferAttribute(bc,3));
+      g.setAttribute('sway',new T.Float32BufferAttribute(bs,1));g.computeVertexNormals();
+      const m=new T.MeshStandardMaterial({vertexColors:true,roughness:.7,metalness:0,side:T.DoubleSide,emissive:0x2a2a3a,emissiveIntensity:.35});
+      m.onBeforeCompile=sh=>{sh.uniforms.uCloudWind=cloudWind;sh.vertexShader='uniform float uCloudWind;\nattribute float sway;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n transformed.z += sway*.07*sin(uCloudWind*1.7+position.x*1.3);\n transformed.x += sway*.05*sin(uCloudWind*1.1+position.x*.7);');};
+      const q=mesh(root,g,m,0,0,0);q.frustumCulled=false;q.raycast=()=>{};
+    }
+    // Cila: a few small balloon airships drift slowly far behind the harbour (one instanced draw).
+    {
+      const ap=[],an=[],ac=[],ai=[],mx=new T.Matrix4(),nm=new T.Matrix3(),v=new T.Vector3(),tc=new T.Color();
+      function part(src,matrix,colorOf){
+        const base=ap.length/3,P=src.attributes.position,N=src.attributes.normal;nm.getNormalMatrix(matrix);
+        for(let i=0;i<P.count;i++){
+          v.fromBufferAttribute(P,i);const c=colorOf(v);v.applyMatrix4(matrix);ap.push(v.x,v.y,v.z);
+          v.fromBufferAttribute(N,i).applyMatrix3(nm).normalize();an.push(v.x,v.y,v.z);tc.set(c);ac.push(tc.r,tc.g,tc.b);
+        }
+        const I=src.index.array;for(let i=0;i<I.length;i++)ai.push(I[i]+base);
+      }
+      const env=new T.SphereGeometry(1,16,10);
+      part(env,mx.makeScale(1.7,.66,.66),p=>Math.floor((Math.atan2(p.z,p.y)/TAU+1)*8)%2?cream:coral);
+      part(geo.block,mx.compose(new T.Vector3(.1,-.86,0),new T.Quaternion(),new T.Vector3(.7,.2,.26)),()=>indigo);
+      for(const s of [-1,1])part(geo.slim,mx.compose(new T.Vector3(.1+s*.25,-.7,0),new T.Quaternion(),new T.Vector3(.025,.32,.025)),()=>brass);
+      for(let f=0;f<4;f++)part(geo.fin,mx.compose(new T.Vector3(-1.62,0,0),new T.Quaternion().setFromEuler(new T.Euler(f*Math.PI/2,0,Math.PI/2)),new T.Vector3(.36,.5,.07)),()=>teal);
+      const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(ap,3));g.setAttribute('normal',new T.Float32BufferAttribute(an,3));
+      g.setAttribute('color',new T.Float32BufferAttribute(ac,3));g.setIndex(ai);env.dispose();
+      const m=new T.MeshStandardMaterial({vertexColors:true,roughness:.66,metalness:.1});
+      m.onBeforeCompile=sh=>{sh.uniforms.uCloudWind=cloudWind;sh.vertexShader='uniform float uCloudWind;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n #ifdef USE_INSTANCING\n float ph=instanceMatrix[3].x*.37;\n transformed.y += .22*sin(uCloudWind*.33+ph);\n transformed.x += 1.4*sin(uCloudWind*.045+ph);\n #endif');};
+      const spots=[[27,7.4,-38,1.05,0],[64,8.6,-44,1.3,1],[98,6.8,-36,1.0,0],[150,8.2,-46,1.35,1],[206,7.2,-38,1.15,0],[252,8.4,-42,1.25,1],[300,7,-36,1.05,0]];
+      const fleet=new T.InstancedMesh(g,m,spots.length),dummy=new T.Object3D(),tints=[0xffffff,0xd8f4ff,0xffe6f0,0xe9e2ff];
+      spots.forEach(([x,y,z,s,flip],i)=>{dummy.position.set(x,y,z);dummy.rotation.set(0,flip?Math.PI:0,0);dummy.scale.setScalar(s);dummy.updateMatrix();fleet.setMatrixAt(i,dummy.matrix);fleet.setColorAt(i,tc.set(tints[i%tints.length]));});
+      fleet.frustumCulled=false;fleet.raycast=()=>{};root.add(fleet);
     }
 
     // Broad, soft spiral cloud bands turn beneath the harbour. Their one small painted

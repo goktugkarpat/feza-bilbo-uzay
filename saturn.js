@@ -1515,6 +1515,44 @@
         float cross=pow(max(0.,1.-p.x),6.)*pow(max(0.,1.-p.y*7.),2.)+pow(max(0.,1.-p.y),6.)*pow(max(0.,1.-p.x*7.),2.);
         gl_FragColor=vec4(1.,.95,.86,(core+cross*.8)*a*.8);}`}));
     dust.frustumCulled=false;motes.add(dust);
+    // CİLA: calm decor, all built once. Lantern posts on the back edge of the
+    // lane, frost crystal clumps on the front lip, a slow far band of ring rocks.
+    // Each set is one instanced draw; none of them take touches or cast shadows.
+    const decor=group(root),noPick=()=>{};
+    const busy=[harpX,dockX,eyeX,eclipseX,nurseryX,26,43,90,115,137,167,191,215];
+    const nearBusy=x=>busy.some(q=>Math.abs(x-q)<4.5);
+    const postXs=[];for(let x=4;x<length-4;x+=11)if(!nearBusy(x))postXs.push(x);
+    const postMat=metal(0xd59b5a,.36,.53),lanternMat=new T.MeshBasicMaterial({color:0xffe2a0});
+    const posts=new T.InstancedMesh(shapes.rod,postMat,postXs.length*3),caps=new T.InstancedMesh(shapes.sphere,lanternMat,postXs.length);
+    postXs.forEach((x,i)=>{
+      const z=(iceAt(x)?shelfEdge(x,-1):back(x))+.55,y=ground(x);
+      dummy.rotation.set(0,0,0);dummy.position.set(x,y+.55,z);dummy.scale.set(.035,1.1,.035);dummy.updateMatrix();posts.setMatrixAt(i*3,dummy.matrix);
+      dummy.position.set(x,y+.08,z);dummy.scale.set(.09,.16,.09);dummy.updateMatrix();posts.setMatrixAt(i*3+1,dummy.matrix);dummy.position.set(x,y+1.31,z);dummy.scale.set(.15,.04,.15);dummy.updateMatrix();posts.setMatrixAt(i*3+2,dummy.matrix);
+      dummy.position.set(x,y+1.17,z);dummy.scale.setScalar(.11);dummy.updateMatrix();caps.setMatrixAt(i,dummy.matrix);
+    });
+    const crystalMat=metal(0x9fe3f0,.28,.08);crystalMat.emissive=new T.Color(0x2a5a66);crystalMat.emissiveIntensity=.35;
+    const crystalSpots=[];for(let x=10;x<length-2;x+=2.6+rand()*2.2)if(iceAt(x)&&!nearBusy(x))crystalSpots.push(x);
+    const crystals=new T.InstancedMesh(shapes.stone,crystalMat,crystalSpots.length*3);
+    crystalSpots.forEach((x,i)=>{
+      const z=shelfEdge(x,1)-.32,y=ground(x);
+      for(let k=0;k<3;k++){
+        const h=.16+rand()*.22;dummy.position.set(x+(k-1)*.13,y+h*.45,z+(rand()-.5)*.16);
+        dummy.rotation.set((rand()-.5)*.5,rand()*TAU,(k-1)*.35);dummy.scale.set(.05+rand()*.03,h,.05+rand()*.03);
+        dummy.updateMatrix();crystals.setMatrixAt(i*3+k,dummy.matrix);
+      }
+    });
+    const farRocks=new T.InstancedMesh(shapes.stone,mats.frost,70),farBand=group(decor);
+    for(let i=0;i<70;i++){
+      const s=.12+rand()*.28;dummy.position.set(rand()*(length+40)-20,-2.2+rand()*3.4,-34-rand()*12);
+      dummy.rotation.set(rand()*TAU,rand()*TAU,rand()*TAU);dummy.scale.set(s,s*(.6+rand()*.5),s);dummy.updateMatrix();farRocks.setMatrixAt(i,dummy.matrix);
+    }
+    for(const m of [posts,caps,crystals,farRocks]){m.raycast=noPick;m.castShadow=false;m.receiveShadow=false;m.instanceMatrix.needsUpdate=true;m.computeBoundingSphere();}
+    decor.add(posts,caps,crystals);farBand.add(farRocks);
+    function decorTick(time){
+      lanternMat.color.setRGB(1,.86+.06*Math.sin(time*1.3),.58+.08*Math.sin(time*1.3));
+      farBand.position.set(Math.sin(time*.035)*3.5,Math.sin(time*.11)*.35,0);
+    }
+    dummy.rotation.set(0,0,0);dummy.scale.set(1,1,1);dummy.position.set(0,0,0);
     flush();
     weldToy(scout);for(const wing of wings)weldToy(wing);for(const claw of claws)weldToy(claw);
     weldToy(lens);weldToy(paw);weldToy(boat);weldToy(direction);weldToy(pawMark);
@@ -1800,7 +1838,7 @@
       panorama.offset.set((1-crop)*(.14+.72*clamp(x/length,0,1)),(1-cropY)*.5);
       animateWheel(dt,time);spaceSky?.update(dt);
       key.position.set(x-8,15,10);key.target.position.set(x,ground(x),0);
-      motes.position.y=Math.sin(time*.38)*.15;glintUniforms.time.value=time;
+      motes.position.y=Math.sin(time*.38)*.15;glintUniforms.time.value=time;decorTick(time);
     }
     function update(dt,time){
       clock+=dt;gleam=Math.max(0,gleam-dt);

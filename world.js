@@ -492,8 +492,17 @@
     // Cache fixed local transforms once. Rotating vane subtrees stay live;
     // cloth still deforms its vertex buffers every frame.
     // Weather is added afterwards and retains its own moving transforms.
+    // Calm far decor: one slow wind turbine behind the camp and two softly blinking beacon lamps (no touch, no shadows).
+    const noHit=()=>{},beaconMat=new T.MeshBasicMaterial({color:0x5a2a1c,fog:false}),beaconOn=new T.Color(0xffb04a),beaconOff=new T.Color(0x5a2a1c);
+    const farTurbine=new T.Group();farTurbine.position.set(-4,height(-4,-58)-.4,-58);farTurbine.scale.setScalar(.62);root.add(farTurbine);
+    const tw=[cylinder(.16,.34,8.4,mats.cream,0,4.2,0,farTurbine,10),box(.5,.42,1.1,mats.cream,0,8.55,-.2,farTurbine),sphere(.12,beaconMat,0,8.86,-.4,farTurbine,8,6)];
+    const turbineRotor=new T.Group();turbineRotor.position.set(0,8.55,.42);farTurbine.add(turbineRotor);tw.push(sphere(.22,mats.cream,0,0,0,turbineRotor,12,8));
+    const bladeGeo=new T.BoxGeometry(.2,3.2,.05);bladeGeo.translate(0,1.7,0);
+    for(let i=0;i<3;i++){const bl=mesh(bladeGeo,mats.cream,0,0,0,turbineRotor,false);bl.rotation.z=i*Math.PI*2/3;tw.push(bl);}
+    const campBeacon=sphere(.075,beaconMat,12.4,height(13,-6.5)+4.66,-6.75,root,10,6);tw.push(campBeacon);
+    tw.forEach(o=>{o.castShadow=false;o.receiveShadow=false;o.raycast=noHit;});
     root.updateWorldMatrix(true,true);
-    const animatedParts=new Set([campCloth,routeRotor,...weatherRotors]);
+    const animatedParts=new Set([campCloth,routeRotor,turbineRotor,...weatherRotors]);
     function cacheSceneryTransform(o,parentMoves){
       const moves=parentMoves||animatedParts.has(o);
       if(!moves)o.matrixAutoUpdate=false;
@@ -559,6 +568,7 @@
       rotorTime=(rotorTime+dt*(1.0+weather.intensity*4.5))%(Math.PI*12);
       routeRotor.rotation.y=t*.48+rotorTime*.5;
       weatherRotors.forEach((o,i)=>{o.rotation.y=rotorTime*(1+i*.5);});
+      turbineRotor.rotation.z=t*.35+rotorTime*.08;{const k=t%2.2;beaconMat.color.copy(beaconOff).lerp(beaconOn,k<.5?Math.sin(k/.5*Math.PI):0);}
 
     }
     return {length:500,finaleX:475,warmPositions:[8,35,70,95,118,154,182,198,220,241,263,274,282,296,303,319,327,341,349,366,390,416,451,475,495],ground,platforms,update,zone:x=>x<40?'kamp':x<125?'kanyon':x<246?'kumlar':x<350?'buz':x<445?'geçit':'bilim kampı',isIce:x=>x>=248&&x<=348,materials:mats,root,batchStation,atmosphere,weather,touchWeather:weatherScene.touch};
