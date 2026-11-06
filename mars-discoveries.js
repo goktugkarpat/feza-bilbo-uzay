@@ -700,6 +700,9 @@ stemGroups.push(plant);flowerGroups.push(bloom);
           show=true;M.parkForActivity(362.5,360.9,1);frameStation(363.2,369.6,waterLab.position.y+1.88,1.15);
         }else if(Math.abs(player.x-451)<10&&!mission.constellation){
           const i=constellationParts.indexOf(false);targetX=451+(i>=0?constellationTiles[i].x:.84);targetY=projector.position.y+1.08;show=true;if(i>=0)M.parkForActivity(445.7,444.1,1);frameStation(446.2,455.5,projector.position.y+2.35,1.02);
+        }else if(Math.abs(player.x-118)<10&&!mission.heli&&survey.active<0){
+          // Landscape iPad: keep the whole coaxial helicopter (rotor tips included) in view while Feza waits beside it.
+          frameStation(112.4,121.4,pad.position.y+2.2,.94);
         }
         teaching.visible=!M.playGuideActive&&show&&teachingIdle>3;
         if(teaching.visible){teaching.position.set(targetX,targetY+Math.sin(clock*3)*.05,.8);}
