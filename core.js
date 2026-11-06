@@ -1,6 +1,10 @@
 'use strict';
-window.MARS = {version:'0.10.1', events:new EventTarget(), progress:{world:0,characters:0,activities:0,engine:0,qa:0}};
+window.MARS = {version:'0.10.2', events:new EventTarget(), progress:{world:0,characters:0,activities:0,engine:0,qa:0}};
 (function(M){
+  // This runs in both the station and the expedition iframe. Native selection
+  // and callouts must not take over a child's held finger or drag gesture.
+  for(const type of ['selectstart','contextmenu','dragstart'])document.addEventListener(type,e=>e.preventDefault(),{capture:true});
+  document.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'){const selection=document.getSelection();if(selection&&!selection.isCollapsed)selection.removeAllRanges();}},{capture:true,passive:true});
   M.clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   M.lerp=(a,b,t)=>a+(b-a)*t;
   M.damp=(a,b,k,dt)=>a+(b-a)*(1-Math.exp(-k*dt));
