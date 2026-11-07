@@ -39,3 +39,9 @@ Mars kaplamalarının kaynakları `assets/textures` içinde, Satürn görselleri
 Jüpiter ve Venüs’ün üs resimleri bu oyun için ImageGen ile üretilip oyunun çizim tarzına uyarlandı. Yeni yüzeyler, gezegen bulutları ve bilim düzenekleri yerel geometri ve üretilen dokulardır; uzak bir görsel servisine ihtiyaç duymaz.
 
 Venüs’ün volkanik panoraması ve bazalt yüzeyleri bu oyun için ImageGen ile üretildi. Yerel görsel paketi `assets/venus/scene-art.js` içindedir.
+
+## Yapım
+
+Bu oyun, Feza'nın babası **Göktuğ Karpat** (@goktugkarpat) ile yapay zekâ yardımcıları **Codex** (OpenAI) ve **Claude** (Anthropic) birlikte çalışarak yapılmıştır.
+Fikirler, gezegenler ve kararlar ailenindir; kod, 3B sahneler, bilim düzenekleri ve düzenlemeler Codex ve Claude ile birlikte yazılmıştır.
+Oyun yalnızca Feza için, kâr amacı olmadan yapılmış bir aile projesidir.
