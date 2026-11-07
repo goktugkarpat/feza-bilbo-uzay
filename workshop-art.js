@@ -119,8 +119,13 @@
     let map = textures.get('hand');
     if (!map) {
       const image = canvas(256, 256), c = image.getContext('2d');
-      c.lineJoin = 'round'; c.lineWidth = 8;
-      c.strokeStyle = '#214a57'; c.fillStyle = '#fff4d7';
+      c.lineJoin = 'round'; c.lineCap = 'round';
+      // Same outline as before, now with a soft shadow, a white contrast halo and a warm shaded fill.
+      const outline = () => { c.beginPath(); c.moveTo(76, 48); c.lineTo(160, 48); c.bezierCurveTo(171, 64, 170, 75, 170, 88); c.bezierCurveTo(193, 81, 206, 92, 199, 107); c.lineTo(175, 145); c.bezierCurveTo(169, 155, 159, 161, 148, 161); c.lineTo(148, 210); c.bezierCurveTo(148, 234, 122, 234, 122, 210); c.lineTo(122, 161); c.bezierCurveTo(98, 164, 80, 155, 77, 140); c.bezierCurveTo(68, 116, 73, 78, 76, 48); c.closePath(); };
+      c.save(); c.shadowColor = 'rgba(8,28,38,.42)'; c.shadowBlur = 12; c.shadowOffsetY = 6; outline(); c.fillStyle = '#fff4d7'; c.fill(); c.restore();
+      outline(); c.lineWidth = 17; c.strokeStyle = 'rgba(255,255,255,.92)'; c.stroke();
+      const skin = c.createLinearGradient(80, 40, 190, 200); skin.addColorStop(0, '#fffaf0'); skin.addColorStop(.6, '#ffe9c4'); skin.addColorStop(1, '#f2c992');
+      c.lineWidth = 8; c.strokeStyle = '#214a57'; c.fillStyle = skin;
       c.beginPath(); c.moveTo(76, 48); c.lineTo(160, 48);
       c.bezierCurveTo(171, 64, 170, 75, 170, 88);
       c.bezierCurveTo(193, 81, 206, 92, 199, 107);
@@ -128,7 +133,10 @@
       c.lineTo(148, 210); c.bezierCurveTo(148, 234, 122, 234, 122, 210);
       c.lineTo(122, 161); c.bezierCurveTo(98, 164, 80, 155, 77, 140);
       c.bezierCurveTo(68, 116, 73, 78, 76, 48); c.closePath(); c.fill(); c.stroke();
-      c.fillStyle = '#e5ac60'; c.fillRect(77, 31, 85, 29); c.strokeRect(77, 31, 85, 29);
+      c.fillStyle = 'rgba(255,255,255,.55)'; c.beginPath(); c.ellipse(135, 214, 8, 6, 0, 0, Math.PI * 2); c.fill();
+      c.lineWidth = 15; c.strokeStyle = 'rgba(255,255,255,.92)'; c.strokeRect(77, 31, 85, 29); c.lineWidth = 8; c.strokeStyle = '#214a57';
+      const cuff = c.createLinearGradient(0, 31, 0, 60); cuff.addColorStop(0, '#ffc77a'); cuff.addColorStop(1, '#d9913f');
+      c.fillStyle = cuff; c.fillRect(77, 31, 85, 29); c.strokeRect(77, 31, 85, 29);
       c.strokeStyle = '#b0c6c2'; c.lineWidth = 4;
       for (const x of [94, 112, 131]) { c.beginPath(); c.moveTo(x, 82); c.lineTo(x - 1, 122); c.stroke(); }
       map = texture(image); textures.set('hand', map);

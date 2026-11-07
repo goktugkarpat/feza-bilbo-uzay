@@ -407,8 +407,12 @@
     // BLUE ICE: an actual sled, broad jump rings, and a soft low-gravity arc.
     const iceStart=282, iceEnd=359, ig=ground(iceStart);
     const sled=new T.Group();sled.name='Ice sled';root.add(sled);sled.position.set(iceStart,ig+.12,-1.1);
-    [-.62,.62].forEach(z=>{tube([-1.72,.12,z],[.95,.12,z],.1,C.silver,sled);tube([.95,.12,z],[1.35,.5,z],.1,C.silver,sled);});
-    box([-.25,.43,0],[3.1,.3,1.4],C.orange,sled);box([-1.67,.8,0],[.18,.75,1.4],C.teal,sled);const pawCanvas=document.createElement('canvas');pawCanvas.width=pawCanvas.height=64;const pc=pawCanvas.getContext('2d');pc.fillStyle='#fff4d9';pc.beginPath();pc.ellipse(32,41,13,11,0,0,Math.PI*2);pc.fill();for(const [px,py]of [[14,26],[25,17],[40,17],[51,26]]){pc.beginPath();pc.ellipse(px,py,6,8,(px-32)*.02,0,Math.PI*2);pc.fill();}const pawTexture=new T.CanvasTexture(pawCanvas);pawTexture.colorSpace=T.SRGBColorSpace;mesh(new T.PlaneGeometry(.38,.38),new T.MeshStandardMaterial({map:pawTexture,transparent:true,depthWrite:false,roughness:.8}),[-.1,.43,.711],null,sled);
+    // Curled runners, struts, grab rails and a padded back make a real sled; static parts merge per material.
+    [-.62,.62].forEach(z=>{tube([-1.72,.12,z],[.95,.12,z],.1,C.silver,sled);tube([.95,.12,z],[1.35,.5,z],.1,C.silver,sled);tube([1.35,.5,z],[1.18,.8,z],.08,C.silver,sled);ball([1.18,.8,z],[.1,.1,.1],C.gold,sled);
+      for(const x of [-1.2,-.2,.8])tube([x,.12,z],[x,.32,z*.88],.045,C.silver,sled);tube([-.7,.66,z*1.16],[.7,.66,z*1.16],.04,C.gold,sled);tube([-.7,.47,z*1.16],[-.7,.66,z*1.16],.035,C.gold,sled);tube([.7,.47,z*1.16],[.7,.66,z*1.16],.035,C.gold,sled);});
+    box([-.25,.43,0],[3.1,.3,1.4],C.orange,sled);box([-.25,.47,0],[3.16,.07,1.46],C.white,sled);ball([1.3,.44,0],[.2,.16,.66],C.teal,sled);
+    box([-1.67,.8,0],[.18,.75,1.4],C.teal,sled);tube([-1.67,1.2,-.72],[-1.67,1.2,.72],.075,C.gold,sled);box([-1.5,.82,0],[.12,.5,1.1],C.white,sled);
+    if(world.batchStation)world.batchStation(sled);const pawCanvas=document.createElement('canvas');pawCanvas.width=pawCanvas.height=64;const pc=pawCanvas.getContext('2d');pc.fillStyle='#fff4d9';pc.beginPath();pc.ellipse(32,41,13,11,0,0,Math.PI*2);pc.fill();for(const [px,py]of [[14,26],[25,17],[40,17],[51,26]]){pc.beginPath();pc.ellipse(px,py,6,8,(px-32)*.02,0,Math.PI*2);pc.fill();}const pawTexture=new T.CanvasTexture(pawCanvas);pawTexture.colorSpace=T.SRGBColorSpace;mesh(new T.PlaneGeometry(.38,.38),new T.MeshStandardMaterial({map:pawTexture,transparent:true,depthWrite:false,roughness:.8}),[-.1,.43,.711],null,sled);
     const iceRings=[],iceToys=[];
     // 4 yaş için kısa kızak: 1 kar tanesi + 3 buz keşfi + buz kapısı (toplam 5 dokunuş).
     [288,303,327,346].forEach((x,i)=>{
@@ -442,7 +446,9 @@
     iceRings.push({ring:gateRing,inner:gateInner,x:352,y:ground(352)+2.62,kind:'prismGate',stopOffset:3.8,workshop:gateWorkshop,taken:false});
     // A pair of narrow icy ribbons makes the course readable without hiding terrain.
     const railExtension=new T.Group();railExtension.name='Static sled path beyond original finish';root.add(railExtension);
-    [-.92,.92].forEach(z=>{for(let x=282;x<359;x+=2){const a=[x,ground(x)+.09,z],b=[x+1.65,ground(x+1.65)+.09,z];tube(a,b,.055,C.blue,x>=350?railExtension:root);}});if(world.batchStation)world.batchStation(railExtension);
+    // Continuous rails (one merged mesh per side group) read as a real sled track, not a dashed line.
+    const railTrack=new T.Group();railTrack.name='Static sled rails';root.add(railTrack);
+    [-.92,.92].forEach(z=>{for(let x=282;x<359;x+=2){const a=[x,ground(x)+.09,z],b=[x+2.04,ground(x+2.04)+.09,z];tube(a,b,.055,C.blue,x>=350?railExtension:railTrack);}});if(world.batchStation){world.batchStation(railExtension);world.batchStation(railTrack);}
     const landing=marker(iceEnd,ground(iceEnd)+.5,1.3,C.blue);landing.visible=false;landing.rotation.x=-Math.PI/2;landing.position.z=.08;
     const slideState={phase:'ready',x:iceStart,from:iceStart,to:iceEnd,time:0,lift:0,vy:0,score:0,trips:0,jumped:false};
     const jumpCue=new T.Group();root.add(jumpCue);jumpCue.position.set(315.5,ground(315.5)+.85,-1.1);tube([0,-.8,0],[0,-.1,0],.05,C.silver,jumpCue);triangle(jumpCue,0,.14,.1,.48,C.orange,Math.PI/2);triangle(jumpCue,0,.55,.1,.37,C.gold,Math.PI/2);cyl([0,-.78,0],[.24,.1,.24],C.blue,jumpCue);jumpCue.visible=false;
@@ -453,7 +459,7 @@
     // The finale is a tangible telescope and three illuminated friendship stars.
     const fx=475, fg=ground(fx), finale=new T.Group();finale.position.set(fx,fg,0);root.add(finale);
     const finaleStars=[];[-2.1,0,2.1].forEach((x,i)=>{const p=star(finale,x,3.7+Math.sin(i)*.45,.15,.62,done[i]?C.gold:C.dark);finaleStars.push(p);});
-    const telescope=new T.Group();telescope.position.set(1.8,1.8,-1.8);telescope.rotation.z=.5;finale.add(telescope);const tele=cyl([0,0,0],[.55,2.1,.55],C.white,telescope);ball([0,1.02,0],[.5,.1,.5],C.blue,telescope);hoop([0,0,.52],.45,C.orange,telescope);tube([1.8,1.1,-1.8],[1.8,0,-1.8],.12,C.dark,finale);hoop([0,0,.54],.39,C.teal,telescope);const telescopeStar=star(telescope,0,0,.59,.32,C.gold);telescopeStar.name='Bilim kampının gerçek yıldız düğmesi';
+    const telescope=new T.Group();telescope.position.set(1.8,1.8,-1.8);telescope.rotation.z=.5;finale.add(telescope);const tele=cyl([0,0,0],[.55,2.1,.55],C.white,telescope);ball([0,1.02,0],[.5,.1,.5],C.blue,telescope);hoop([0,0,.52],.45,C.orange,telescope);tube([1.8,1.1,-1.8],[1.8,0,-1.8],.12,C.dark,finale);hoop([0,0,.54],.39,C.teal,telescope);const telescopeStar=star(telescope,0,0,.59,.32,C.gold);{const trim=new T.Group();telescope.add(trim);cyl([0,.9,0],[.6,.24,.6],C.orange,trim);cyl([0,-1.0,0],[.5,.14,.5],C.dark,trim);cyl([0,-1.22,0],[.15,.34,.15],C.dark,trim);ball([0,-1.4,0],[.17,.08,.17],C.silver,trim);for(const y of [.55,-.65])hoop([0,y,0],.565,C.gold,trim).rotation.x=Math.PI/2;cyl([.66,.3,-.1],[.12,.95,.12],C.silver,trim);tube([.55,.05,-.05],[.64,.05,-.08],.045,C.silver,trim);tube([.55,.55,-.05],[.64,.55,-.08],.045,C.silver,trim);if(world.batchStation)world.batchStation(trim);const tripod=new T.Group();finale.add(tripod);ball([1.8,1.16,-1.8],[.2,.2,.2],C.dark,tripod);for(const [x,z] of [[1.12,-1.42],[2.48,-1.42],[1.8,-2.6]])tube([1.8,1.12,-1.8],[x,0,z],.06,C.dark,tripod);if(world.batchStation)world.batchStation(tripod);}telescopeStar.name='Bilim kampının gerçek yıldız düğmesi';
     let finalTime=0,finished=false;
     const camp={parts:[false,false,false],phase:'waiting',time:0,from:null};
     const campPieces=[],campSockets=[],campWires=[];
@@ -563,13 +569,19 @@
     function taxiModel(){
       if(taxi.ship)return;
       const g=taxi.ship=new T.Group();g.name='Keşif mekiği';root.add(g);
-      ball([0,.73,0],[1.34,.48,.58],C.white,g);ball([-.12,1.10,0],[.81,.42,.50],C.teal,g);
-      box([-.45,.47,.24],[1.24,.11,1.19],C.orange,g);
-      tube([-.96,.69,-.05],[-1.32,1.29,-.05],.14,C.red,g);
-      boardingLamp=ball([1.21,.75,.13],[.13,.13,.13],C.gold,g);
-      for(const s of [-1,1]){box([s*.59,.23,0],[.14,.32,.31],C.dark,g);box([s*.59,.10,0],[.42,.11,.44],C.silver,g);}
+      // An open two-seat hover boat: Feza and Bilbo ride visibly inside its warm rim.
+      const hull=new T.Group();g.add(hull);
+      ball([0,.5,0],[1.78,.44,.74],C.white,hull);ball([0,.68,0],[1.84,.1,.79],C.orange,hull);ball([1.38,.62,0],[.52,.3,.57],C.teal,hull);
+      for(const s of [-1,1]){cyl([-.2,.36,s*.86],[.19,1.55,.19],C.silver,hull).rotation.z=Math.PI/2;ball([.6,.36,s*.86],[.21,.19,.19],C.red,hull);ball([-.99,.36,s*.86],[.15,.15,.15],C.gold,hull);
+        tube([-.9,.05,s*.5],[.9,.05,s*.5],.05,C.dark,hull);tube([-.45,.05,s*.5],[-.38,.3,s*.42],.045,C.dark,hull);tube([.45,.05,s*.5],[.38,.3,s*.42],.045,C.dark,hull);}
+      box([-1.5,1.02,0],[.66,.5,.09],C.red,hull).rotation.z=.42;
+      // The round destination picture stands on a mast so the next discovery is visible before boarding.
+      tube([-1.22,.8,-.3],[-1.22,1.88,-.3],.045,C.silver,hull);
+      if(world.batchStation)world.batchStation(hull);
+      const shield=box([.98,1.04,0],[.07,.36,1.08],glassMat,g);shield.rotation.z=-.42;shield.castShadow=false;
+      boardingLamp=ball([1.88,.62,0],[.13,.13,.13],C.gold,g);
       ticketMats=[0,1,2,3,4,5,6,7,8,9].map(destinationPicture);
-      ticket=mesh(new T.PlaneGeometry(.96,.96),ticketMats[0],[.02,.98,.56],null,g);ticket.castShadow=false;
+      ticket=mesh(new T.PlaneGeometry(1.05,1.05),ticketMats[0],[-1.22,2.35,-.3],null,g);ticket.castShadow=false;
     }
     const taxiStopXs=[70,0,0,fx,95,366,416,274,451,118];
     function nextStop(){return !done[0]?0:!mission.power?4:!mission.heli?9:!done[1]?1:!mission.garden?7:!done[2]?2:!mission.water?5:!mission.samples?6:!mission.constellation?8:3;}
@@ -583,11 +595,11 @@
     function refreshTaxi(){
       const next=nextStop();
       const alreadyHere=Math.abs(player.x-stopX(next))<10;
-      taxi.at=alreadyHere?NaN:!finished&&next!==3&&nearby(fx,14)?fx-5.3:!finished&&taxi.used&&Number.isFinite(taxi.pad)&&nearby(taxi.pad,16)?taxi.pad:NaN;
+      taxi.at=alreadyHere?NaN:!finished&&next!==3&&nearby(fx,14)?fx-6.3:!finished&&taxi.used&&Number.isFinite(taxi.pad)&&nearby(taxi.pad,16)?taxi.pad:NaN;
       // Only a real journey: a nearby discovery is reached on foot, never by a short hop.
-      if(Number.isFinite(taxi.at)&&Math.abs(stopX(next)-taxi.at)<60)taxi.at=NaN;
+      if(Number.isFinite(taxi.at)&&Math.abs(stopX(next)-taxi.at)<90)taxi.at=NaN;
       if(!Number.isFinite(taxi.at)||player.locked){if(taxi.ship)taxi.ship.visible=false;return;}
-      taxiModel();taxi.target=next;taxi.ship.visible=true;taxi.ship.position.set(taxi.at,ground(taxi.at)+.12+.075*Math.sin(elapsed*2.2),-.87);
+      taxiModel();taxi.target=next;taxi.ship.visible=true;taxi.ship.position.set(taxi.at,ground(taxi.at)+.12+.075*Math.sin(elapsed*2.2),-.87);taxi.ship.rotation.set(0,0,0);
       ticket.material=ticketMats[next];boardingLamp.scale.setScalar(.14+.025*Math.sin(elapsed*3.4));
     }
     // A real flight across Mars: the shuttle lifts off, carries Feza and Bilbo over the
@@ -597,29 +609,53 @@
       if(!taxiAvailable())return false;
       const dest=stopX(taxi.target)-(taxi.target===7?6.6:taxi.target===1?1.6:1);
       taxi.used=true;taxi.airborne=true;taxi.time=0;taxi.moved=false;taxi.pad=NaN;
-      taxi.from=taxi.at;taxi.to=dest;taxi.dir=dest>=taxi.at?1:-1;taxi.duration=M.clamp(3+Math.abs(dest-taxi.at)/65,4,8);taxi.lastX=taxi.at;taxi.lastY=ground(taxi.at)+.12;taxi.vx=taxi.vy=0;
+      taxi.from=taxi.at;taxi.to=dest;taxi.dir=dest>=taxi.at?1:-1;taxi.duration=M.clamp(6+Math.abs(dest-taxi.at)/28,15,24);taxi.board=1.3;taxi.p0x=player.x;taxi.p0y=player.y;taxi.p0z=player.z||0;taxi.d0x=dog.x;taxi.d0y=dog.y;taxi.d0z=dog.z??.3;taxi.lastX=taxi.at;taxi.lastY=ground(taxi.at)+.12;taxi.vx=taxi.vy=0;
       taxi.fromY=ground(taxi.at)+.12;taxi.toY=ground(dest)+.12;
       player.locked=dog.locked=true;player.vx=player.vy=dog.vx=dog.vy=0;dog.activityTargetX=undefined;dog.activityMode=undefined;
       selectedRobot=selected=-1;drag=null;helper.visible=false;idle=0;
-      actors.feza.root.visible=actors.bilbo.root.visible=false;burst(taxi.at,ground(taxi.at)+1,C.teal,6);
+      burst(taxi.at,ground(taxi.at)+1,C.teal,6);
       sound('rover');return true;
     }
+    // Feza sits in the front seat, Bilbo stands in the back; both follow the shuttle's tilt.
+    function taxiSeat(x,y,rz){const fp=actors.feza.anchors||{},bp=actors.bilbo.anchors||{},d=taxi.dir,s=Math.sin(rz);seatP.x=x+.35*d;seatP.y=y+.8+.35*s-(fp.rideHip||.3795);seatD.x=x-.78*d;seatD.y=y+.74-.78*s-(bp.ridePaw??.004);}
     function taxiUpdate(dt){
-      taxi.time+=dt;const u=Math.min(1,taxi.time/taxi.duration),e=u*u*(3-2*u);
+      taxi.time+=dt;const g=taxi.ship,d=taxi.dir;g.visible=true;
+      if(taxi.time<taxi.board){
+        // Boarding: the shuttle waits on its pad while Feza and Bilbo hop into their seats.
+        const y=taxi.fromY+.06*Math.sin(elapsed*2.2),u=M.clamp(taxi.time/taxi.board,0,1),v=u*u*(3-2*u),h=Math.sin(u*Math.PI);
+        g.position.set(taxi.from,y,-.87);g.rotation.set(0,d>0?0:Math.PI,0);taxiSeat(taxi.from,y,0);
+        player.x=taxi.p0x+(seatP.x-taxi.p0x)*v;player.y=taxi.p0y+(seatP.y-taxi.p0y)*v+h*.9;player.z=taxi.p0z+(-.87-taxi.p0z)*v;
+        dog.x=taxi.d0x+(seatD.x-taxi.d0x)*v;dog.y=taxi.d0y+(seatD.y-taxi.d0y)*v+h*.7;dog.z=taxi.d0z+(-.77-taxi.d0z)*v;
+        for(const a of movers){a.mode=u>.85?'ride':'jump';a.grounded=u>.85;a.facing=d;a.vx=0;a.vy=Math.cos(u*Math.PI)*2;}
+        taxi.lastX=taxi.from;taxi.lastY=y;call('setCameraTarget',taxi.from+d*1.6,y+1.5,.9,1);return;
+      }
+      const exitTime=taxi.time-taxi.board-taxi.duration;
+      if(exitTime>=0){
+        // Landing: Feza and Bilbo hop out beside the shuttle before it sparkles away.
+        const k=M.clamp(exitTime/.8,0,1),v=k*k*(3-2*k),h=Math.sin(k*Math.PI),px=taxi.to,dx=taxi.to-1.7;
+        g.position.set(taxi.to,taxi.toY,-.87);g.rotation.set(0,d>0?0:Math.PI,0);taxiSeat(taxi.to,taxi.toY,0);
+        player.x=seatP.x+(px-seatP.x)*v;player.y=seatP.y+(ground(px)-seatP.y)*v+h*.7;player.z=-.87*(1-v);
+        dog.x=seatD.x+(dx-seatD.x)*v;dog.y=seatD.y+(ground(dx)-seatD.y)*v+h*.5;dog.z=-.77+1.07*v;
+        for(const a of movers){a.mode=k<1?'jump':'idle';a.grounded=k>=1;a.facing=d;a.vx=0;a.vy=Math.cos(k*Math.PI)*2;}
+        call('setCameraTarget',taxi.to+d*1.6,taxi.toY+1.5,.9,1);
+        if(k>=1){
+          taxi.airborne=false;taxi.at=NaN;g.visible=false;
+          player.x=taxi.to;dog.x=player.x-1.7;
+          for(const a of movers){a.y=ground(a.x);a.z=a===dog?.3:0;a.mode='idle';a.facing=1;a.grounded=true;a.emote='happy';}
+          actors.feza.root.visible=actors.bilbo.root.visible=true;burst(taxi.to,ground(taxi.to)+1.2,C.gold,10);
+          release();idle=5.5;
+        }
+        return;
+      }
+      const u=Math.min(1,(taxi.time-taxi.board)/taxi.duration),e=u*u*(3-2*u);
       const x=taxi.from+(taxi.to-taxi.from)*e,arc=Math.min(1,Math.sin(u*Math.PI)*2.4);
-      const y=taxi.fromY+(taxi.toY-taxi.fromY)*e+arc*(6.5-4.3*caveAmount(x));
-      const g=taxi.ship;g.visible=true;g.position.set(x,y,.2);g.rotation.y=taxi.dir>0?0:Math.PI;g.rotation.z=.16*Math.cos(u*Math.PI)*arc;
-      player.x=x;dog.x=x-taxi.dir*.6;player.y=ground(x);dog.y=ground(dog.x);
+      const y=taxi.fromY+(taxi.toY-taxi.fromY)*e+arc*(6.5-3.8*caveAmount(x))+.14*arc*Math.sin(taxi.time*2.3),z=-.87+1.07*arc,rz=.12*Math.cos(u*Math.PI)*arc;
+      g.position.set(x,y,z);g.rotation.set(0,d>0?0:Math.PI,rz);
       // The camera eases after its target; lead it by the ship's speed so the ship stays centred.
       if(dt>0){taxi.vx=M.damp(taxi.vx,(x-taxi.lastX)/dt,6,dt);taxi.vy=M.damp(taxi.vy,(y-taxi.lastY)/dt,6,dt);}taxi.lastX=x;taxi.lastY=y;
-      call('setCameraTarget',x+taxi.dir*2.2+taxi.vx/3.5,y-.4+taxi.vy/3.6,.9,1);
-      if(u>=1){
-        taxi.airborne=false;taxi.at=NaN;g.visible=false;
-        player.x=taxi.to;dog.x=player.x-1.7;
-        for(const a of movers){a.y=ground(a.x);a.z=a===dog?.3:0;a.mode='idle';a.facing=1;a.grounded=true;a.emote='happy';}
-        actors.feza.root.visible=actors.bilbo.root.visible=true;burst(taxi.to,ground(taxi.to)+1.2,C.gold,10);
-        release();idle=5.5;
-      }
+      taxiSeat(x,y,rz);player.x=seatP.x;player.y=seatP.y;player.z=z;dog.x=seatD.x;dog.y=seatD.y;dog.z=z+.1;
+      for(const a of movers){a.mode='ride';a.grounded=true;a.facing=d;a.vx=taxi.vx;a.vy=0;}player.emote='happy';
+      call('setCameraTarget',x+d*2.2+taxi.vx/3.5,y+.2+taxi.vy/3.6,.9,1);
     }
 
     function finish(){
@@ -750,9 +786,11 @@
       try{pointer('down',helpStep.from,helpEvent);if(helpStep.action==='drag'){helpMid.lerpVectors(helpStep.from,helpStep.to,.5);pointer('move',helpMid,helpEvent);pointer('move',helpStep.to,helpEvent);}pointer('up',helpStep.action==='drag'?helpStep.to:helpStep.from,helpEvent);}catch(_){pointer('cancel',null,helpEvent);}
       helpBusy=false;
     }
+    // Boarding sparkles keep falling while the shuttle flies instead of hanging frozen at the pad.
+    function tickSparks(dt){sparks.forEach(s=>{if(s.life<=0)return;s.life-=dt;s.o.visible=s.life>0;s.o.position.x+=s.vx*dt;s.o.position.y+=s.vy*dt;s.o.position.z+=s.vz*dt;s.vy-=4*dt;s.o.scale.setScalar(.09*Math.min(1,s.life*2));});}
     function update(dt,t){
       elapsed=t||elapsed+dt;idle+=dt;autoHelp();noteClock+=dt;if(!player.locked&&Math.abs(player.vx)>.25)idle=0;
-      if(taxi.airborne){taxiUpdate(dt);return;}
+      if(taxi.airborne){taxiUpdate(dt);tickSparks(dt);return;}
       updateCamp(dt);
       if(camp.phase==='joining')return;
       updateRobot(dt);
@@ -760,7 +798,7 @@
       // Once the rover is built, its empty part plinths and the floating build sign shrink away.
       if(roverState.phase!=='build'&&buildFade<1){buildFade=Math.min(1,buildFade+dt*1.3);const k=Math.max(.001,1-buildFade*buildFade*(3-2*buildFade));roverSign.scale.setScalar(k);roverSign.visible=buildFade<1;for(const q of parts){q.plinth.scale.setScalar(k);q.plinth.visible=buildFade<1;}}
       updateTransit(dt);refreshTaxi();
-      sparks.forEach(s=>{if(s.life<=0)return;s.life-=dt;s.o.visible=s.life>0;s.o.position.x+=s.vx*dt;s.o.position.y+=s.vy*dt;s.o.position.z+=s.vz*dt;s.vy-=4*dt;s.o.scale.setScalar(.09*Math.min(1,s.life*2));});
+      tickSparks(dt);
       parts.forEach((q,i)=>{if(q.install){const a=q.install;a.time+=dt;const u=Math.min(1,a.time/.55),v=u*u*(3-2*u);q.g.position.set(a.x*(1-v),a.y*(1-v)+Math.sin(u*Math.PI)*.65,a.z*(1-v));if(u>=1){q.g.position.set(0,0,0);q.install=null;q.pop=.35;assemblyReady();}}if(!q.placed&&(!drag||drag.i!==i)){q.g.position.y=q.g.userData.home.y+Math.sin(elapsed*1.7+i)*.08;}if(q.pop>0){q.pop=Math.max(0,q.pop-dt);q.g.scale.setScalar(1+Math.sin(q.pop*21)*q.pop*.22);}if(q.target.visible){q.target.scale.setScalar(1+Math.sin(elapsed*3)*.08);}});
       if((roverState.phase==='build'||roverState.phase==='ready'&&Math.abs(roverState.x-vx)<.5)&&nearby(182,10)&&!player.locked&&Math.abs(player.vx)<.6){call('frameActivity',Math.min(172.5,player.x-.8,dog.x-1.15),Math.max(188.5,player.x+.8,dog.x+.9),vg+1.8,.94);}
       if(roverState.phase==='drive'){

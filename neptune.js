@@ -154,8 +154,10 @@
     islands.forEach((is,ii)=>{
       deckSections.push({vertex:deckPositions.length/3,index:deckIndices.length});
       const [top,bright,dark]=deckPalette[ii%deckPalette.length],topColor=new T.Color(top);
-      const aft=topColor.clone().lerp(new T.Color(bright),.32).getHex(),nearLip=topColor.clone().lerp(new T.Color(bright),.23).getHex();
-      const seams=[aft,top,nearLip,cream,bright,teal,bright,dark,dark,dark,bright,bright,cream];
+      // Cila: a richer woven runner marks the walking line; the quilted shoulders stay light.
+      const aft=topColor.clone().lerp(new T.Color(cream),.30).getHex(),nearLip=topColor.clone().lerp(new T.Color(cream),.38).getHex();
+      const runner=topColor.clone().lerp(new T.Color(bright),.56).getHex();
+      const seams=[aft,runner,nearLip,cream,bright,teal,bright,dark,dark,dark,bright,bright,cream];
       let prev=raftSection(is,is.a);const count=Math.ceil((is.b-is.a)*2);
       for(let i=1;i<=count;i++){
         const x=mix(is.a,is.b,i/count),r=raftSection(is,x);
@@ -170,6 +172,15 @@
         const y=ground(x),w=widthAt(is,x);
         stamp(geo.sphere,brass,x,y-.28,w+.08,.078,.078,.065);
       }
+      // Cila: a low border of cloud-garden blooms on the front lip (same stud batch: no new draw calls).
+      for(let x=is.a+1.3,k=0;x<is.b-1.2;x+=2.8,k++){
+        const w=widthAt(is,x);if(w<1.75)continue;
+        const z=w-.26,y=ground(x)-.035,h=Math.sin(k*1.7+ii);
+        stamp(geo.sphere,0x4f9e80,x-.09,y+.12,z,.07,.19,.045,.55);
+        stamp(geo.sphere,0x76c29a,x+.10,y+.11,z+.02,.065,.17,.04,-.6);
+        stamp(geo.sphere,[coral,lilac,0xffcf6e,0xf4eefe][(k+ii)%4],x+.02*h,y+.30,z,.12,.085,.12);
+        stamp(geo.sphere,[0xffd9e6,0x9fe3d2,0xc8b6f4,0xffb38f][(k+ii)%4],x+.19,y+.20,z-.06,.075,.06,.075);
+      }
       const cx=(is.a+is.b)*.5,cy=ground(cx),cz=.08;
       // A rudder-like counterweight and metal straps give the floating island a recognizable silhouette from below.
       stamp(geo.sphere,dark,cx,cy-2.08,cz,(is.b-is.a)*.20,.94,1.46);
@@ -181,8 +192,9 @@
       }
       for(let x=is.a+.8,k=0;x<is.b-.6;x+=1.7,k++){
         const w=widthAt(is,x),sp=w-1.14,y=ground(x),h=Math.sin(k*2.17+ii*1.3);
-        stamp(puffGeo,k%2?0xe9f2fc:0xd6e5f5,x,y-1.12-sp*.63,w*.43,.92+.2*h,.46+.08*h,.78,0,puffPaint);
-        stamp(puffGeo,0xf0f6fd,x+.85,y-.95-sp*.40,w*.74,.58+.12*h,.33,.5,0,puffPaint);
+        // Rnd2: rounder, taller cumulus lumps with a faint sunrise tint read as a real cloud bank.
+        stamp(puffGeo,[0xf2f7ff,0xe4e2fa,0xfbecef][k%3],x,y-1.24-sp*.63,w*.45,1.14+.24*h,.64+.12*h,.92,0,puffPaint);
+        stamp(puffGeo,[0xfdf2ea,0xf4f8ff,0xebe5fb][(k+ii)%3],x+.85,y-1.04-sp*.40,w*.76,.78+.16*h,.5+.06*h,.62,0,puffPaint);
       }
       if(ii===islands.length-1)return;
       const a=is.b,b=islands[ii+1].a,steps=Math.ceil((b-a)/.34);
@@ -209,8 +221,34 @@
       ink.fillStyle=i%4===0?'rgba(100,104,125,.09)':'rgba(121,114,115,.04)';ink.fillRect(i*4,0,1.6,512);
       ink.fillStyle=i%5===0?'rgba(103,110,105,.07)':'rgba(180,157,138,.09)';ink.fillRect(0,i*4,512,1.8);
     }
-    for(let j=-1;j<3;j++){
-      const q=j*256;ink.lineWidth=2;ink.strokeStyle='rgba(89,127,132,.44)';ink.beginPath();
+    // Cila: rows 456-512 and 0-56 meet at the walking line (v=0). They carry a stitched runner;
+    // the shoulders between them get a soft quilted lattice with little tufts.
+    ink.save();ink.beginPath();ink.rect(0,66,512,380);ink.clip();
+    const patch=['rgba(70,170,176,.15)',null,'rgba(150,120,205,.13)','rgba(236,128,104,.12)'];
+    for(let a=-9;a<9;a++)for(let b=-1;b<17;b++){
+      const c=patch[(((a%2)+2)%2)*2+(((b%2)+2)%2)];if(!c)continue;
+      const cx=32*(a+b+1),cy=32*(b-a);if(cx<-40||cx>552||cy<30||cy>482)continue;
+      ink.fillStyle=c;ink.beginPath();ink.moveTo(cx-32,cy);ink.lineTo(cx,cy-32);ink.lineTo(cx+32,cy);ink.lineTo(cx,cy+32);ink.closePath();ink.fill();
+    }
+    ink.setLineDash([7,6]);ink.lineWidth=2;ink.strokeStyle='rgba(118,112,138,.30)';
+    for(let k=-512;k<=512;k+=64){ink.beginPath();ink.moveTo(k,0);ink.lineTo(k+512,512);ink.moveTo(k,512);ink.lineTo(k+512,0);ink.stroke();}
+    ink.setLineDash([]);ink.fillStyle='rgba(176,132,96,.55)';
+    for(let x=0;x<=512;x+=32)for(let y=64;y<=448;y+=32)if((x+y)%64===0){ink.beginPath();ink.arc(x,y,3.4,0,TAU);ink.fill();}
+    ink.restore();
+    ink.fillStyle='rgba(255,250,236,.62)';ink.fillRect(0,0,512,54);ink.fillRect(0,458,512,54);
+    for(const [y,s] of [[56,-1],[456,1]]){
+      ink.fillStyle='rgba(58,82,118,.62)';ink.fillRect(0,y-3,512,6);
+      ink.fillStyle='rgba(222,166,92,.75)';ink.fillRect(0,y-s*7-1.5,512,3);
+      ink.setLineDash([8,7]);ink.lineWidth=2.2;ink.strokeStyle='rgba(84,128,138,.70)';ink.beginPath();ink.moveTo(0,y-s*17);ink.lineTo(512,y-s*17);ink.stroke();ink.setLineDash([]);
+    }
+    for(const cy of [0,512])for(let i=0;i<4;i++){
+      const cx=64+i*128;ink.fillStyle='rgba(226,160,78,.86)';ink.beginPath();
+      for(let k=0;k<8;k++){const a=k*Math.PI/4,r=k%2?7:21;ink.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);}
+      ink.closePath();ink.fill();ink.fillStyle='rgba(66,140,150,.9)';ink.beginPath();ink.arc(cx,cy,5,0,TAU);ink.fill();
+      ink.fillStyle='rgba(120,104,160,.55)';ink.beginPath();ink.moveTo(cx+64,cy-9);ink.lineTo(cx+73,cy);ink.lineTo(cx+64,cy+9);ink.lineTo(cx+55,cy);ink.closePath();ink.fill();
+    }
+    for(const q of [0,190]){
+      ink.lineWidth=2;ink.strokeStyle='rgba(89,127,132,.44)';ink.beginPath();
       ink.moveTo(-2,q+220);ink.bezierCurveTo(168,q+220,212,q+140,298,q+153);ink.bezierCurveTo(335,q+157,365,q+186,340,q+193);ink.bezierCurveTo(318,q+200,310,q+175,331,q+175);ink.stroke();
       ink.setLineDash([6,6]);ink.lineWidth=2.5;ink.strokeStyle='rgba(165,130,95,.51)';ink.beginPath();ink.moveTo(-4,q+226);ink.bezierCurveTo(159,q+231,225,q+146,298,q+161);ink.stroke();ink.setLineDash([]);
       ink.fillStyle='rgba(151,137,123,.32)';for(let i=0;i<4;i++){ink.beginPath();ink.ellipse(365+i*13,q+187+i*3,2.3-i*.3,2.3-i*.3,0,0,TAU);ink.fill();}
@@ -391,7 +429,7 @@
       mesh(group,new T.CylinderGeometry(2.03,1.96,1.71,48,1,true),new T.MeshStandardMaterial({map:harborWall(kind),roughness:.66,metalness:.08}),0,1.00,0);
       stamp(geo.cylinder,navy,x,yy+.06*s,z,2.48*s,.30*s,2.43*s);
       stamp(geo.cylinder,brass,x,yy+.22*s,z,2.13*s,.12*s,2.13*s);
-      const roofMat=new T.MeshStandardMaterial({map:canopySkin(['#58999f','#6f839e','#76979d'][kind],['#a2c6bc','#b0c9cf','#d0bda2'][kind],'roof'),vertexColors:true,roughness:.63,metalness:.11});
+      const roofMat=new T.MeshStandardMaterial({map:canopySkin(['#d4e4e8','#dfe0f2','#efe4d6'][kind],['#f5f7f3','#f7f5fb','#fbf4e8'][kind],'roof'),vertexColors:true,roughness:.63,metalness:.11});
       roofMat.map.wrapS=T.RepeatWrapping;
       const p=[],uv=[],col=[],idx=[],N=64,H=12,cc=new T.Color(),h=1.36+kind*.1,piping=[];
       for(let j=0;j<=N;j++)for(let k=0;k<=H;k++){
@@ -400,7 +438,7 @@
         const rad=2.28*cr*(1+fluting)+.04*(1-v);
         const py=1.80+h*Math.sin(lat)+.04*Math.cos(a*8)*(1-v);
         p.push(rad*Math.cos(a),py,rad*Math.sin(a));uv.push(j/8,v);
-        cc.set(Math.floor(j/8)%2?0xc5e6dc:0xecdfca).multiplyScalar(.78+.22*(.5-.5*Math.cos((j%8)*Math.PI/4)));col.push(cc.r,cc.g,cc.b);
+        cc.set(Math.floor(j/8)%2?[0xf19b86,0x9fb0ef,0x6fcbbf][kind]:0xfff1da).multiplyScalar(.78+.22*(.5-.5*Math.cos((j%8)*Math.PI/4)));col.push(cc.r,cc.g,cc.b);
         if(k<H&&j<N){const t=j*(H+1)+k;idx.push(t,t+1,t+H+1,t+1,t+H+2,t+H+1);}
         if(k===0)piping.push(new T.Vector3(rad*Math.cos(a),py-.024,rad*Math.sin(a)));
       }
@@ -682,7 +720,8 @@
     }
     hullGeo.setAttribute('color',new T.BufferAttribute(hullBelt,3));
     mesh(ship,hullGeo,new T.MeshStandardMaterial({vertexColors:true,roughness:.42,metalness:.3}),0,0,-.14,2.68,1,1.06);
-    mesh(ship,geo.sphere,paint(indigo),0,.746,-.14,2.56,.028,1.005);
+    // Cila: the gondola floor is a woven star rug (the deck cloth), not a flat navy disc.
+    mesh(ship,geo.sphere,new T.MeshStandardMaterial({map:cloth,color:0x6a82bd,roughness:.72,metalness:.06}),0,.746,-.14,2.56,.028,1.005);
     for(const sx of [-.94,.85]){
       mesh(ship,geo.cylinder,bronzePaint,sx,.905,-.09,.21,.31,.21);
       mesh(ship,geo.sphere,innerPaint,sx,1.09,-.05,.55,.12,.46);
@@ -707,19 +746,31 @@
     }
     const silkGeo=new T.BufferGeometry();silkGeo.setAttribute('position',new T.Float32BufferAttribute(silkPos,3));silkGeo.setAttribute('uv',new T.Float32BufferAttribute(silkUV,2));silkGeo.setIndex(silkIds);silkGeo.computeVertexNormals();
     const fabric=document.createElement('canvas');fabric.width=768;fabric.height=256;const brush=fabric.getContext('2d');
-    const fabricColors=['#85c7ba','#9edbcc','#c4dfc7','#d7e6cb','#bee2cc','#91caba','#6fafac','#589699','#4c8e95','#5b969c','#68a5a5','#76b4ae'];
+    // Rnd2: a bright storybook envelope. Cream and lagoon-teal gores, coral nose and tail caps
+    // with scalloped gold trim, a golden side band and Bilbo's brown paw badge facing the deck.
+    const fabricColors=['#f6ead0','#3c9fae'];
     for(let i=0;i<12;i++){
-      const y=(11-i)*256/12,h=256/12+1;brush.fillStyle=fabricColors[i];brush.fillRect(0,y,768,h);
-      brush.fillStyle='rgba(31,68,78,.16)';brush.fillRect(0,y,768,1.2);
-      brush.fillStyle='rgba(255,239,186,.64)';for(let j=0;j<96;j++)brush.fillRect(j*8,y+2,3,.9);
+      const y=(11-i)*256/12,h=256/12+1;brush.fillStyle=fabricColors[i%2];brush.fillRect(0,y,768,h);
+      const shade=brush.createLinearGradient(0,y,0,y+h);shade.addColorStop(0,'rgba(255,255,255,.2)');shade.addColorStop(.5,'rgba(255,255,255,0)');shade.addColorStop(1,'rgba(20,50,70,.16)');
+      brush.fillStyle=shade;brush.fillRect(0,y,768,h);
+      brush.fillStyle='rgba(31,68,78,.22)';brush.fillRect(0,y,768,1.2);
+      brush.fillStyle=i%2?'rgba(255,239,186,.72)':'rgba(60,140,150,.42)';for(let j=0;j<96;j++)brush.fillRect(j*8,y+2,3,.9);
+    }
+    for(const [x0,x1,edge,dir] of [[0,120,120,1],[648,768,648,-1]]){
+      brush.fillStyle='#ee7f69';brush.fillRect(x0,0,x1-x0,256);
+      brush.fillStyle='#f6c35e';brush.fillRect(dir>0?edge:edge-6,0,6,256);
+      for(let k=0;k<16;k++){brush.beginPath();brush.arc(edge+dir*6,k*16+8,6,0,TAU);brush.fill();}
     }
     for(const u of [.24,.76]){
       const x=u*768;brush.fillStyle='#d59657';brush.fillRect(x-4,0,8,256);brush.fillStyle='#ffe4a7';brush.fillRect(x-1.6,0,3.2,256);
     }
+    for(const v of [0,256]){brush.fillStyle='#f2b552';brush.fillRect(126,v-7,516,14);brush.fillStyle='#fff0c4';brush.fillRect(126,v-1.5,516,3);}
     for(const v of [0,128,256]){
-      brush.save();brush.translate(384,v);brush.fillStyle='#e9e2bb';brush.strokeStyle='#4b8184';brush.lineWidth=2.5;
-      brush.beginPath();brush.moveTo(-39,0);brush.lineTo(-13,-4);brush.lineTo(0,-14);brush.lineTo(13,-4);brush.lineTo(39,0);brush.lineTo(13,4);brush.lineTo(0,14);brush.lineTo(-13,4);brush.closePath();brush.fill();brush.stroke();
-      brush.fillStyle='#d38755';brush.beginPath();brush.arc(0,0,5.5,0,TAU);brush.fill();brush.restore();
+      brush.save();brush.translate(384,v);brush.scale(1,.62);
+      brush.fillStyle='#fff4dc';brush.strokeStyle='#ee7f69';brush.lineWidth=6;brush.beginPath();brush.arc(0,0,34,0,TAU);brush.fill();brush.stroke();
+      brush.fillStyle='#6b3f2a';brush.beginPath();brush.ellipse(0,7,12,10,0,0,TAU);brush.fill();
+      for(const [px,py] of [[-13,-6],[-5,-14],[5,-14],[13,-6]]){brush.beginPath();brush.ellipse(px,py,4.2,5.4,0,0,TAU);brush.fill();}
+      brush.restore();
     }
     const silkMap=new T.CanvasTexture(fabric);silkMap.colorSpace=T.SRGBColorSpace;
     mesh(ship,silkGeo,new T.MeshStandardMaterial({map:silkMap,roughness:.69,metalness:.1,side:T.DoubleSide}),0,4.03,-.20,1,1.09,1);
@@ -727,8 +778,11 @@
       const rr=Math.sqrt(1-(x/2.99)**2);
       const tie=mesh(ship,geo.torus,bronzePaint,x,4.03,-.20,rr*.82,rr*.806,.29);tie.rotation.y=Math.PI*.5;
     }
-    mesh(ship,geo.sphere,innerPaint,2.89,4.03,-.2,.20,.31,.31);
-    const tail=mesh(ship,geo.fin,paint(coral),-2.57,4.45,-.20,.44,.98,.2);tail.rotation.z=.38;
+    mesh(ship,geo.sphere,paint(coral),2.89,4.03,-.2,.20,.31,.31);
+    // Rnd2: a cross of four swept, rounded tail fins (one shared shape; groupFittings instances them).
+    const tailFinShape=new T.Shape();tailFinShape.moveTo(.62,.05);tailFinShape.quadraticCurveTo(.02,.2,-.32,.98);tailFinShape.lineTo(-.64,1.02);tailFinShape.quadraticCurveTo(-.76,.52,-.62,.02);tailFinShape.lineTo(.62,.05);
+    const tailFinGeo=new T.ExtrudeGeometry(tailFinShape,{depth:.05,bevelEnabled:true,bevelThickness:.03,bevelSize:.03,bevelSegments:1,curveSegments:6});tailFinGeo.translate(0,0,-.025);
+    for(let f=0;f<4;f++)mesh(ship,tailFinGeo,paint(f%2?0xf6c35e:coral),-2.34,4.03,-.20,1,f%2?.92:1.1,1).rotation.x=f*Math.PI/2;
     // A curved open windshield, handles and a little wind gauge make the instrument deck inviting.
     const shieldPos=[],shieldIdx=[];
     for(let i=0;i<=15;i++){
@@ -1543,6 +1597,12 @@
     const eventRoot=new T.Group();journeyRoot.add(eventRoot);
     const eventFrame=new T.Group();eventRoot.add(eventFrame);
     const eventDock=mesh(eventFrame,skiffGeometry,skiffMaterial,1.55,.18,-1.70,1.78,1.13,1.55);
+    // Rnd2: a small cloud cushion floats under each stop's dock (one instanced draw, ignores touch).
+    const eventCloud=new T.InstancedMesh(puffGeo,puffPaint,5);eventCloud.raycast=()=>{};eventCloud.frustumCulled=false;
+    [[.35,-.36,-1.45,.78,.38,.62,0xf2f7ff],[1.25,-.42,-1.22,.98,.42,.72,0xe7e4fa],[2.2,-.38,-1.38,.86,.4,.64,0xfdf2ea],[3.05,-.3,-1.7,.62,.32,.5,0xf4f8ff],[1.6,-.36,-2.2,.95,.38,.62,0xebe5fb]].forEach(([x,y,z,sx,sy,sz,c],i)=>{
+      scratch.position.set(x,y,z);scratch.rotation.set(0,0,0);scratch.scale.set(sx,sy,sz);scratch.updateMatrix();eventCloud.setMatrixAt(i,scratch.matrix);eventCloud.setColorAt(i,ca.set(c));
+    });
+    eventFrame.add(eventCloud);
     // The dock supports each working instrument; there are no unused marker posts.
     const eventHandle=mesh(eventRoot,dropGeo,waterPaint,0,0,.30);
     const eventPaints={sunMirror:paint(coral),silkGate:paint(mint),windDelivery:paint(brass),dewShell:waterPaint};
@@ -2143,7 +2203,8 @@
       clearDrag();
       ride.from=ride.x;ride.to=ride.onward??(ride.x>250?311:ride.x<(dockA+dockB)*.5?dockB:dockA);ride.onward=null;ride.dir=Math.sign(ride.to-ride.from)||1;
       ride.u=0;ride.route=0;ride.phase='board';ride.elapsed=0;status.route=null;ship.scale.x=ride.dir;
-      ride.cruise=Math.max(4.0,Math.abs(ride.to-ride.from)/4.0);journey.index=-1;journey.completed.fill(false);journey.kind='';journey.reply=0;
+      // A short late hop still floats for at least 18 s, so boarding is never a quick on/off.
+      ride.cruise=Math.max(18,Math.abs(ride.to-ride.from)/4.0);journey.index=-1;journey.completed.fill(false);journey.kind='';journey.reply=0;
       ride.duration=clamp(Math.max(Math.abs(player.x-ride.x),Math.abs(dog.x-ride.x))*.15,.85,2);
       markActors();M.sfx('wake');return true;
     }
@@ -2279,7 +2340,8 @@
       if(type==='move'||type==='up'){
         if(!drag||dragPointer!==id)return false;
         if(drag.scope==='journey')moveJourneyHandle(p);else if(drag.scope==='finale')moveFinalHandle(p);else if(drag.scope==='fan')turnFan(p);else if(drag.scope==='kite')holdKite(p);else if(drag.scope==='bell')swingBell(p);else if(drag.scope==='callBell'){if(drag.y0-p.y>.38){const a=drag.act;clearDrag();a();}}else if(drag.scope==='pumpPress'){pump.pad.scale.y=.10*(1-.6*clamp((drag.y0-p.y)/.45,0,1));if(drag.y0-p.y>.42){clearDrag();pump.pad.scale.y=.10;startPump();}}else moveGardenHandle(p);
-        if(type==='up'){if(drag?.scope==='pumpPress')pump.pad.scale.y=.10;if(drag?.scope==='fan')releaseFan();else if(drag?.scope==='bell')releaseBell();clearDrag();}return true;
+        // A plain tap on a ship bell calls the ship too; a small hand does not have to pull it down.
+        if(type==='up'){if(drag?.scope==='pumpPress')pump.pad.scale.y=.10;if(drag?.scope==='fan')releaseFan();else if(drag?.scope==='bell')releaseBell();else if(drag?.scope==='callBell'){const a=drag.act;clearDrag();a();return true;}clearDrag();}return true;
       }
       if(type!=='down')return false;
       if(dragPointer!==null)return true;

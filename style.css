@@ -118,3 +118,8 @@ header #notice{top:calc(100% + 10px);width:max-content;max-width:min(560px,94%)}
 @media (prefers-reduced-motion:reduce){#ending:not(.hidden) .win-stars svg{animation:none}}
 #loading.fading{opacity:0;pointer-events:none;transition:opacity .6s ease-out}
 @media (prefers-reduced-motion:reduce){#loading.fading{transition:none}}
+
+/* Round 2: the jump and pause buttons share the station button's glossy, lifted look. */
+.action-button.jump{background:radial-gradient(circle at 34% 26%,#ffffff6b 0 14%,#ffffff00 40%),radial-gradient(circle at 50% 120%,#0d4d6280,#0d4d6200 60%),linear-gradient(150deg,#63c9d4,#2a87a0 55%,#1d6782);border:3px solid #e8fffd;box-shadow:inset 0 0 0 4px #ffffff24,inset 0 -7px 14px #07364766,0 6px 0 #164c5d,0 10px 24px #1a2c3a66}
+#pause-button{background:radial-gradient(circle at 38% 30%,#ffffff40 0 12%,#ffffff00 42%),radial-gradient(ellipse at 50% 40%,#3a6a86,#163651 70%,#102a44);border:2px solid #ffe3a0;color:#fff1cd;box-shadow:inset 0 1px 1px #fff6,0 3px 0 #6e5845,0 5px 12px #101d3366}
+#pause-button:active{transform:translateY(2px);box-shadow:inset 0 1px 1px #fff6,0 1px 0 #6e5845}

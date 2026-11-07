@@ -360,6 +360,12 @@ stemGroups.push(plant);flowerGroups.push(bloom);
     rod(garden,copper,-1.7,.23,-.17,-.21,.23,-.17,.082);
     for(let i=0;i<8;i++)drops.push(body(garden,turquoise,0,0,0,.046,.075,.046));
     const seedTray=group(garden);seedTray.position.set(-3.9,.28,.5);box(seedTray,enamel,0,0,0,2.4,.16,.76);
+    // A real seed box: dark soil bed, copper boards and three soft soil mounds where the seeds wait; merged per material.
+    {const trayFixed=group(seedTray);box(trayFixed,rubber,0,.09,0,2.26,.035,.64);
+     for(const z of [-.40,.40])box(trayFixed,copper,0,.11,z,2.5,.2,.06);for(const x of [-1.22,1.22])box(trayFixed,copper,x,.11,0,.06,.2,.86);
+     for(const x of [-.8,0,.8])body(trayFixed,rubber,x,.1,0,.27,.07,.22);
+     for(const x of [-1.22,1.22])for(const z of [-.40,.40])box(trayFixed,amber,x,.22,z,.1,.04,.1);
+     if(world.batchStation)world.batchStation(trayFixed);}
     const seedObjects=[],seedsPlanted=[false,false,false],seedFlight=[0,0,0];
     for(let i=0;i<3;i++){const seed=body(garden,seedColours[i],-4.7+i*.8,.65,.5,.23,.34,.19);seed.name='Seranın gerçek tohumu '+(i+1);seed.rotation.z=.35*(i-1);body(seed,enamel,0,0,.93,.28,.55,.10);seedObjects.push(seed);}
     const seedGhostMaterial=new T.MeshStandardMaterial({color:0xc6fff2,transparent:true,opacity:.36,emissive:0x70c8aa,emissiveIntensity:.2,depthWrite:false});

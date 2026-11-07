@@ -21,11 +21,14 @@
   const orange=new T.MeshStandardMaterial({color:0xe9a45e,roughness:.48,metalness:.12});
   const dark=new T.MeshStandardMaterial({color:0x2f4149,roughness:.7,metalness:.16});
   const silver=new T.MeshStandardMaterial({color:0xc8d9db,roughness:.34,metalness:.58});
+  for(const m of [white,teal,orange,dark,silver])M.addCharacterRim?.(m,m===white?.42:.3);
   const glass=new T.MeshPhysicalMaterial({color:0xb4e2e7,transparent:true,opacity:.105,roughness:.105,metalness:0,clearcoat:1,clearcoatRoughness:.08,depthWrite:false,side:T.FrontSide});
   glass.onBeforeCompile=shader=>{shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>',
-   '{float bGlassRim=pow(1.0-clamp(abs(dot(normalize(normal),normalize(vViewPosition))),0.0,1.0),1.8);diffuseColor.a=.04+.84*bGlassRim;outgoingLight+=vec3(.68,.78,.78)*bGlassRim;}\n#include <opaque_fragment>');};
-  glass.customProgramCacheKey=()=> 'bilbo-clear-helmet-fresnel-v3';
+   '{float bGlassRim=pow(1.0-clamp(abs(dot(normalize(normal),normalize(vViewPosition))),0.0,1.0),1.8);diffuseColor.a=.04+.84*bGlassRim;outgoingLight+=vec3(.68,.78,.78)*bGlassRim;float bGlassSky=smoothstep(.2,.9,normalize(normal).y)*(1.0-bGlassRim);diffuseColor.a+=bGlassSky*.06;outgoingLight+=vec3(.86,.95,1.)*bGlassSky*.14;float bGloss=dot(totalSpecular,vec3(.3,.59,.11));outgoingLight+=totalSpecular*1.2;diffuseColor.a=min(.9,diffuseColor.a+bGloss*2.4);}\n#include <opaque_fragment>');};
+  glass.customProgramCacheKey=()=> 'bilbo-clear-helmet-fresnel-v5';
   const glint=new T.MeshBasicMaterial({color:0xe2f7f5,transparent:true,opacity:.82,depthWrite:false});
+  // Reflection strength for the shared studio sky in characters.js.
+  for(const [m,v] of [[white,.45],[teal,.85],[orange,.6],[dark,.5],[silver,1.1],[glass,1.4]])m.userData.suitEnv=v;
   const pieces=[],owned=[];
   function piece(bone,g,mat,pos=[0,0,0],sz=[1,1,1],rot=[0,0,0]){pieces.push({bone,g,mat,local:new T.Matrix4().compose(new T.Vector3(...pos),new T.Quaternion().setFromEuler(new T.Euler(...rot)),new T.Vector3(...sz))});}
   function ell(b,m,p,s){piece(b,Math.max(...s)<.08?detailSphere:sphere,m,p,s);}

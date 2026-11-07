@@ -162,7 +162,7 @@
   viewportWidth=width;viewportHeight=height;
   resetPacingWindow();
   renderer.setDrawingBufferSize(width,height,dpr);
-  camera.aspect=width/height;camera.updateProjectionMatrix();
+  camera.aspect=width/height;applyViewShift(width,height);camera.updateProjectionMatrix();
   particleMat.uniforms.uRatio.value=dpr;
   return true;
  }
@@ -244,7 +244,11 @@
  function particlesUpdate(dt){if(!points.visible||dt<=0)return;let active=0;for(let i=0;i<particles.length;i++){const p=particles[i];p.life=Math.max(0,p.life-dt);if(p.life){active++;p.vy-=1.1*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=p.vz*dt;particlePos[i*3]=p.x;particlePos[i*3+1]=p.y;particlePos[i*3+2]=p.z;const a=p.life/p.max;particleCol[i*3]=a*.9;particleCol[i*3+1]=a;particleCol[i*3+2]=a*.68;particleSizes[i]=1.3*a;}else particleSizes[i]=0;}points.visible=active>0;if(!active)return;particleGeo.attributes.position.needsUpdate=true;particleGeo.attributes.color.needsUpdate=true;particleGeo.attributes.aSize.needsUpdate=true;}
  // Portrait iPad: the walking view is zoomed in so the children stay large. Planet-specific
  // camera requests keep their tuned zoom; activity framing still fits the game's width.
- const PORTRAIT_ZOOM=1.3;
+ const PORTRAIT_ZOOM=1.38;
+ // Portrait screens are tall: a small lens shift lowers the ground line so the sky and
+ // the activity get the room, instead of a wide empty strip of ground under the explorers.
+ const PORTRAIT_LIFT=.1;
+ function applyViewShift(width,height){if(width<height)camera.setViewOffset(width,height,0,-Math.round(height*PORTRAIT_LIFT),width,height);else if(camera.view&&camera.view.enabled)camera.clearViewOffset();}
  // Shared, allocation-free visibility test for planet scripts: skip animating props that are
  // off-screen. x range on the walking plane (z≈0); margin in metres covers depth and motion.
  M.inView=function(minX,maxX=minX,margin=3){
@@ -252,7 +256,7 @@
   return maxX>=camera.position.x-half-margin&&minX<=camera.position.x+half+margin;
  };
  function cameraUpdate(dt){
-  let tx=innerWidth<innerHeight?(player.x+dog.x)*.5+player.facing*.65:player.x+2+M.clamp(player.vx*.5,-1.5,1.5),ty=groundAt(player.x)+2.2+Math.max(0,player.y-groundAt(player.x))*.28;
+  let tx=innerWidth<innerHeight?M.clamp((player.x+dog.x)*.5+player.facing*.95,player.x-2,player.x+2):player.x+2+M.clamp(player.vx*.5,-1.5,1.5),ty=groundAt(player.x)+2.2+Math.max(0,player.y-groundAt(player.x))*.28;
   
   const rq=M.cameraRequest;if(rq.life>0){rq.life-=dt;tx=M.lerp(tx,rq.x,M.clamp(rq.weight,0,1));ty=M.lerp(ty,rq.y,M.clamp(rq.weight,0,1));cameraZoom=M.damp(cameraZoom,rq.zoom,3,dt);}else cameraZoom=M.damp(cameraZoom,innerWidth<innerHeight?PORTRAIT_ZOOM:1,3,dt);
   const walkIntent=(keys.has('ArrowRight')||keys.has('KeyD')?1:0)-(keys.has('ArrowLeft')||keys.has('KeyA')?1:0)+(activeWalk!==null?steer:0);

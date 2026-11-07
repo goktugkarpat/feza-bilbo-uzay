@@ -18,8 +18,10 @@ function materials(){
  suitMat=new T.MeshStandardMaterial({color:C.white,roughness:.8,bumpMap:weave,bumpScale:.0011});
  rubberMat=new T.MeshStandardMaterial({vertexColors:true,roughness:.78});metalMat=new T.MeshStandardMaterial({vertexColors:true,roughness:.43,metalness:.16});emissiveMat=new T.MeshStandardMaterial({vertexColors:true,roughness:.35,emissive:0x79d8df,emissiveIntensity:.38});
  glassMat=new T.MeshPhysicalMaterial({color:0xbce5eb,transparent:true,opacity:.08,roughness:.1,metalness:.04,clearcoat:1,depthWrite:false,side:T.FrontSide});
- glassMat.onBeforeCompile=s=>{s.fragmentShader=s.fragmentShader.replace('#include <opaque_fragment>',`float visorEdge=pow(clamp(1.0-dot(normalize(normal),normalize(vViewPosition)),0.0,1.0),2.2);diffuseColor.a=.024+visorEdge*.61;outgoingLight+=vec3(.39,.68,.77)*visorEdge*.52;\n#include <opaque_fragment>`);};glassMat.customProgramCacheKey=()=> 'actual-feza-helmet-v1';
+ glassMat.onBeforeCompile=s=>{s.fragmentShader=s.fragmentShader.replace('#include <opaque_fragment>',`float visorEdge=pow(clamp(1.0-dot(normalize(normal),normalize(vViewPosition)),0.0,1.0),2.2);diffuseColor.a=.024+visorEdge*.61;outgoingLight+=vec3(.39,.68,.77)*visorEdge*.52;float visorSky=smoothstep(.2,.9,normalize(normal).y)*(1.0-visorEdge);diffuseColor.a+=visorSky*.06;outgoingLight+=vec3(.86,.95,1.)*visorSky*.14;float visorGloss=dot(totalSpecular,vec3(.3,.59,.11));outgoingLight+=totalSpecular*1.2;diffuseColor.a=min(.9,diffuseColor.a+visorGloss*2.4);\n#include <opaque_fragment>`);};glassMat.customProgramCacheKey=()=> 'actual-feza-helmet-v3';
  glintMat=new T.MeshBasicMaterial({color:0xedfcff,transparent:true,opacity:.69,depthWrite:false,toneMapped:false});
+ // Reflection strength for the shared studio sky in characters.js.
+ for(const [m,v] of [[suitMat,.45],[rubberMat,.35],[metalMat,1],[emissiveMat,.5],[glassMat,1.4]])m.userData.suitEnv=v;
 }
 function curve(points,r=.005,n=points.length===2?1:Math.min(14,(points.length-1)*4),sides=5){return new T.TubeGeometry(new T.CatmullRomCurve3(points.map(p=>V(...p))),n,r,sides,false);}
 function mergeGeometry(geos){const p=[],n=[],u=[],ix=[];let offset=0;for(const g of geos){p.push(...g.attributes.position.array);n.push(...g.attributes.normal.array);u.push(...g.attributes.uv.array);for(const i of g.index.array)ix.push(i+offset);offset+=g.attributes.position.count;g.dispose();}const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(p,3));g.setAttribute('normal',new T.Float32BufferAttribute(n,3));g.setAttribute('uv',new T.Float32BufferAttribute(u,2));g.setIndex(ix);return g;}
@@ -29,6 +31,7 @@ function patch(parent,text,w,h){const c=document.createElement('canvas');c.width
 M.createFezaAstronaut=function(){
  if(!M.FezaOriginal)throw new Error('Load model-data/feza-original.js before feza-astronaut.js');
  materials();
+ for(const m of [suitMat,rubberMat,metalMat])M.addCharacterRim?.(m,m===suitMat?.42:.34);
  const original=M.FezaOriginal.create({articulated:true}),root=original.root,B=original.bones,list=original.boneList,H=M.FezaOriginal.helpers,parts={rubber:[],metal:[],glow:[]};
  root.name='Feza · original identity · astronaut';root.scale.setScalar(1.15);
  // The original pressure-suit body surfaces keep Feza's recognizable child proportions.
@@ -40,7 +43,7 @@ M.createFezaAstronaut=function(){
  // Keep the original locks and brown vertex palette; soften the old game's high-key highlight for Mars sunlight.
  {const m=original.meshes.hair.material,base=m.onBeforeCompile;m.roughness=.74;m.normalScale.set(.17,.17);m.envMapIntensity=.35;m.onBeforeCompile=(shader,renderer)=>{base(shader,renderer);shader.fragmentShader=shader.fragmentShader.replace('pow(fzF, 2.4) * 0.3 + 0.2 * smoothstep','pow(fzF, 2.4) * 0.15 + 0.065 * smoothstep').replace('pow(fzF, 3.0) * 0.12','pow(fzF, 3.0) * 0.075');};m.customProgramCacheKey=()=> 'actual-feza-space-hair-soft1';}
  const shoeGeo=original.meshes.shoe.geometry,sp=shoeGeo.attributes.position,sc=shoeGeo.attributes.color,color=new T.Color();
- for(let i=0;i<sp.count;i++){const y=sp.getY(i),z=sp.getZ(i);color.setHex(y<.035?C.dark:y>.15?C.teal:z>.11&&y<.074?C.edge:C.white);sc.setXYZ(i,color.r,color.g,color.b);}sc.needsUpdate=true;original.meshes.shoe.material=new T.MeshStandardMaterial({vertexColors:true,roughness:.7});
+ for(let i=0;i<sp.count;i++){const y=sp.getY(i),z=sp.getZ(i);color.setHex(y<.035?C.dark:y>.15?C.teal:z>.11&&y<.074?C.edge:C.white);sc.setXYZ(i,color.r,color.g,color.b);}sc.needsUpdate=true;original.meshes.shoe.material=new T.MeshStandardMaterial({vertexColors:true,roughness:.7});M.addCharacterRim?.(original.meshes.shoe.material,.34);
  function add(group,bone,geo,color,weights){parts[group].push({geo,bone:list.indexOf(B[bone]),color, ...(weights?{w:weights}:{})});}
  function kit(group,bone,fn){add(group,bone,H.kitGeo(fn),0xffffff);}
  function line(group,bone,points,r,col,weights){add(group,bone,curve(points,r),col,weights);}

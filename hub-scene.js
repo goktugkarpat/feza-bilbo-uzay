@@ -63,6 +63,22 @@ vec3 starLayer(vec2 css,float cell,float density,float seed,float twinkle){
   vec3 tint=mix(vec3(.82,.9,1.),h21(id+seed+5.)>.7?vec3(1.,.86,.66):vec3(.7,.86,1.),.6);
   return tint*k;
 }
+// A few big sparkling stars a child can point at: four soft rays that breathe.
+vec3 sparkleStars(vec2 css){
+  float cell=128.; vec2 g=css/cell, id=floor(g), f=fract(g);
+  if(h21(id+71.)>.42)return vec3(0.);
+  vec2 dv=(f-(.2+.6*vec2(h21(id+73.1),h21(id+77.7))))*cell;
+  float tw=.5+.5*sin(uTime*(.8+1.4*h21(id+83.1))+h21(id+79.9)*6.2832);
+  tw=.18+.82*tw*tw;
+  float ray=(exp(-abs(dv.x)*.42)*exp(-dv.y*dv.y*2.2)+exp(-abs(dv.y)*.42)*exp(-dv.x*dv.x*2.2));
+  float k=exp(-dot(dv,dv)/2.6)*1.25+(ray*.95+exp(-length(dv)*.28)*.35)*tw;
+  return (h21(id+85.)>.62?vec3(1.,.88,.68):vec3(.76,.9,1.))*k*(.45+.55*tw);
+}
+float vnoise(vec2 q){
+  vec2 i=floor(q), f=fract(q); f=f*f*(3.-2.*f);
+  return mix(mix(h21(i),h21(i+vec2(1.,0.)),f.x),mix(h21(i+vec2(0.,1.)),h21(i+vec2(1.,1.)),f.x),f.y);
+}
+uniform vec3 uMoon; uniform vec3 uNight;
 void main(){
   vec2 css=vec2(gl_FragCoord.x,uRes.y-gl_FragCoord.y)/uDpr;
   vec2 p=(css-uOff)/uScale;
@@ -74,9 +90,36 @@ void main(){
   col=mix(col,vec3(.075,.105,.19),smoothstep(500.,0.,p.x)*.5);
   float sunD=length(p-vec2(-90.,425.));
   col+=vec3(.30,.17,.10)*exp(-sunD/230.)+vec3(.10,.06,.06)*exp(-sunD/600.);
+  // The sun just beyond the left edge: a golden glow and a long soft light streak.
+  col+=vec3(1.,.72,.42)*exp(-sunD/150.)*.42+vec3(.42,.27,.16)*exp(-sunD/520.)*.30;
+  col+=vec3(1.,.70,.42)*exp(-abs(p.y-425.)/10.)*exp(-max(p.x+90.,0.)/520.)*.20;
   float starMask=smoothstep(10.,90.,above);
-  col+=starLayer(css,46.,.62,0.,1.)*starMask;
-  col+=starLayer(css+vec2(17.,9.),21.,.5,40.,.35)*starMask*.55;
+  // Stars, star clouds and sparkles are skipped where the Earth covers the sky.
+  if(starMask>.001){
+  // A faint violet and teal cloud of far-away stars drifts across the open sky.
+  float band=exp(-pow((p.y-150.+p.x*.10)/210.,2.))*starMask;
+  if(band>.01){
+    vec2 nq=p/240.+vec2(uTime*.006,0.);
+    float neb=vnoise(nq)*.62+vnoise(nq*2.3+7.3)*.28+vnoise(nq*5.1+3.1)*.1;
+    vec3 nebCol=mix(vec3(.34,.16,.50),vec3(.08,.40,.55),vnoise(p/420.+11.));
+    col+=nebCol*smoothstep(.32,.86,neb)*band*.48;
+  }
+  col+=starLayer(css,46.,.66,0.,1.)*starMask*1.25;
+  col+=starLayer(css+vec2(17.,9.),21.,.5,40.,.45)*starMask*.6;
+  col+=sparkleStars(css+vec2(31.,57.))*starMask;
+  }
+  // A small round moon, lit from the same sun as the Earth.
+  vec2 md=(css-uMoon.xy)/uMoon.z; float mr=length(md);
+  if(mr<5.){
+    col+=vec3(.55,.65,.86)*(exp(-max(mr-1.,0.)*1.25)*.26+exp(-max(mr-1.,0.)*4.)*.22);
+    if(mr<1.04){
+      vec3 mn=vec3(md.x,-md.y,sqrt(max(0.,1.-mr*mr)));
+      float maria=smoothstep(.5,.78,vnoise(md*2.2+5.))*.34+smoothstep(.55,.82,vnoise(md*5.3+1.7))*.16;
+      float lit=clamp(dot(mn,normalize(vec3(-.78,.42,.46))),0.,1.);
+      vec3 moon=vec3(1.,.97,.9)*(1.-maria)*(.12+1.16*pow(lit,.7))+vec3(.07,.10,.18);
+      col=mix(col,moon,smoothstep(1.03,.97,mr));
+    }
+  }
   // Now and then one slow shooting star crosses the open sky.
   if(uShootA.x>0.){
     vec2 q=css-uShoot.xy; float along=dot(q,uShoot.zw);
@@ -85,9 +128,17 @@ void main(){
     float k=step(along,2.)*step(-uShootA.y,along)*exp(-side*side/(1.2+2.*(1.-tail)))*pow(1.-tail,1.6);
     col+=vec3(1.,.95,.85)*k*uShootA.x*starMask*1.9;
   }
-  // Thin bright air above the horizon and a wide soft blue halo.
+  // Thin bright air above the horizon and a wide soft blue halo; past the day line it dims to deep blue.
   float ab=max(above,0.);
-  col+=vec3(.55,.88,1.)*exp(-ab/6.)*.85+vec3(.22,.55,1.)*exp(-ab/22.)*.6+vec3(.08,.24,.55)*exp(-ab/110.)*.55;
+  float limbSun=dot(normalize(vec3(d.x,-d.y,.0001)),uNight);
+  float limbDay=smoothstep(-.07,.05,limbSun), limbTwi=exp(-pow((limbSun+.012)/.05,2.));
+  col+=(vec3(.55,.88,1.)*exp(-ab/6.)*.85+vec3(.22,.55,1.)*exp(-ab/22.)*.6)*mix(.28,1.,limbDay)+vec3(.08,.24,.55)*exp(-ab/110.)*mix(.45,.62,limbDay);
+  col+=vec3(1.,.46,.26)*(exp(-ab/7.)*.75+exp(-ab/30.)*.30)*limbTwi;
+  // A soft wide sky-blue glow hugs the day side of the Earth.
+  col+=vec3(.16,.42,.95)*exp(-ab/50.)*.26*limbDay;
+  // Towards the sun the thin air turns into a warm sunrise line.
+  float dawn=exp(-sunD/900.);
+  col+=vec3(1.,.58,.30)*(exp(-ab/9.)*.55+exp(-ab/40.)*.22)*dawn;
   if(rr<1.){
     vec3 n=vec3(d.x,-d.y,sqrt(max(0.,1.-rr*rr)));
     float lon=atan(dot(n,uE2),dot(n,uE1));
@@ -110,10 +161,26 @@ void main(){
     surf+=vec3(1.,.95,.85)*pow(max(dot(n,h),0.),60.)*.45*water*(1.-cover);
     float lum=dot(surf,vec3(.3,.55,.15));
     surf=max(mix(vec3(lum),surf,1.18),0.);
+    // Day and night: past a soft golden sunset line the far side sleeps and its cities light up.
+    float sunUp=dot(n,uNight);
+    float day=smoothstep(-.05,.045,sunUp), twi=exp(-pow((sunUp+.004)/.042,2.));
+    vec3 nightSurf=surf*vec3(.10,.14,.27)+vec3(.010,.018,.048)+vec3(.07,.09,.16)*cover;
+    surf=mix(nightSurf,surf,day);
+    surf=mix(surf,surf*vec3(1.22,.80,.58)+vec3(.30,.15,.03)*cover,twi*.8);
+    surf+=vec3(.62,.27,.08)*twi*(.3+.7*cover)*.75;
+    if(day<.97){
+      float land=(1.-water)*(1.-smoothstep(.45,.75,dot(ground,vec3(.33))));
+      float pop=smoothstep(.40,.74,vnoise(uv*vec2(26.,13.)))*land;
+      vec2 cg=uv*vec2(420.,210.), ci=floor(cg), cf=fract(cg)-(.22+.56*vec2(h21(ci+1.3),h21(ci+8.1)));
+      float spark=step(h21(ci+3.7),pop)*exp(-dot(cf,cf)*24.)*(.55+.45*h21(ci+5.5));
+      float haze=pop*(.3+.7*vnoise(uv*vec2(150.,75.)));
+      surf+=vec3(1.,.74,.38)*(spark*2.6+haze*.34)*(1.-day)*(1.-cover*.75);
+    }
     float fres=pow(1.-n.z,3.2);
-    surf=mix(surf,vec3(.50,.80,1.),clamp(fres*.75,0.,.85));
+    surf=mix(surf,mix(vec3(.10,.18,.42),vec3(.50,.80,1.),day),clamp(fres*.75,0.,.85));
     float inside=(1.-rr)*uEarth.z;
-    surf+=vec3(.42,.80,1.)*(exp(-inside/4.)*.55+exp(-inside/16.)*.28);
+    surf+=mix(vec3(.10,.22,.50),vec3(.42,.80,1.),day)*(exp(-inside/4.)*.55+exp(-inside/16.)*.28);
+    surf+=vec3(1.,.50,.26)*exp(-inside/6.)*.5*twi;
     float edge=clamp((1.-rr)*uEarth.z*uScale*uDpr*.9,0.,1.);
     col=mix(col,surf,edge);
   }
@@ -126,7 +193,18 @@ void main(){
     const canvas = document.createElement('canvas');
     canvas.className = 'orb-live'; canvas.setAttribute('aria-hidden', 'true');
     const anchor = container.querySelector('.orb-shade');
-    container.insertBefore(canvas, anchor); container.insertBefore(station, anchor);
+    // Navigation beacons blink and the round windows breathe on the painted station.
+    const lights = document.createElement('div');
+    lights.className = 'orb-lights'; lights.setAttribute('aria-hidden', 'true');
+    [[863, 132, 'red'], [244, 395, 'red'], [1450, 383, 'green'], [801, 189, 'white'],
+     [335, 400, 'teal'], [535, 400, 'teal'], [806, 384, 'teal'], [959, 385, 'teal'], [1368, 395, 'teal']].forEach(([x, y, kind], i) => {
+      const dot = document.createElement('i');
+      dot.className = 'orb-light orb-light-' + kind;
+      dot.style.left = (x / IMG_W * 100).toFixed(3) + '%'; dot.style.top = (y / IMG_H * 100).toFixed(3) + '%';
+      dot.style.animationDelay = (-i * .83).toFixed(2) + 's';
+      lights.appendChild(dot);
+    });
+    container.insertBefore(canvas, anchor); container.insertBefore(station, anchor); container.insertBefore(lights, anchor);
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
     let T, renderer, backdrop, cabin, cabinCamera, feza, bilbo, fezaPose, bilboPose, gesture;
     let state = 'idle', running = false, raf = 0, last = 0, clock = 0, spin = 0, cloudSpin = .31;
@@ -161,6 +239,12 @@ void main(){
       u.uDpr.value = canvas.width / L.w;
       u.uOff.value.set(L.ox, L.oy);
       u.uScale.value = L.scale;
+      // The moon sits in the open sky corner of every screen shape, clear of the title.
+      const wide = L.w >= L.h;
+      u.uMoon.value.set(L.w * (wide ? .905 : .9), L.h * (wide ? .105 : .1), Math.max(14, Math.min(L.w, L.h) * .034));
+      // Blinking station lights follow the painted station exactly.
+      lights.style.left = L.ox + 'px'; lights.style.top = L.oy + 'px';
+      lights.style.width = IMG_W * L.scale + 'px'; lights.style.height = IMG_H * L.scale + 'px';
     }
 
     async function build() {
@@ -187,6 +271,10 @@ void main(){
       const tangent = V(-c.y, c.x, 0).normalize();
       const axis = V().crossVectors(c, tangent).normalize();
       const e2 = V().crossVectors(axis, c).normalize();
+      // The day line runs through two painted points; the far right side of the Earth is in night.
+      const nAt = (x, y) => {const dx = (x - EARTH.x) / EARTH.r, dy = (y - EARTH.y) / EARTH.r; return V(dx, -dy, Math.sqrt(Math.max(0, 1 - dx * dx - dy * dy)));};
+      const night = V().crossVectors(nAt(1450, 240), nAt(1220, 941)).normalize();
+      if (night.dot(nAt(500, 941)) < 0) night.negate();
       backdrop = new T.Mesh(new T.PlaneGeometry(2, 2), new T.ShaderMaterial({
         vertexShader: backdropVertex, fragmentShader: backdropFragment, depthTest: false, depthWrite: false,
         uniforms: {
@@ -194,7 +282,7 @@ void main(){
           uEarth: {value: new T.Vector3(EARTH.x, EARTH.y, EARTH.r)}, uTime: {value: 0}, uSpin: {value: 0}, uCloudSpin: {value: 0},
           uA: {value: axis}, uE1: {value: c}, uE2: {value: e2}, uSun: {value: V(-.55, .45, .70).normalize()},
           uSurface: {value: tex(surfaceImg)}, uClouds: {value: tex(cloudImg)},
-          uShoot: {value: new T.Vector4()}, uShootA: {value: new T.Vector2()}
+          uShoot: {value: new T.Vector4()}, uShootA: {value: new T.Vector2()}, uMoon: {value: new T.Vector3(-999, -999, 1)}, uNight: {value: night}
         }
       }));
       backdrop.frustumCulled = false;
@@ -249,7 +337,7 @@ void main(){
       bilbo.update(dt, t, bilboPose, 0, gesture);
     }
     function shootingStar(u) {
-      const period = 12, k = Math.floor((clock + 6) / period), local = (clock + 6) - k * period, life = 2.2;
+      const period = 8, k = Math.floor((clock + 5) / period), local = (clock + 5) - k * period, life = 2.2;
       if (local > life || !layout) {u.uShootA.value.x = 0; return;}
       const rnd = n => {const x = Math.sin(k * 127.1 + n * 311.7) * 43758.5453; return x - Math.floor(x);};
       const a = .16 + .22 * rnd(1), dx = Math.cos(a), dy = Math.sin(a);
@@ -267,7 +355,8 @@ void main(){
     function draw(dt) {
       renderer.info.reset();
       const u = backdrop.material.uniforms;
-      const surfaceSpeed = .0052, span = .87266, cloudSpan = .69813;
+      // The Earth keeps turning where a child can see it move (half speed with reduced motion).
+      const surfaceSpeed = reduce.matches ? .0042 : .0088, span = .87266, cloudSpan = .69813;
       spin = (spin + dt * surfaceSpeed) % span;
       cloudSpin = (cloudSpin + dt * surfaceSpeed * 1.35) % cloudSpan;
       u.uTime.value = clock; u.uSpin.value = spin; u.uCloudSpin.value = cloudSpin;
@@ -277,7 +366,7 @@ void main(){
       renderer.render(backdrop.userData.scene, backdrop.userData.camera);
       const P = portholeRect();
       if (P.size > 4 && P.cx + P.r > 0 && P.cx - P.r < layout.w && P.cy + P.r > 0 && P.cy - P.r < layout.h) {
-        pose(dt);
+        pose(reduce.matches ? 0 : dt);
         const dpr = renderer.getPixelRatio();
         renderer.setViewport(P.x / dpr, P.y / dpr, P.size / dpr, P.size / dpr);
         renderer.setScissor(P.x / dpr, P.y / dpr, P.size / dpr, P.size / dpr);
@@ -298,7 +387,7 @@ void main(){
       last = now;
       clock += dt;
       const began = performance.now();
-      try { draw(reduce.matches ? 0 : dt); } catch (err) { console.warn('Üs sahnesi durdu', err); fail(); }
+      try { draw(dt); } catch (err) { console.warn('Üs sahnesi durdu', err); fail(); }
       cpuMs = cpuMs * .95 + (performance.now() - began) * .05;
     }
     function start() {

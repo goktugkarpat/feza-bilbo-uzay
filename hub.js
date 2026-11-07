@@ -15,7 +15,20 @@
     const ctx = canvas.getContext('2d');
     let seed = 73;
     function random() {seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967295;}
-    for (let i = 0; i < 290; i++) {
+    // A handful of big soft-glowing stars first, then the fine star dust.
+    for (let i = 0; i < 14; i++) {
+      const x = random() * canvas.width, y = random() * canvas.height, r = 7 + 9 * random();
+      const glow = ctx.createRadialGradient(x, y, 0, x, y, r);
+      const warm = i % 3 === 0;
+      glow.addColorStop(0, warm ? 'rgba(255,236,200,.95)' : 'rgba(225,243,255,.95)');
+      glow.addColorStop(.18, warm ? 'rgba(255,200,140,.35)' : 'rgba(150,210,255,.35)');
+      glow.addColorStop(1, 'rgba(120,170,255,0)');
+      ctx.globalAlpha = 1; ctx.fillStyle = glow;
+      ctx.fillRect(x - r, y - r, r * 2, r * 2);
+      ctx.globalAlpha = .5; ctx.fillStyle = '#f4f9ff';
+      ctx.fillRect(x - r * 1.3, y - .5, r * 2.6, 1); ctx.fillRect(x - .5, y - r * 1.3, 1, r * 2.6);
+    }
+    for (let i = 0; i < 420; i++) {
       const x = random() * canvas.width, y = random() * canvas.height;
       const light = random();
       const radius = .38 + 1.25 * light * light;
@@ -70,6 +83,8 @@
       const picture = document.createElement('img');
       picture.src = 'assets/orbit/' + planet.id + '-globe.webp';
       picture.alt = '';
+      // The destination glows in its own colour as the rocket comes closer.
+      target.style.setProperty('--planet-accent', planet.color);
       target.append(picture);
       const sky = container.querySelector('.orb-deep');
       if (!sky.firstChild) sky.append(flightStars());
@@ -105,7 +120,9 @@
       art.width = 1000; art.height = 610;
       art.src = 'assets/orbit/' + planet.id + '-globe.webp';
       const name = document.createElement('span'); name.textContent = planet.name;
-      b.append(art, name); b.addEventListener('click', () => launch(planet));
+      // A soft ring in the planet's own colour runs along the dock now and then: "touch me".
+      const halo = document.createElement('i'); halo.className = 'orb-halo'; halo.setAttribute('aria-hidden', 'true');
+      b.append(halo, art, name); b.addEventListener('click', () => launch(planet));
       grid.appendChild(b); buttons.push(b);
     }
     grid.addEventListener('keydown', e => {

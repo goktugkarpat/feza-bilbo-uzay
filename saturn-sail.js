@@ -8,11 +8,22 @@
   M.createRingSails=function({root,player,dog,ground,mats,shapes,glazeTexture,weldToy,routeLength=300}){
     const unit=new T.Vector3(0,1,0),va=new T.Vector3(),vb=new T.Vector3();
     const lessons=[],ships=[],orbital=[{start:13,end:54},{start:76,end:128},{start:174,end:230}];
+    // A calm glide: each crossing is a real 14-19 s ride with gentle swoops
+    // between its two moorings, never a quick hop on and off.
+    const CRUISE=3.0;
     const shellMat=new T.MeshStandardMaterial({vertexColors:true,roughness:.35,metalness:.29});
     M.WorkshopArt.paint(shellMat,'enamel');
     const sailMat=new T.MeshStandardMaterial({vertexColors:true,roughness:.38,metalness:.18,side:T.DoubleSide,map:glazeTexture,
-      emissive:0x284249,emissiveIntensity:.28});
-    const frost=new T.MeshStandardMaterial({color:0x74cbda,map:glazeTexture,roughness:.35,metalness:.12});
+      emissive:0x3a6a70,emissiveIntensity:.42});
+    // Ring-ice silhouettes share the polished ice look of the walking surface.
+    const frost=new T.MeshStandardMaterial({color:0xc2ecf6,map:glazeTexture,roughness:.3,metalness:.12,emissive:0x0c4152,emissiveIntensity:.5});
+    // Glacier glow to match the big ice arches: bright cyan rim, soft inner light (no extra draws).
+    frost.onBeforeCompile=shader=>{
+      shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>',`
+        float rim=pow(1.-abs(dot(normal,normalize(vViewPosition))),2.4);
+        outgoingLight+=vec3(.09,.32,.40)*rim+diffuseColor.rgb*vec3(.03,.09,.11);
+        #include <opaque_fragment>`);
+    };
     const reactorColors=[0x75f5e3,0xffcf8d];
     function group(parent,x=0,y=0,z=0){const g=new T.Group();g.position.set(x,y,z);parent.add(g);return g;}
     function part(parent,geo,mat,x,y,z,sx=1,sy=sx,sz=sx){
@@ -27,14 +38,16 @@
     // and a flat, broad non-slip surface under two separate seats.
     function hullGeometry(){
       const p=[],c=[],uv=[],ix=[];
-      const sections=[[-1.83,.08,.04],[-1.70,.36,.18],[-1.23,.59,.35],[-.60,.68,.41],[.27,.67,.40],[.98,.57,.34],[1.55,.37,.22],[1.93,.045,.035]];
+      // Eight hand-set stations become a smooth, rounded hull (built once).
+      const stations=[[-1.83,.08,.04],[-1.70,.36,.18],[-1.23,.59,.35],[-.60,.68,.41],[.27,.67,.40],[.98,.57,.34],[1.55,.37,.22],[1.93,.045,.035]];
+      const sections=new T.CatmullRomCurve3(stations.map(([x,w,h])=>new T.Vector3(x,w,h))).getPoints(21).map(v=>[v.x,Math.max(.03,v.y),Math.max(.025,v.z)]);
       const dark=new T.Color(0x2e6576),ice=new T.Color(0x82c5cf),pearl=new T.Color(0xebdbbc),gold=new T.Color(0xc79858);
       const colors=[dark,ice,pearl,gold,pearl,ice,dark];
       sections.forEach(([x,w,h],i)=>{
         const lift=.055+.12*Math.pow(Math.abs(x)/1.93,2.6);
         const yz=[[-.37*h,0],[-.10*h,w*.74],[.31*h,w],[.54*h,w*.98],[.78*h,w*.80],[.82*h,0],[.78*h,-w*.80],[.54*h,-w*.98],[.31*h,-w],[-.10*h,-w*.74],[-.37*h,0]];
         yz.forEach(([y,z],j)=>{
-          p.push(x,y+lift,z);const shade=colors[[0,1,2,3,4,5,4,3,2,1,0][j]];c.push(shade.r,shade.g,shade.b);uv.push(i/3,j/5);
+          p.push(x,y+lift,z);const shade=colors[[0,1,2,3,4,5,4,3,2,1,0][j]];c.push(shade.r,shade.g,shade.b);uv.push(i/9,j/5);
           if(i&&j){const a=i*11+j;ix.push(a-12,a-1,a,a-12,a,a-11);}
         });
       });
@@ -82,9 +95,17 @@
         part(g,skateG,mats.brass,0,-.02,side*.47);
         for(const sx of [-1.15,.98])strut(g,[sx-.10,-.10,side*.47],[sx+.15,.16,side*.48],.058,mats.petrol);
       }
+      // Warm bow lamp and teal stern light in brass collars, like a real little boat.
+      part(g,shapes.sphere,mats.milk,1.66,.33,0,.085);part(g,shapes.ring,mats.brass,1.66,.33,0,.11,.11,.11).rotation.y=Math.PI/2;
+      part(g,shapes.sphere,mats.light,-1.64,.33,0,.07);part(g,shapes.ring,mats.brass,-1.64,.33,0,.095,.095,.095).rotation.y=Math.PI/2;
       part(g,plinthG,mats.steel,1.10,.21,.10,.78,.68,.78);
       part(g,shapes.sphere,mats.gem[0],1.10,.301,.10,.175,.068,.175);
       const port=part(g,aperture,mats.light,.09,.164,.67);port.rotation.x=.02;
+      // A row of round glowing portholes in brass rims along the visible flank (welded, no extra draws).
+      for(const [px,pz] of [[-1.02,.625],[-.45,.682],[.62,.63],[1.12,.535]]){
+        part(g,shapes.nub,mats.brass,px,.258,pz,.088,.088,.03);
+        part(g,shapes.nub,mats.light,px,.258,pz+.014,.064,.064,.03);
+      }
       for(const seatX of [-.64,.60]){
         part(g,shapes.sphere,mats.coral,seatX,.425,0,.37,.10,.28);
         const hand=part(g,centerGrip,mats.brass,seatX-.13,.49,-.27);hand.rotation.z=-.30;
@@ -264,7 +285,9 @@
           for(const side of[-1,1]){const ridge=part(g,shapes.iceRock,frost,side*1.65,1.5,0,.72,2.10,.95);ridge.rotation.z=side*.23;}part(g,shapes.iceRock,frost,0,3.25,0,2.1,.55,1.05);
           part(g,shapes.iceRock,mats.gem[0],-1.9,1.0,.1,.55,1.8,.9);
         }else if(leg===1){
-          for(let side=-1;side<=1;side+=2){const leaf=part(g,shapes.iceRock,mats.gem[1],side*.85,1.8,0,.64,2.5,.38);leaf.rotation.z=side*.41;}
+          // Amber crystal cluster: a tall spire with two slimmer leaning companions.
+          part(g,shapes.iceRock,mats.gem[1],0,2.05,0,.40,2.75,.40).rotation.y=.5;
+          for(let side=-1;side<=1;side+=2){const leaf=part(g,shapes.iceRock,mats.gem[1],side*.8,1.5,.12,.33,1.95,.33);leaf.rotation.z=side*.36;}
         }else{
           for(let k=0;k<3;k++){const spire=part(g,shapes.iceRock,k%2?mats.gem[2]:frost,(k-1)*.62,1.5+k%2,.16*k,.38,2.3+k%2,.48);spire.rotation.z=(k-1)*-.18;}
         }
@@ -399,6 +422,16 @@
       const t=clamp((s.x-s.lo)/(s.hi-s.lo),0,1);
       return Math.sin(t*Math.PI)*(.88+.18*Math.sin(t*TAU));
     }
+    // Soft arcs between shores and berths; zero where the sail moors.
+    function swoop(s){
+      let a=s.lo;
+      for(let i=0;i<=s.stops.length;i++){
+        const b=i<s.stops.length?s.stops[i].x-3.6:s.hi;
+        if(s.x<=b){const L=b-a;return L>1?Math.sin(Math.PI*clamp((s.x-a)/L,0,1))*Math.min(1.35,L*.065):0;}
+        a=b;
+      }
+      return 0;
+    }
     function board(s){
       if(s.visited||riding||player.locked||Math.abs(player.x-s.x)>5.5)return false;
       riding=s;s.phase='board';s.stop=null;s.timer=0;s.boost=0;s.v=0;s.wants=0;s.beenAway=false;
@@ -480,7 +513,7 @@
             // Moon steering is optional and returns to the crossing direction.
             const drive=heldDir||(s.boost>0?s.wants:s.cruiseDir);
             if(drive&&drive!==s.dir){s.dir=drive;player.facing=dog.facing=drive;}
-            s.v=M.damp(s.v,drive*6.4,drive?3.45:1.88,dt);const move=s.v*dt;
+            s.v=M.damp(s.v,drive*CRUISE,drive?2.2:1.88,dt);const move=s.v*dt;
             const before=s.x;
             s.x=clamp(s.x+move,s.lo,s.hi);
             for(let qi=0;qi<s.stops.length;qi++){
@@ -490,20 +523,23 @@
                 s.x=berth;stopAt(s,q);break;
               }
             }
-            const y=ground(s.x)+.35+ringLift(s)+.054*Math.sin(s.clock*2.6);
+            const y=ground(s.x)+.35+ringLift(s)+swoop(s)+.054*Math.sin(s.clock*2.6);
             s.root.position.set(s.x,y,-.18);
             player.x=s.x+.59;player.y=y+.49;player.z=-.18;
             dog.x=s.x-.67;dog.y=y+.50;dog.z=-.11;
-            player.mode=dog.mode='idle';player.skating=s.v/6.4;dog.skating=player.skating;
-            M.setCameraTarget(s.x+s.v*.23,y+1.95,innerWidth<innerHeight?1.2:.93,.91);
+            player.mode=dog.mode='idle';player.skating=s.v/CRUISE;dog.skating=player.skating;
+            // A slightly wider, forward-looking view shows the ice and rings ahead.
+            M.setCameraTarget(s.x+s.dir*1.2+s.v*.2,y+1.7,innerWidth<innerHeight?1.3:1.04,.91);
             if(Math.abs(s.x-s.atX)>1.8)s.beenAway=true;
             const atEdge=(s.x<=s.lo+.012&&s.v<-.17)||(s.x>=s.hi-.012&&s.v>.17);
             if(atEdge&&(s.beenAway||s.timer>.53)){
-              if(s.stops.every(q=>q.done))s.visited=true;
-              disembark(s);
+              // The ride only ends once both moorings are done; an early
+              // shore turns the sail back instead of dropping the pair off.
+              if(s.stops.every(q=>q.done)){s.visited=true;disembark(s);}
+              else{const back=s.x<=s.lo+.012?1:-1;s.dir=s.wants=s.cruiseDir=back;s.v=0;s.boost=0;heldDir=0;player.facing=dog.facing=back;}
             }
           }else if(s.phase==='moor'){
-            const y=ground(s.x)+.35+ringLift(s)+.025*Math.sin(s.clock*2.2);
+            const y=ground(s.x)+.35+ringLift(s)+swoop(s)+.025*Math.sin(s.clock*2.2);
             s.root.position.set(s.x,y,-.18);
             player.x=s.x+.59;player.y=y+.49;player.z=-.18;
             dog.x=s.x-.67;dog.y=y+.50;dog.z=-.11;
@@ -527,7 +563,7 @@
           if(!s.visited&&!riding&&!player.locked&&(Math.abs(px-s.x)<.9||crossed))board(s);
         }
         s.lastPX=player.x;
-        const pulling=s===riding&&(s.phase==='sail'||s.phase==='moor'),charge=pulling?Math.max(s.phase==='moor'?.23:s.boost>.03?.48:0,Math.abs(s.v)/6.4):0;
+        const pulling=s===riding&&(s.phase==='sail'||s.phase==='moor'),charge=pulling?Math.max(s.phase==='moor'?.23:s.boost>.03?.48:0,Math.abs(s.v)/CRUISE):0;
         s.lights=M.damp(s.lights,charge,4.3,dt);
         s.wing.rotation.z=.10*Math.sin(s.clock*.82)+s.lights*s.dir*.16;
         s.wing.rotation.y=.09+.18*s.lights*Math.sin(s.clock*2.0);
@@ -552,7 +588,8 @@
       if(type==='cancel'){stopPointer(type,p,e);if(!e||id===inputId){inputId=null;heldDir=0;if(!e)downKeys.clear();}return false;}
       if(riding){
         const s=riding;if(s.phase==='moor'&&stopPointer(type,p,e))return true;
-        if(type==='down'&&(s.phase==='sail'||s.phase==='moor')&&s.stops.every(q=>q.done)&&Math.abs(p.x-s.x)<1.04&&p.y>s.root.position.y-.42&&p.y<s.root.position.y+.46){disembark(s);return true;}
+        // Touching the hull mid-crossing is harmless; the sail lands by itself.
+        if(type==='down'&&(s.phase==='sail'||s.phase==='moor')&&Math.abs(p.x-s.x)<1.04&&p.y>s.root.position.y-.42&&p.y<s.root.position.y+.46)return true;
         return false;
       }
       if(type!=='down'||player.locked)return false;
@@ -572,12 +609,11 @@
       for(const s of ships)if(Math.abs(player.x-s.x)<3.3&&board(s))return true;
       return false;
     }
-    // The shared large jump button is an exit, never an assisted solution.
-    // Keep keyboard interaction separate from this deliberately narrow hook.
+    // The shared large jump button never ends a crossing early: the sail
+    // always lands by itself at the far shore, so there is no hop off and
+    // straight back on halfway along the ice.
     function jump(){
-      if(!riding)return false;
-      // Mid-crossing the jump button cannot strand the pair before the stops.
-      if(riding.stops.every(q=>q.done))disembark(riding);return true;
+      return !!riding;
     }
     // Keyboard travel parallels left/right touches. Only consume keys while
     // sitting on a sail; normal shared walking/pause handling stays intact.

@@ -49,13 +49,17 @@
       fragmentShader:`varying vec3 n;varying vec3 pos;varying vec2 surfaceUV;uniform sampler2D atlas,ringProfile;
       void main(){
         vec3 v=normalize(n);vec3 albedo=texture2D(atlas,surfaceUV+vec2(.078,0.)).rgb;
+        // Richer butterscotch belts: a little more colour and band contrast.
+        float lum=dot(albedo,vec3(.299,.587,.114));
+        albedo=max(mix(vec3(lum),albedo,1.55)*(.84+.30*smoothstep(.30,.92,lum))*vec3(1.04,.99,.9),0.);
         vec3 light=normalize(vec3(-.71,.35,.65));float diffuse=max(0.,dot(v,light));
         vec3 p=pos*vec3(1.,.91,1.);vec3 sun=normalize(vec3(-.67,.34,.71));
         float t=-p.y/sun.y;float r=length((p+sun*t).xz);
         float shadow=(t>0.&&r>15.65&&r<32.18)?texture2D(ringProfile,vec2((r-15.65)/16.53,.5)).a:0.;
         float limb=pow(1.-max(0.,v.z),3.9);
         vec3 lit=albedo*(.125+1.28*diffuse*(1.-.62*shadow));
-        lit+=vec3(.015,.022,.05)*(1.-diffuse)+limb*vec3(.146,.131,.125);
+        lit+=vec3(.015,.022,.05)*(1.-diffuse)+limb*mix(vec3(.07,.10,.2),vec3(.27,.21,.13),diffuse);
+        lit+=albedo*vec3(.32,.14,.02)*diffuse*(1.-diffuse)*(1.-.62*shadow);
         gl_FragColor=vec4(lit,1.);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -74,9 +78,12 @@
         vec3 sun=normalize(vec3(-.67,.34,.71)),p=vec3(xy.x,0.,-xy.y);
         float ray=-dot(p,sun);float dist=length(p+ray*sun);
         float eclipse=ray>0.?1.-smoothstep(12.4,14.7,dist):0.;
-        vec3 col=icy.rgb*vec3(3.0,2.55,2.22)+vec3(.043,.039,.042);
+        // Fine ringlets and a warm-to-icy tint give the rings crisp detail.
+        float lets=.86+.14*sin(r*23.)*sin(r*7.3+1.7);
+        vec3 tint=mix(vec3(3.3,2.72,2.18),vec3(2.7,2.85,3.05),smoothstep(24.,31.,r));
+        vec3 col=(icy.rgb*tint+vec3(.05,.045,.05))*lets;
         col*=1.-.82*eclipse;
-        gl_FragColor=vec4(col,icy.a);
+        gl_FragColor=vec4(col,min(1.,icy.a*1.15));
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`
@@ -84,6 +91,14 @@
     root.userData.atlas=atlas;
     const rings=mesh(axis,new T.RingGeometry(15.67,32.16,208),ringMaterial);
     rings.rotation.x=-1.28;
+    // A soft golden haze just outside the globe (one small sprite, 128 px).
+    const haloCanvas=document.createElement('canvas');haloCanvas.width=haloCanvas.height=128;
+    const hc=haloCanvas.getContext('2d'),haze=hc.createRadialGradient(64,64,0,64,64,64);
+    haze.addColorStop(0,'rgba(255,214,160,0)');haze.addColorStop(.6,'rgba(255,214,160,0)');haze.addColorStop(.665,'rgba(255,218,168,.5)');
+    haze.addColorStop(.78,'rgba(255,196,140,.17)');haze.addColorStop(1,'rgba(255,190,140,0)');hc.fillStyle=haze;hc.fillRect(0,0,128,128);
+    const haloMap=new T.CanvasTexture(haloCanvas);haloMap.colorSpace=T.SRGBColorSpace;
+    const halo=new T.Sprite(new T.SpriteMaterial({map:haloMap,blending:T.AdditiveBlending,depthWrite:false,transparent:true,fog:false,opacity:.8}));
+    halo.scale.set(42.5,42.5,1);halo.renderOrder=-1;root.add(halo);
     return root;
   }
   // Small local derivatives of the Mars pack's ambientCG Ice002 (CC0).
@@ -141,9 +156,10 @@
       arc:{y:.18,rise:.45,width:.085,tilt:-.1,opacity:.36,colors:['#f3e2bd','#a9c9d8']},
       bodies:[{preset:'titan',screen:[.34,.10],size:.07,light:[1,.3]},{preset:'enceladus',screen:[.46,.06],size:.032,light:[1,.3]}]});}catch(err){spaceSky=null;}
     const skyBody=putPlanet(root);
-    const hemi=new T.HemisphereLight(0xffe8d7,0x6d748e,1.95);
-    const key=new T.DirectionalLight(0xffdcad,2.25);key.position.set(-8,15,10);
-    const fill=new T.DirectionalLight(0x8be8fc,.85);fill.position.set(8,7,-12);
+    // Warm low sun, cool ring-light from behind: more depth, same three lights.
+    const hemi=new T.HemisphereLight(0xffe6d2,0x5a6a96,1.72);
+    const key=new T.DirectionalLight(0xffd29c,2.6);key.position.set(-8,15,10);
+    const fill=new T.DirectionalLight(0x7fe0ff,1.12);fill.position.set(8,7,-12);
     root.add(hemi,key,key.target,fill);key.castShadow=true;key.shadow.mapSize.set(1024,1024);
     const shadow=key.shadow.camera;shadow.left=-13;shadow.right=13;shadow.top=12;shadow.bottom=-10;shadow.near=.4;shadow.far=43;key.shadow.normalBias=.025;key.shadow.bias=-.0004;key.shadow.radius=2;
     const mats={
@@ -160,9 +176,13 @@
     glazeTexture.colorSpace=T.SRGBColorSpace;glazeTexture.wrapS=glazeTexture.wrapT=T.RepeatWrapping;glazeTexture.anisotropy=4;
     iceAlbedo.colorSpace=T.SRGBColorSpace;
     for(const t of [iceAlbedo,iceNormal]){t.wrapS=t.wrapT=T.RepeatWrapping;t.repeat.set(2,1.4);t.anisotropy=2;}
-    mats.ice=metal(0xacd3ed,.67,.035);mats.ice.vertexColors=true;
-    mats.ice.map=iceAlbedo;mats.ice.normalMap=iceNormal;mats.ice.normalScale=new T.Vector2(.49,.49);
-    for(const m of mats.gem){m.map=iceAlbedo;m.normalMap=iceNormal;m.normalScale=new T.Vector2(.11,.11);}
+    // Polished, faintly glowing ring ice: a wet sheen under the sun and a
+    // deep teal light in the shadows (no extra textures or draw calls).
+    mats.ice=metal(0xacd3ed,.44,.06);mats.ice.vertexColors=true;
+    mats.ice.map=iceAlbedo;mats.ice.normalMap=iceNormal;mats.ice.normalScale=new T.Vector2(.64,.64);
+    mats.ice.emissive.setHex(0x0d3a4a);mats.ice.emissiveIntensity=.42;
+    mats.frost.roughness=.42;mats.frost.emissive.setHex(0x0b2e3c);mats.frost.emissiveIntensity=.3;
+    for(const m of mats.gem){m.map=iceAlbedo;m.normalMap=iceNormal;m.normalScale=new T.Vector2(.11,.11);m.emissive.copy(m.color);m.emissiveIntensity=.16;}
     shapes.iceRock=icyRockGeometry();
     const staticParts=new Map(), dummy=new T.Object3D(),a=new T.Vector3(),b=new T.Vector3(),up=new T.Vector3(0,1,0);
     // Keep a small length of the ring in each batch. The camera can then cull
@@ -376,7 +396,7 @@
     }
     // Fractured ice arches are lofted around a curved spine; the hollow really
     // opens onto the rings. One mesh handles the whole chain of distant ridges.
-    const cliffP=[],cliffC=[],cliffUV=[],cliffI=[];
+    const cliffP=[],cliffC=[],cliffUV=[],cliffI=[],snowCap=new T.Color(0xf4fcff),glacierFace=new T.Color(0x86eef6);
     function iceSpine(center,z,span,lift,girth) {
       const base=cliffP.length/3,steps=21,facets=9;
       for(let i=0;i<=steps;i++){
@@ -390,8 +410,11 @@
           const rough=1+.12*Math.sin(i*.8+3*(j%facets))+.06*Math.cos(i*1.7+j);
           const radial=thickness*c*rough;
           const wx=x+nx*radial,wy=y+ny*radial,wz=z+Math.sin(arc*1.8)*.53+v*thickness*1.9;
-          tmpC.copy(sideBlue).lerp(topBlue,.42+.37*ny*c+.07*Math.sin(i+j*3));
-          if(c>.67)tmpC.lerp(topWarm,.39);
+          // Glacier ice: deep blue roots, bright cyan flanks and snowy crests.
+          const up=ny*c,rise=clamp((wy+4.3)/(lift+1.2),0,1);
+          tmpC.copy(ocean).lerp(sideBlue,.25+.75*rise).lerp(topBlue,clamp(.30+.45*up+.10*Math.sin(i+j*3),0,1));
+          if(up>.3)tmpC.lerp(snowCap,clamp((up-.3)*1.5,0,.8));
+          else if(v>.5)tmpC.lerp(glacierFace,.30*(v-.5)*2+.08*Math.sin(i*2.1+j));
           cliffP.push(wx,wy,wz);cliffC.push(tmpC.r,tmpC.g,tmpC.b);cliffUV.push(i*.16,j*.18);
           if(i&&j){const q=base+i*(facets+1)+j,prev=q-facets-1;cliffI.push(prev-1,q-1,q,prev-1,q,prev);}
         }
@@ -405,7 +428,14 @@
     iceSpine(222,-22,10.8,7.6,1.48);
     iceSpine(273,-25,13,8.3,1.6);
     const cliffG=new T.BufferGeometry();cliffG.setAttribute('position',new T.Float32BufferAttribute(cliffP,3));cliffG.setAttribute('color',new T.Float32BufferAttribute(cliffC,3));cliffG.setAttribute('uv',new T.Float32BufferAttribute(cliffUV,2));cliffG.setIndex(cliffI);cliffG.computeVertexNormals();
-    const cliffM=polished.clone();cliffM.side=T.DoubleSide;cliffM.color.set(0x8cb9ce);cliffM.onBeforeCompile=polished.onBeforeCompile;
+    const cliffM=polished.clone();cliffM.side=T.DoubleSide;cliffM.color.set(0xb9e2ee);cliffM.emissive.setHex(0x0c4152);cliffM.emissiveIntensity=.55;
+    // Glacier glow: a bright cyan rim and soft light inside the ice (same single draw).
+    cliffM.onBeforeCompile=shader=>{
+      shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>',`
+        float rim=pow(1.-abs(dot(normal,normalize(vViewPosition))),2.4);
+        outgoingLight+=vec3(.09,.32,.40)*rim+diffuseColor.rgb*vec3(.03,.09,.11);
+        #include <opaque_fragment>`);
+    };
     const broken=cliffG.toNonIndexed();broken.computeVertexNormals();cliffG.dispose();mesh(root,broken,cliffM);
     // Real ice hints at pieces suspended in the interior through two offset
     // depth layers, refracted fissures and a glancing facet highlight. Opaque
@@ -459,7 +489,7 @@
       for(let x=start+.4;x<end-.2;x+=1.1+rand()*1.32){
         const z=shelfEdge(x,1),y=ground(x);
         const sz=.075+rand()*.14;
-        piece(shapes.stone,mats.frost,x,y-.13,z-.05,sz*1.72,sz*.55,sz,.14,.48,rand()*.3);
+        piece(shapes.stone,iceLayer,x,y-.13,z-.05,sz*1.72,sz*.55,sz,.14,.48,rand()*.3);
         if(rand()>.63)piece(shapes.stone,iceLayer,x+.27,y-.43,z+.05,sz*.39,sz*1.28,sz*.48,.19,0,.21);
       }
     }
@@ -1405,7 +1435,11 @@
     for(const x of [-1.17,1.17]){
       const fairing=mesh(boat,shapes.sphere,mats.porcelain,x,.15,-.10);fairing.scale.set(.40,.27,.50);
       const lamp=mesh(boat,shapes.sphere,mats.light,x,.17,.35);lamp.scale.set(.20,.061,.043);
+      // Little coral tail fins and a gold trim band: a friendlier sky boat (welded, no extra draws).
+      const fin=mesh(boat,shapes.sphere,mats.coral,x*1.2,.32,-.16);fin.scale.set(.2,.25,.05);fin.rotation.z=-Math.sign(x)*.55;
     }
+    const trim=mesh(boat,shapes.ring,mats.brass,0,.03,0);trim.scale.set(1.57,.57,1.4);trim.rotation.x=Math.PI/2;
+    const backRail=mesh(boat,new T.TorusGeometry(.86,.035,6,24,Math.PI),mats.brass,0,.2,-.38);backRail.scale.set(1.15,.55,1);
     const sign=mesh(ticket,shapes.sphere,mats.ink,0,0,-.08);sign.scale.set(.83,.73,.13);
     const outline=mesh(ticket,shapes.ring,mats.milk);outline.scale.set(.78,.68,1);
     const crystalMark=mesh(ticket,new T.OctahedronGeometry(.42),mats.gem[0],0,0,.12);
@@ -1435,7 +1469,7 @@
     }
     // The robot taxi is only a real return journey (a missed stop far back).
     // A nearby missed stop is reached on foot; no hop-on/hop-off rides.
-    function taxiFar(from){return Math.abs(nextStop()-from)>30;}
+    function taxiFar(from){return Math.abs(nextStop()-from)>40;}
     function showTaxi(){
       if(!taxiFar(eyeX)&&!taxiOn){gleam=1;M.sfx('ring');return;}
       const besideCamera=taxiOn&&Math.abs(taxiX-eyeX)<5;
@@ -1447,7 +1481,7 @@
       const stop=nextStop();
       if(Math.abs(taxiX-stop)<6.6||!taxiFar(taxiX)){signBounce=1;M.sfx('ring');return;}
       const landingX=stop+(stop===eyeX?-2.65:4.65),dir=Math.sign(landingX-taxiX);
-      ride={phase:'board',elapsed:0,start:taxiX,end:landingX,duration:2+Math.abs(landingX-taxiX)/16,dir,
+      ride={phase:'board',elapsed:0,start:taxiX,end:landingX,duration:Math.max(12,3+Math.abs(landingX-taxiX)/14),dir,
         px:player.x,py:player.y,pz:player.z||0,dx:dog.x,dy:dog.y,dz:dog.z??.3};
       dog.activityTargetX=undefined;dog.activityMode=undefined;dog.emote='';dog.lookX=dog.lookY=0;
       player.locked=dog.locked=true;player.grounded=dog.grounded=true;
@@ -1481,7 +1515,7 @@
         if(u>=1){q.phase='cruise';q.elapsed=0;}
       }else if(q.phase==='cruise'){
         const t=clamp(q.elapsed/q.duration,0,1),old=taxiX;
-        taxiX=M.lerp(q.start,q.end,ease(t));const height=ground(taxiX)+.38+Math.sin(t*Math.PI)*.70;
+        taxiX=M.lerp(q.start,q.end,ease(t));const height=ground(taxiX)+.38+Math.sin(t*Math.PI)*1.15+.32*Math.sin(t*Math.PI*5)*Math.sin(t*Math.PI);
         taxi.position.set(taxiX,height,-.10);player.x=taxiX+q.dir*.57;dog.x=taxiX-q.dir*.70;
         player.y=height-.045;dog.y=height+.28;player.z=-.09;dog.z=.04;
         player.mode=dog.mode='ride';
@@ -1530,23 +1564,45 @@
       dummy.position.set(x,y+.08,z);dummy.scale.set(.09,.16,.09);dummy.updateMatrix();posts.setMatrixAt(i*3+1,dummy.matrix);dummy.position.set(x,y+1.31,z);dummy.scale.set(.15,.04,.15);dummy.updateMatrix();posts.setMatrixAt(i*3+2,dummy.matrix);
       dummy.position.set(x,y+1.17,z);dummy.scale.setScalar(.11);dummy.updateMatrix();caps.setMatrixAt(i,dummy.matrix);
     });
-    const crystalMat=metal(0x9fe3f0,.28,.08);crystalMat.emissive=new T.Color(0x2a5a66);crystalMat.emissiveIntensity=.35;
+    const gemTints=[0x7ff4ff,0x7ff4ff,0xd8a6ff,0xffc977,0x9fffe0].map(h=>new T.Color(h)),gemGeo=new T.OctahedronGeometry(1,0);
+    const gemMat=new T.MeshStandardMaterial({color:0x8a8f96,roughness:.2,metalness:.1});
+    gemMat.onBeforeCompile=shader=>{
+      shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>',`
+        float rim=pow(1.-abs(dot(normal,normalize(vViewPosition))),2.);
+        outgoingLight+=vColor*vColor*(.42+.9*rim);
+        #include <opaque_fragment>`);
+    };
     const crystalSpots=[];for(let x=10;x<length-2;x+=2.6+rand()*2.2)if(iceAt(x)&&!nearBusy(x))crystalSpots.push(x);
-    const crystals=new T.InstancedMesh(shapes.stone,crystalMat,crystalSpots.length*3);
+    const crystals=new T.InstancedMesh(gemGeo,gemMat,crystalSpots.length*3);
     crystalSpots.forEach((x,i)=>{
       const z=shelfEdge(x,1)-.32,y=ground(x);
       for(let k=0;k<3;k++){
-        const h=.16+rand()*.22;dummy.position.set(x+(k-1)*.13,y+h*.45,z+(rand()-.5)*.16);
-        dummy.rotation.set((rand()-.5)*.5,rand()*TAU,(k-1)*.35);dummy.scale.set(.05+rand()*.03,h,.05+rand()*.03);
-        dummy.updateMatrix();crystals.setMatrixAt(i*3+k,dummy.matrix);
+        const h=.2+rand()*.26;dummy.position.set(x+(k-1)*.14,y+h*.4,z+(rand()-.5)*.16);
+        dummy.rotation.set((rand()-.5)*.5,rand()*TAU,(k-1)*.38);dummy.scale.set(.07+rand()*.03,h,.07+rand()*.03);
+        dummy.updateMatrix();crystals.setMatrixAt(i*3+k,dummy.matrix);crystals.setColorAt(i*3+k,gemTints[(i+k)%gemTints.length]);
       }
     });
+    // Crystal garden: glowing cyan, lilac and amber clusters grow from the
+    // back edge of the ice lanes, behind the riding line (one instanced draw).
+    const clusterXs=[];
+    for(let x=11;x<length-4;x+=3.1+rand()*2.6)if(iceAt(x)&&iceAt(x+1)&&!nearBusy(x)&&shelfEdge(x,-1)<-2.85&&postXs.every(q=>Math.abs(q-x)>1.1))clusterXs.push(x);
+    const gemCluster=new T.InstancedMesh(gemGeo,gemMat,clusterXs.length*4);
+    clusterXs.forEach((x,i)=>{
+      const z=shelfEdge(x,-1)+.5+rand()*.25,y=ground(x),tint=gemTints[Math.floor(rand()*gemTints.length)];
+      for(let k=0;k<4;k++){
+        const h=k===0?1.0+rand()*.55:.42+rand()*.42,lean=(k-1.5)*.32+(rand()-.5)*.2;
+        dummy.position.set(x+(k-1.5)*.24,y+h*.45,z+(rand()-.5)*.3);
+        dummy.rotation.set((rand()-.5)*.35,rand()*TAU,-lean);dummy.scale.set(.12+h*.1,h,.12+h*.1);
+        dummy.updateMatrix();gemCluster.setMatrixAt(i*4+k,dummy.matrix);gemCluster.setColorAt(i*4+k,tint);
+      }
+    });
+    gemCluster.name='Buz kristali kümeleri';decor.add(gemCluster);
     const farRocks=new T.InstancedMesh(shapes.stone,mats.frost,70),farBand=group(decor);
     for(let i=0;i<70;i++){
       const s=.12+rand()*.28;dummy.position.set(rand()*(length+40)-20,-2.2+rand()*3.4,-34-rand()*12);
       dummy.rotation.set(rand()*TAU,rand()*TAU,rand()*TAU);dummy.scale.set(s,s*(.6+rand()*.5),s);dummy.updateMatrix();farRocks.setMatrixAt(i,dummy.matrix);
     }
-    for(const m of [posts,caps,crystals,farRocks]){m.raycast=noPick;m.castShadow=false;m.receiveShadow=false;m.instanceMatrix.needsUpdate=true;m.computeBoundingSphere();}
+    for(const m of [posts,caps,crystals,farRocks,gemCluster]){m.raycast=noPick;m.castShadow=false;m.receiveShadow=false;m.instanceMatrix.needsUpdate=true;m.computeBoundingSphere();}
     decor.add(posts,caps,crystals);farBand.add(farRocks);
     function decorTick(time){
       lanternMat.color.setRGB(1,.86+.06*Math.sin(time*1.3),.58+.08*Math.sin(time*1.3));
@@ -1980,8 +2036,8 @@
       if(M.playGuideActive){guide.visible=false;filingLine.visible=false;}
     }
     function activateAt(p,id) {
-      // Only the boat or jump button voluntarily interrupts a journey.
-      if(ride){if(Math.abs(p.x-taxiX)<1.9&&Math.abs(p.y-taxi.position.y)<1.05){landTaxi();return true;}return false;}
+      // A journey always finishes at its stop: no accidental hop-off midway.
+      if(ride)return Math.abs(p.x-taxiX)<1.9&&Math.abs(p.y-taxi.position.y)<1.05;
       if(taxiOn&&Math.abs(nextStop()-taxiX)>6.6&&close(taxiX,10)&&Math.abs(p.x-taxiX)<1.78&&p.y>=ground(taxiX)-.1&&p.y<ground(taxiX)+3.1){boardTaxi();return true;}
       if(close(harpX,12)){
         for(let i=0;i<3;i++){const q=harp[i];if(M.touchPlayPart?M.touchPlayPart(p,q.gem,.18):Math.abs(p.x-q.x)<.78&&Math.abs(p.y-q.y)<.72){chime(i);return true;}}
@@ -2047,7 +2103,7 @@
     }
     function interact(){
       if(!ride&&sails.interact())return true;
-      if(ride){landTaxi();return true;}
+      if(ride)return true;
       if(Math.abs(player.x-wheelX)<4.4){impulse(player.facing);return true;}
       if(taxiOn&&close(taxiX,2.1)&&Math.abs(nextStop()-taxiX)>6.6){boardTaxi();return true;}
       if(garden.interact()||eclipse.interact()||nursery.interact())return true;
@@ -2062,7 +2118,7 @@
       return false;
     }
     function jump(){
-      if(ride){landTaxi();return true;}
+      if(ride)return true;
       return sails.jump();
     }
 

@@ -46,7 +46,13 @@
     brace(fixed,brass,[glassX+1.00,2.64,-.44],[glassX+.88,glassY,-.46],.09);
     const frame=part(fixed,cylinder,mint,glassX,glassY,-.47,1.01,.19,1.01);frame.rotation.x=Math.PI/2;
     part(fixed,rim,brass,glassX,glassY,-.34,1.01,1.01,1.01);
-    const darkWell=new T.MeshBasicMaterial({color:0x344c56});
+    // The viewing lens reads as clear blue glass with a soft shine instead of a dark hole (one small canvas).
+    const lensCanvas=document.createElement('canvas');lensCanvas.width=lensCanvas.height=128;
+    {const c=lensCanvas.getContext('2d'),g=c.createRadialGradient(52,48,4,64,64,66);g.addColorStop(0,'#b4e2e4');g.addColorStop(.5,'#5ea3b1');g.addColorStop(1,'#265766');c.fillStyle=g;c.fillRect(0,0,128,128);
+     c.strokeStyle='rgba(255,255,255,.8)';c.lineCap='round';c.lineWidth=7;c.beginPath();c.arc(64,64,47,Math.PI*1.06,Math.PI*1.40);c.stroke();
+     c.lineWidth=4;c.beginPath();c.arc(64,64,36,Math.PI*1.12,Math.PI*1.28);c.stroke();c.lineWidth=3;c.strokeStyle='rgba(255,255,255,.35)';c.beginPath();c.arc(64,64,50,Math.PI*.12,Math.PI*.30);c.stroke();}
+    const lensTexture=new T.CanvasTexture(lensCanvas);lensTexture.colorSpace=T.SRGBColorSpace;
+    const darkWell=new T.MeshBasicMaterial({map:lensTexture});
     part(fixed,new T.CircleGeometry(.94,48),darkWell,glassX,glassY,-.36);
     for(let i=0;i<8;i++){
       const a=Math.PI*2*i/8;
@@ -58,6 +64,15 @@
     const pivotX=-.04,pivotY=2.45;
     part(fixed,cylinder,ink,pivotX,.77,-.75,.35,.66,.32);
     brace(fixed,cream,[pivotX,.72,-.73],[pivotX,pivotY,-.65],.15);
+    // A finished workbench: brass edge trim, braced legs, a raised back rail and two racks of capped sample tubes.
+    // Everything reuses the four bench paints, so the merge below keeps the same draw calls.
+    part(fixed,cube,brass,-.04,.548,.552,6.30,.045,.05);part(fixed,cube,brass,-.04,.548,-.535,6.30,.045,.05);
+    for(const x of [-2.69,-.08,2.64]){const sole=world.ground(center+x)-floor-.03;for(const s of [-1,1])brace(fixed,brass,[x+s*.34,sole+.12,-.1],[x+s*.07,.31,-.1],.034);}
+    for(const x of [-3.165,3.085]){part(fixed,cylinder,cream,x,.42,0,.11,1.06,.11).rotation.x=Math.PI/2;part(fixed,pin,brass,x,.42,.535,.075,.03,.075).rotation.x=Math.PI/2;}
+    for(const rx of [-1.83,1.26]){
+      part(fixed,cube,ink,rx,.6,-.43,.32,.12,.17);part(fixed,cube,brass,rx,.67,-.43,.34,.025,.19);
+      for(const dx of [-.1,0,.1]){part(fixed,pin,cream,rx+dx,.84,-.45,.047,.36,.047);part(fixed,pin,dx?mint:brass,rx+dx,1.04,-.45,.058,.06,.058);part(fixed,pin,dx===0?mint:ink,rx+dx,.73,-.45,.05,.1,.05);}
+    }
     world.batchStation(fixed);
 
     // A single painted mineral surface is reused on the specimen and in its lens.
