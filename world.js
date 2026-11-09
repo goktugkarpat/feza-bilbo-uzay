@@ -41,7 +41,7 @@
       ground:new T.MeshStandardMaterial({color:0xffffff,map:pbr.soilColor||sandTexture,normalMap:pbr.soilNormal||null,normalScale:new T.Vector2(.6,.6),roughnessMap:pbr.soilRoughness||null,bumpMap:pbr.soilNormal?null:sandTexture,bumpScale:.025,vertexColors:true,roughness:.98}),
       rock:new T.MeshStandardMaterial({color:0xffffff,map:pbr.rockColor||strataTexture,normalMap:pbr.rockNormal||null,normalScale:new T.Vector2(.78,.78),roughnessMap:pbr.rockRoughness||null,bumpMap:pbr.rockNormal?null:strataTexture,bumpScale:.03,vertexColors:true,roughness:.98}),
       sand:new T.MeshStandardMaterial({color:0xc78361,map:pbr.soilColor||sandTexture,normalMap:pbr.soilNormal||null,normalScale:new T.Vector2(.28,.28),roughness:.98}),
-      dunes:new T.MeshStandardMaterial({color:0xd0a274,map:pbr.sandColor||rippleTexture,normalMap:pbr.sandNormal||null,normalScale:new T.Vector2(.5,.5),roughnessMap:pbr.sandRoughness||null,bumpMap:pbr.sandNormal?null:rippleTexture,bumpScale:.025,roughness:.98,transparent:true,opacity:1,depthWrite:false,vertexColors:true}),
+      dunes:new T.MeshStandardMaterial({color:0xd0a274,map:pbr.sandColor||rippleTexture,normalMap:pbr.sandNormal||null,normalScale:new T.Vector2(.85,.85),roughnessMap:pbr.sandRoughness||null,bumpMap:pbr.sandNormal?null:rippleTexture,bumpScale:.025,roughness:.98,transparent:true,opacity:1,depthWrite:false,vertexColors:true}),
       basalt:new T.MeshStandardMaterial({color:0x53484d,roughness:.97}),
       cream:new T.MeshStandardMaterial({color:0xece9dd,map:paintTexture,roughness:.52,metalness:.16}),
       teal:new T.MeshStandardMaterial({color:0x347b82,roughness:.47,metalness:.25}),
@@ -131,10 +131,12 @@
     // The sparse horizon shelf joins the bases of distant mesas. Keep it separate
     // so a visible ridge never pulls a nearby, finely tessellated terrain chunk into view.
     {
-      const rows=[-104,-80,-60,-49,-41.5],p=[],colors=[],uv=[],ix=[],cols=300;
+      // Near rows keep the rusty soil tone, so far cliffs visibly stand on ground instead of pale haze.
+      const rows=[-104,-80,-60,-49,-41.5],shelfAir=[1,.82,.5,.24,.12],shelfSoil=new T.Color(0xb47a5d),shelfTone=new T.Color(),p=[],colors=[],uv=[],ix=[],cols=300;
       for(let i=0;i<=cols;i++){const x=-45+i*2;for(let j=0;j<rows.length;j++){
         const z=rows[j],y=height(x,z)-(j===rows.length-1?.16:.06);
-        p.push(x,y,z);uv.push(x/4.8,z/4.8);colors.push(dustCol.r,dustCol.g,dustCol.b);
+        shelfTone.copy(shelfSoil).lerp(ochreCol,.18+.14*Math.sin(x*.047+z*.21)).lerp(dustCol,shelfAir[j]);
+        p.push(x,y,z);uv.push(x/4.8,z/4.8);colors.push(shelfTone.r,shelfTone.g,shelfTone.b);
         if(i<cols&&j+1<rows.length){const a=i*rows.length+j,b=a+rows.length;ix.push(a,a+1,b,b,a+1,b+1);}
       }}
       const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(p,3));g.setAttribute('color',new T.Float32BufferAttribute(colors,3));
@@ -146,7 +148,9 @@
       const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(p,3));g.setAttribute('uv',new T.Float32BufferAttribute(u,2));g.setAttribute('color',new T.Float32BufferAttribute(c,4));g.computeVertexNormals();mats.ice.vertexColors=true;softSurface(g,ix,alpha,mats.ice);g.computeVertexNormals();
     }
     // The sky is an atmospheric gradient, with a broad sun and dust-colored horizon.
-    scene.background=new T.Color(0xd1a297);scene.fog=new T.FogExp2(0xd1a297,.010);
+    // Thinner haze keeps far cliffs crisp; distant ridges carry their own baked air colour below.
+    const FOG_BASE=.0058;
+    scene.background=new T.Color(0xd1a297);scene.fog=new T.FogExp2(0xd1a297,FOG_BASE);
     const skyMat=new T.ShaderMaterial({side:T.BackSide,depthWrite:false,uniforms:{top:{value:new T.Color(0x6c768f)},horizon:{value:new T.Color(0xe2b6a0)},low:{value:new T.Color(0xc48771)},drift:{value:0}},vertexShader:'varying vec3 vP;void main(){vP=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',fragmentShader:'varying vec3 vP;uniform vec3 top;uniform vec3 horizon;uniform vec3 low;uniform float drift;void main(){vec3 d=normalize(vP);float h=d.y;vec3 c=mix(horizon,top,smoothstep(.0,.13,h)*.82+.18*pow(max(h,0.),.38));c=mix(c,low,(1.-smoothstep(-.22,0.,h)));float sun=pow(max(dot(d,normalize(vec3(-.55,.33,-.7))),0.),550.);float haze=pow(max(dot(d,normalize(vec3(-.55,.33,-.7))),0.),7.);float blue=pow(max(dot(d,normalize(vec3(-.55,.33,-.7))),0.),26.);float rose=exp(-pow((h-.035)/.03,2.));c+=vec3(.22,.14,.07)*haze*.6+vec3(-.05,.10,.24)*blue+vec3(.10,.03,.05)*rose+vec3(.55,.48,.33)*sun;vec2 q=d.xz/(h+.16)+vec2(drift,drift*.31);float w=sin(q.x*1.3+sin(q.y*2.1)*1.4)*sin(q.y*.9+q.x*.35)+.5*sin(q.x*3.1-q.y*1.7+sin(q.x*.7))+.28*sin(q.x*6.3+q.y*4.1+drift*1.7)*sin(q.y*5.2-q.x*2.3);float cl=smoothstep(.16,1.,w)*smoothstep(.012,.06,h)*(1.-smoothstep(.22,.55,h));vec3 cc=mix(mix(horizon,vec3(.80,.62,.62),.45),vec3(1.,.95,.88),smoothstep(.35,1.25,w))+vec3(.16,.09,.03)*haze;c=mix(c,cc,cl*.68);gl_FragColor=vec4(c,1.);\n#include <colorspace_fragment>\n}',toneMapped:false});
     const sky=mesh(new T.SphereGeometry(1100,32,16),skyMat,250,0,0,root,false);sky.renderOrder=-1000;sky.frustumCulled=false;
     // Magic twilight overhead: twinkling stars, Phobos and Deimos, and a rare slow shooting star.
@@ -162,24 +166,36 @@
     const sun=new T.DirectionalLight(0xffdfb6,3.1);sun.position.set(-30,52,28);sun.target.position.set(10,0,-4);sun.castShadow=true;sun.shadow.mapSize.set(shadowSize,shadowSize);sun.shadow.camera.left=-25;sun.shadow.camera.right=25;sun.shadow.camera.top=20;sun.shadow.camera.bottom=-18;sun.shadow.camera.near=1;sun.shadow.camera.far=120;sun.shadow.normalBias=.045;sun.shadow.bias=-.0002;sun.shadow.radius=3;scene.add(sun,sun.target);
     const fill=new T.DirectionalLight(0x9ab8d7,.8);fill.position.set(35,18,-30);scene.add(fill);
     // Far ridgelines use restrained tones and coherent layered silhouettes.
+    // Each layer is pre-mixed with the dusty air, so depth reads without a thick fog.
+    const airTint=new T.Color(0xdcae9d);
     function ridge(z,base,h,matSeed){
-      const nx=180,nz=10,depth=z<-90?40:z<-60?30:22,p=[],c=[],uv=[],idx=[],color=new T.Color(matSeed);
+      const nx=180,nz=10,depth=z<-90?40:z<-60?30:22,p=[],c=[],uv=[],idx=[],color=new T.Color(matSeed).lerp(airTint,z<-90?.42:z<-60?.24:.08);
       for(let i=0;i<=nx;i++){const x=-120+i*4,q=i*2/3;for(let j=0;j<=nz;j++){const f=j/nz,zz=z-depth*.5+f*depth,spine=.45+.08*Math.sin(q*.23),ridgeProfile=Math.pow(Math.max(0,Math.sin(Math.PI*f)),.8),peak=base+h*(.44+.21*Math.sin(q*.19+f*.8)+.14*Math.sin(q*.47+1.7)+.09*Math.sin(q*.83+f*1.3));
-        const y=-4+ridgeProfile*(peak+4)+Math.sin(x*.14+zz*.18)*ridgeProfile*.45;p.push(x,y,zz);const shade=.89+.10*ridgeProfile+.02*Math.sin(x*.1+zz);c.push(color.r*shade,color.g*shade,color.b*shade);uv.push(x/18,zz/18);
+        const y=-4+ridgeProfile*(peak+4)+Math.sin(x*.14+zz*.18)*ridgeProfile*.45+Math.sin(x*.083+z)*Math.pow(ridgeProfile,3)*h*.07;p.push(x,y,zz);
+        // Soft sediment bands and shaded gullies give the clearer far hills a gentle carved look.
+        const strata=.95+.05*Math.sin(y*1.6+Math.sin(x*.045+zz*.1)*1.4),gully=1-.12*Math.pow(Math.max(0,Math.sin(x*.27+Math.sin(x*.061)*2)),6)*ridgeProfile;
+        const shade=(.87+.12*ridgeProfile+.02*Math.sin(x*.1+zz))*strata*gully;c.push(color.r*shade,color.g*shade,color.b*shade);uv.push(x/26,zz/26);
         if(i<nx&&j<nz){const a=i*(nz+1)+j,b=a+nz+1;idx.push(a,a+1,b,b,a+1,b+1);}
       }}
-      const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(p,3));g.setAttribute('color',new T.Float32BufferAttribute(c,3));g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.setIndex(idx);g.computeVertexNormals();mesh(g,new T.MeshStandardMaterial({vertexColors:true,roughness:1}),0,0,0,root,false);
+      const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(p,3));g.setAttribute('color',new T.Float32BufferAttribute(c,3));g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.setIndex(idx);g.computeVertexNormals();mesh(g,ridgeMat,0,0,0,root,false);
     }
+    // One shared surface for all three far layers: a light rock relief catches the sun without busy pebbles.
+    const ridgeMat=new T.MeshStandardMaterial({vertexColors:true,roughness:1,normalMap:pbr.rockNormal||null,normalScale:new T.Vector2(.5,.5)});
     ridge(-105,2,17,0xc4a5a0);ridge(-72,0,12,0xbb9285);ridge(-45,-2,8,0xb0826c);
     function mesa(x,z,w,h,d,s){
-      const p=[],cols=[],uv=[],ind=[],n=40,rings=23,bottom=height(x,z)-.85,perimeter=Math.PI*(w+d)*.5,mode=Math.floor(s*3)%3;
+      // The foot sinks below the lowest soil it covers, so no sky shows under a cliff; its top stays put.
+      let low=height(x,z)-.85;
+      for(let j=0;j<16;j++){const a=j/16*Math.PI*2;for(const k of [.55,.72])low=Math.min(low,height(x+Math.cos(a)*w*k,z+Math.sin(a)*d*k)-.3);}
+      // Low, wide far mesas get a soil-toned scree skirt so they rest on the plain instead of hovering.
+      const talus=clamp((w/h-1.6)/1.6,0,1);h+=height(x,z)-.85-low;
+      const p=[],cols=[],uv=[],ind=[],n=40,rings=23,bottom=low,perimeter=Math.PI*(w+d)*.5,mode=Math.floor(s*3)%3;
       const base=new T.Color(0xb97d5d),light=new T.Color(0xcda17c),shade=new T.Color(0x9c664e),color=new T.Color();
-      for(let k=0;k<rings;k++){const f=k/(rings-1),wall=mode===0?mix(1.04,.82,smooth(f)):mode===1?mix(1.10,.66,Math.pow(f,.7)):1.02-.16*f-.08*Math.sin(Math.PI*f),foot=.22*(1-smooth(f/.28));
+      for(let k=0;k<rings;k++){const f=k/(rings-1),wall=mode===0?mix(1.04,.82,smooth(f)):mode===1?mix(1.10,.66,Math.pow(f,.7)):1.02-.16*f-.08*Math.sin(Math.PI*f),foot=(.22+talus*.3)*(1-smooth(f/(.28+talus*.06)));
         for(let j=0;j<=n;j++){const a=j/n*Math.PI*2,macro=.075*Math.sin(a*3+s)+.052*Math.sin(a*5+s*2)+.023*Math.sin(a*11+f*4+s),gully=-.095*Math.pow(Math.max(0,Math.sin(a*7+s+f*.3)),6)*Math.sin(Math.PI*f),fine=.018*Math.sin(a*17+f*13+s),bedding=.042*Math.sin(f*26+s+.6*Math.sin(a*3))+.019*Math.sin(f*47+s*.42),
               recess=.16*smooth((Math.cos(a+s*.58)-.30)/.70)*smooth((f-.27)/.64),
               rr=wall+foot+macro+gully+fine+bedding*Math.sin(f*Math.PI)-recess;
           const topBreak=(.058*Math.sin(a*3+s)+.029*Math.sin(a*7+s*1.8)+.012*Math.sin(a*13)+.045*Math.cos(a+s*.41))*Math.pow(f,5),yy=bottom+h*(f+topBreak),xx=Math.cos(a)*w*.5*rr,zz=Math.sin(a)*d*.5*rr;
-          p.push(x+xx,yy,z+zz);const mottled=.5+.23*Math.sin(a*3+f*5+s)+.14*Math.sin(a*9-f*8+s);color.copy(base).lerp(light,clamp(mottled*.4+f*.12,0,1)).lerp(shade,Math.pow(Math.max(0,Math.sin(a*7+s)),5)*.22);color.lerp(dustCol,smooth((-z-23)/32)*.45);const lamina=.95+.055*Math.sin(f*26+s+.6*Math.sin(a*3));cols.push(color.r*lamina,color.g*lamina,color.b*lamina);uv.push(j/n*perimeter/4.2,(yy-bottom)/4.2);
+          p.push(x+xx,yy,z+zz);const mottled=.5+.23*Math.sin(a*3+f*5+s)+.14*Math.sin(a*9-f*8+s);color.copy(base).lerp(light,clamp(mottled*.4+f*.12,0,1)).lerp(shade,Math.pow(Math.max(0,Math.sin(a*7+s)),5)*.22);color.lerp(rustA,(1-smooth(f/.22))*.4*talus).lerp(dustCol,smooth((-z-23)/32)*.45);const lamina=.95+.055*Math.sin(f*26+s+.6*Math.sin(a*3));cols.push(color.r*lamina,color.g*lamina,color.b*lamina);uv.push(j/n*perimeter/4.2,(yy-bottom)/4.2);
           if(k<rings-1&&j<n){const a0=k*(n+1)+j,b0=a0+n+1;ind.push(a0,b0,a0+1,a0+1,b0,b0+1);}
         }
       }
@@ -206,10 +222,12 @@
     function dune(cx,z,w,h,d,material=mats.dunes){
       const nx=Math.min(220,Math.max(40,Math.ceil(w/.24))),nz=14,p=[],u=[],ix=[],colors=[],alpha=[],fade=material.userData.softEdge||(material.transparent&&material.vertexColors);
       for(let i=0;i<=nx;i++){const x=cx-w*.5+w*i/nx;for(let j=0;j<=nz;j++){const zz=z-d*.5+d*j/nz,uPos=i/nx,vPos=j/nz,crest=.62+.075*Math.cos(vPos*Math.PI*2)+.022*Math.sin(vPos*Math.PI*4+cx*.1),fx=uPos<crest?Math.sin(uPos/crest*Math.PI*.5):Math.pow(Math.max(0,1-(uPos-crest)/(1-crest)),1.25),fz=Math.sin(Math.PI*vPos),edge=Math.sin(Math.PI*uPos)*fz;
-        const ripples=(Math.sin(x*8.5+Math.sin(zz*.7)*1.6+Math.sin(x*.19+zz*.4))*.018+Math.sin(x*17-zz*.2)*.005)*edge*(material===mats.dunes?1:.22),y=height(x,zz)+h*Math.pow(Math.max(0,fx),1.1)*Math.pow(fz,1.2)*Math.pow(Math.max(0,Math.sin(Math.PI*i/nx)),.12)+ripples+(zz>3?.12:.03);p.push(x,y,zz);u.push(x/3.2,zz/3.2);if(fade){const a=smooth(i/nx/.06)*smooth((1-i/nx)/.06)*smooth(j/nz/.10)*smooth((1-j/nz)/.10),tone=.86+.16*Math.max(0,fx)*fz-(uPos>crest?.07*fz:0);colors.push(tone,tone*.985,tone*.965,a);alpha.push(a);}
+        const ripples=(Math.sin(x*8.5+Math.sin(zz*.7)*1.6+Math.sin(x*.19+zz*.4))*.018+Math.sin(x*17-zz*.2)*.005)*edge*(material===mats.dunes?1:.22),y=height(x,zz)+h*Math.pow(Math.max(0,fx),1.1)*Math.pow(fz,1.2)*Math.pow(Math.max(0,Math.sin(Math.PI*i/nx)),.12)+ripples+(zz>3?.12:.03);p.push(x,y,zz);u.push(x/3.2,zz/3.2);if(fade){const a=smooth(i/nx/.06)*smooth((1-i/nx)/.06)*smooth(j/nz/.10)*smooth((1-j/nz)/.10),lee=uPos>crest?smooth((uPos-crest)/.05):0,tone=.85+.19*Math.max(0,fx)*fz-.15*lee*fz;colors.push(tone,tone*.985,tone*.965,a);alpha.push(a);}
         if(i<nx&&j<nz){const a=i*(nz+1)+j,b=a+nz+1;ix.push(a,a+1,b,b,a+1,b+1);}
       }}
-      const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(p,3));g.setAttribute('uv',new T.Float32BufferAttribute(u,2));if(fade)g.setAttribute('color',new T.Float32BufferAttribute(colors,4));g.setIndex(ix);g.computeVertexNormals();const surface=fade?softSurface(g,ix,alpha,material):mesh(g,material,0,0,0,root,false);if(material===mats.dunes)sandBanks.push({surface,x0:cx-w*.5,x1:cx+w*.5,z0:z-d*.5,z1:z+d*.5});
+      const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(p,3));g.setAttribute('uv',new T.Float32BufferAttribute(u,2));if(fade)g.setAttribute('color',new T.Float32BufferAttribute(colors,4));g.setIndex(ix);g.computeVertexNormals();const surface=fade?softSurface(g,ix,alpha,material):mesh(g,material,0,0,0,root,false);
+      // Soft rims behind the route blend before the passing dust wall, so no pale dune edge pops through the storm.
+      if(z+d*.5<-5.8)surface.renderOrder=-11.5;if(material===mats.dunes)sandBanks.push({surface,x0:cx-w*.5,x1:cx+w*.5,z0:z-d*.5,z1:z+d*.5});
     }
     dune(147,-10,42,2.8,12);dune(189,-11.8,58,2.9,13);dune(224,-10,37,2.2,12);dune(170,-22,65,4.5,15);dune(220,-28,70,5.5,18);
     for(let i=0;i<10;i++){let x=range(-10,240);dune(x,range(5,8),range(9,24),range(.2,.6),range(3,5));}
@@ -280,8 +298,11 @@
     function camp(){
       const g=new T.Group();g.position.set(13,height(13,-6.5),-6.5);root.add(g);
       groundPlinth(g,2.4,.32);cylinder(2.4,2.4,.08,mats.metal,0,.36,0,g,32);const hab=cylinder(2.15,2.15,2.7,mats.cream,0,1.68,0,g,32);sphere(2.15,mats.cream,0,3.0,0,g,28,16).scale.y=.42;
-      cylinder(2.18,2.18,.12,mats.teal,0,2.5,0,g,32);roundedPanel(1.25,1.96,.18,.12,mats.dark,0,1.43,2.11,g);roundedPanel(1.06,1.73,.14,.08,mats.teal,0,1.43,2.23,g);mesh(new T.CircleGeometry(.235,24),mats.window,0,1.76,2.345,g);mesh(new T.TorusGeometry(.265,.032,6,28),mats.rail,0,1.76,2.36,g);sphere(.055,mats.rail,.33,1.22,2.35,g,10,6);
-      for(let i=-1;i<=1;i+=2){const win=box(.84,.55,.12,mats.dark,i*1.42,2.02,1.7,g);win.rotation.y=i*.55;const glow=box(.69,.4,.13,mats.window,i*1.42,2.02,1.76,g);glow.rotation.y=i*.55;}
+      // Warm lamplight inside the habitat: a soft golden gradient instead of flat cream panes (one shared draw).
+      const lampGlass=canvasTexture(64,64,(c,w,h)=>{const lg=c.createLinearGradient(0,0,0,h);lg.addColorStop(0,'#ffe6b8');lg.addColorStop(.5,'#ffc36e');lg.addColorStop(1,'#e8873c');c.fillStyle=lg;c.fillRect(0,0,w,h);const rg=c.createRadialGradient(w*.5,h*.6,2,w*.5,h*.6,w*.62);rg.addColorStop(0,'rgba(255,246,222,.5)');rg.addColorStop(1,'rgba(255,251,236,0)');c.fillStyle=rg;c.fillRect(0,0,w,h);});
+      lampGlass.wrapS=lampGlass.wrapT=T.ClampToEdgeWrapping;const litWindow=new T.MeshBasicMaterial({map:lampGlass});
+      cylinder(2.18,2.18,.12,mats.teal,0,2.5,0,g,32);roundedPanel(1.25,1.96,.18,.12,mats.dark,0,1.43,2.11,g);roundedPanel(1.06,1.73,.14,.08,mats.teal,0,1.43,2.23,g);mesh(new T.CircleGeometry(.235,24),litWindow,0,1.76,2.345,g);mesh(new T.TorusGeometry(.265,.032,6,28),mats.rail,0,1.76,2.36,g);sphere(.055,mats.rail,.33,1.22,2.35,g,10,6);
+      for(let i=-1;i<=1;i+=2){const win=box(.84,.55,.12,mats.dark,i*1.42,2.02,1.7,g);win.rotation.y=i*.55;const glow=box(.69,.4,.13,litWindow,i*1.42,2.02,1.76,g);glow.rotation.y=i*.55;}
       for(let i=-1;i<=1;i+=2){beam(v(i*1.6,.35,-1.4),v(i*2.5,-.1,-2.2),.09,mats.metal,g);beam(v(i*1.6,.35,1.4),v(i*2.5,-.1,2.2),.09,mats.metal,g);}
       [.55,1.3,2.82].forEach(y=>{const ring=mesh(new T.TorusGeometry(2.17,.018,6,40),mats.metal,0,y,0,g);ring.rotation.x=Math.PI*.5;});
       cylinder(.38,.4,.26,mats.metal,.55,3.93,-.3,g,20);cylinder(.29,.3,.12,mats.cream,.55,4.11,-.3,g,20);cylinder(.023,.028,.9,mats.metal,-.6,4.16,-.25,g,8);sphere(.05,mats.orange,-.6,4.62,-.25,g,10,6);
@@ -332,8 +353,10 @@
         cablePath.push(v(xx,sandFloor(x+xx,-6+zz)-g.position.y+.029+(k===0?.075:0),zz));}
       const cable=new T.CatmullRomCurve3(cablePath);mesh(new T.TubeGeometry(cable,20,.025,5,false),mats.dark,0,0,0,g);
     });
-    const beacons=[];
-    for(let x=32;x<500;x+=23){if(x>254&&x<346)continue;const z=-2.8,y=height(x,z);cylinder(.045,.06,1.35,mats.metal,x,y+.67,z,root,8);cylinder(.14,.12,.22,mats.warmGlow,x,y+1.38,z,root,12);const cap=sphere(.17,mats.cream,x,y+1.55,z,root,12,6);cap.scale.y=.3;}
+    // Route lamps are gathered in small stretches: each stretch draws its poles, glows and caps once.
+    const lampCells=new Map();
+    for(let x=32;x<500;x+=23){if(x>254&&x<346)continue;const cell=Math.floor(x/70);if(!lampCells.has(cell)){const lg=new T.Group();lg.name='Route lamps · '+cell;root.add(lg);lampCells.set(cell,lg);}const lamps=lampCells.get(cell),z=-2.8,y=height(x,z);cylinder(.045,.06,1.35,mats.metal,x,y+.67,z,lamps,8);cylinder(.14,.12,.22,mats.warmGlow,x,y+1.38,z,lamps,12);const cap=sphere(.17,mats.cream,x,y+1.55,z,lamps,12,6);cap.scale.y=.3;}
+    for(const lamps of lampCells.values())batchStation(lamps);
     // A deep, cool grotto behind the route. Its irregular rock arch frames the open walking line.
     const caveLightXs=[252,274,296,321,345],caveLightPool=[];
     function cave(){
@@ -582,7 +605,7 @@
         p.needsUpdate=n.needsUpdate=true;
       }
       sun.intensity*=1-.21*haze;sun.color.lerp(copperSun,haze*.36);
-      scene.fog.color.lerp(copperFog,haze*.62);scene.fog.density=.010+haze*.0032+(weather.storm||0)*.0075;
+      scene.fog.color.lerp(copperFog,haze*.62);scene.fog.density=FOG_BASE+haze*.0026+(weather.storm||0)*.0068;
       skyMat.uniforms.top.value.lerp(copperDome,haze*.79);skyMat.uniforms.horizon.value.lerp(copperHorizon,haze*.68).lerp(afterglow,clear*.42);
       dustTime.value=t;
       rotorTime=(rotorTime+dt*(1.0+weather.intensity*4.5))%(Math.PI*12);

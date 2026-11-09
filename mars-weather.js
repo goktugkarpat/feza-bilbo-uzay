@@ -56,7 +56,7 @@
             vec4 s=texture2D(art,clamp(lookup,vec2(.001),vec2(.999)));
             ${kind==='front'?`
             float folds=.88+.12*sin(tex.x*18.-t*.53+tex.y*4.);
-            float alpha=s.a*edge*(.54+.38*wind)*folds;
+            float alpha=s.a*edge*(.42+.32*wind)*folds;
             vec3 c=mix(s.rgb,vec3(.70,.40,.26),.24)*(.89+.07*vSeed);
             `:`
             float alpha=s.a*edge*(.89+.20*wind);
@@ -104,10 +104,11 @@
       }
       return group;
     }
+    // The copper bank rolls behind the far mesas, so every cliff keeps its foot on the ground.
     const far=fieldCards([
-      [0,-67,82,12,-.6,true],[45,-38,76,11.5,-1,false],[106,-34,78,17,-1,true],[158,-34,79,21,-1.2,false],
-      [208,-36,80,18,-.9,true],[239,-34,46,10,-1.4,false],
-      [367,-34,72,18,-.7,false],[409,-33,76,15,-1.1,true]
+      [0,-67,82,12,-.6,true],[45,-60,86,13,-1,false],[106,-63,90,19,-1,true],[158,-67,92,23,-1.2,false],
+      [208,-63,92,20,-.9,true],[239,-59,54,12,-1.4,false],
+      [367,-63,84,20,-.7,false],[409,-75,90,18,-1.1,true]
     ],'front');
     // Each funnel has an actual touchdown and a distinct height/tilt in the terrain.
     const vortices=[[101,-5.0,3.9,5.35,0,false],[150,-5.4,5.45,7.65,0,true],[193,-4.1,5.0,7.0,0,false],[222,-7.5,4.3,5.6,0,true],[357,-8.4,4.95,6.3,0,false],[389,-5.1,5.2,7.3,0,true],[397,-8.4,3,4.3,0,false]];

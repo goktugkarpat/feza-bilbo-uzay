@@ -9,8 +9,11 @@
     C.cells.roughness=.37;
     for (const name of ['white','teal','orange','dark','silver','red']) M.WorkshopArt.paint(C[name], name==='silver'?'metal':'enamel');
     C.sand.map=world.materials?.ground?.map||M.WorkshopArt.surface('metal');C.sand.color.setHex(0xe7ba9b);
-    const ghostMat = new T.MeshStandardMaterial({color:0x80e8e4,emissive:0x45bcb9,emissiveIntensity:.3,transparent:true,opacity:.22,roughness:.5,depthWrite:false});
-    const glassMat = new T.MeshStandardMaterial({color:0xc5eff5,transparent:true,opacity:.16,roughness:.13,metalness:.05,depthWrite:false});
+    // Soft rim light (no extra pass): the clear centre shows what is inside, the bright edge
+    // draws the real shape, so "this piece goes here" and "glass bubble" read at a glance.
+    function rimGlow(m,base,edge,glow,key){m.onBeforeCompile=s=>{s.fragmentShader=s.fragmentShader.replace('#include <opaque_fragment>','float rimK=pow(1.0-abs(dot(normal,normalize(vViewPosition))),2.2);diffuseColor.a*='+base+'+'+edge+'*rimK;outgoingLight+=vec3('+glow+')*rimK;\n#include <opaque_fragment>');};m.customProgramCacheKey=()=>key;return m;}
+    const ghostMat = rimGlow(new T.MeshStandardMaterial({color:0x80e8e4,emissive:0x45bcb9,emissiveIntensity:.3,transparent:true,opacity:.22,roughness:.5,depthWrite:false}),'0.5','2.1','0.10,0.34,0.31','mars-ghost-rim');
+    const glassMat = rimGlow(new T.MeshStandardMaterial({color:0xc5eff5,transparent:true,opacity:.16,roughness:.13,metalness:.05,depthWrite:false}),'0.35','2.6','0.18,0.32,0.36','mars-glass-rim');
     function plugShape(){const s=new T.Shape();s.moveTo(-.33,.34);s.lineTo(.33,.34);s.quadraticCurveTo(.47,.34,.45,.18);s.lineTo(.32,-.27);s.quadraticCurveTo(.29,-.39,.15,-.40);s.lineTo(-.15,-.40);s.quadraticCurveTo(-.29,-.39,-.32,-.27);s.lineTo(-.45,.18);s.quadraticCurveTo(-.47,.34,-.33,.34);const g=new T.ExtrudeGeometry(s,{depth:.44,bevelEnabled:true,bevelThickness:.065,bevelSize:.055,bevelSegments:2,steps:1,curveSegments:7});g.translate(0,0,-.22);return g;}
     function roundedBox(){const g=new T.BoxGeometry(1,1,1,3,3,3),p=g.attributes.position,n=g.attributes.normal;for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i),z=p.getZ(i),a=M.clamp(x,-.41,.41),b=M.clamp(y,-.41,.41),c=M.clamp(z,-.41,.41),dx=x-a,dy=y-b,dz=z-c,l=Math.hypot(dx,dy,dz)||1;p.setXYZ(i,a+dx/l*.09,b+dy/l*.09,c+dz/l*.09);n.setXYZ(i,dx/l,dy/l,dz/l);}return g;}
     const geo={sphere:new T.SphereGeometry(1,16,12),cyl:new T.CylinderGeometry(1,1,1,20),box:roundedBox(),torus:new T.TorusGeometry(1,.11,8,40)};
@@ -38,8 +41,11 @@
     function note(s,t=4){call('notify',s,t);}
     function sound(n){call('sfx',n);}
     function task(i){if(!done[i])setTaxiPad(i);done[i]=true;call('celebrate',player.x,player.y+1);}
-    function burst(x,y,m=C.gold,count=12){for(let i=0;i<count;i++){const s=sparks.find(q=>q.life<=0);if(!s)break;s.life=1.2;s.o.visible=true;s.o.material=m;s.o.position.set(x,y,.8);const a=(i/count)*Math.PI*2;s.vx=Math.cos(a)*(1.3+(i%3)*.6);s.vy=1.8+Math.sin(a)*1.5;s.vz=((i%3)-1)*.4;}}
-    for(let i=0;i<42;i++){const o=ball([0,-20,0],[.09,.09,.09],C.gold);o.visible=false;sparks.push({o,life:0,vx:0,vy:0,vz:0});}
+    // Celebration sparkles share ONE instanced draw (no per-sparkle shadow pass); each takes its burst's paint colour.
+    const sparkMesh=new T.InstancedMesh(new T.SphereGeometry(1,8,6),new T.MeshStandardMaterial({color:0xffffff,emissive:0x3a2e12,emissiveIntensity:1,roughness:.45,metalness:.08}),42),sparkPose=new T.Object3D();
+    sparkMesh.name='Kutlama kıvılcımları';sparkMesh.frustumCulled=false;root.add(sparkMesh);// visible (all hidden at y=-20) for the load-time shader compile; the first tick hides it
+    function burst(x,y,m=C.gold,count=12){let any=false;for(let i=0;i<count;i++){const s=sparks.find(q=>q.life<=0);if(!s)break;any=true;s.life=1.2;sparkMesh.setColorAt(s.i,m.color);s.x=x;s.y=y;s.z=.8;const a=(i/count)*Math.PI*2;s.vx=Math.cos(a)*(1.3+(i%3)*.6);s.vy=1.8+Math.sin(a)*1.5;s.vz=((i%3)-1)*.4;}if(any){sparkMesh.instanceColor.needsUpdate=true;sparkMesh.visible=true;}}
+    for(let i=0;i<42;i++){sparkPose.position.set(0,-20,0);sparkPose.scale.setScalar(.0001);sparkPose.updateMatrix();sparkMesh.setMatrixAt(i,sparkPose.matrix);sparkMesh.setColorAt(i,C.gold.color);sparks.push({i,life:0,x:0,y:-20,z:0,vx:0,vy:0,vz:0});}
 
     // Three optional rewards teach the low-gravity hop by sight, with no new UI or task.
 
@@ -53,7 +59,7 @@
     [-1,1].forEach(s=>{tube([s*.34,.64,0],[s*.39,.16,0],.14,C.dark,bot);box([s*.39,.15,.12],[.43,.25,.65],C.white,bot);});
     const robotLights=[-.3,0,.3].map(x=>ball([x,.62,.40],[.065,.065,.035],C.dark,bot));
     const robotEyes=[],botArms=[];let botHeart=null,botAntenna=null;
-    const robotGhostMats=[0x55d8cd,0xffc064,0x9bdff1].map(c=>new T.MeshStandardMaterial({color:c,emissive:c,emissiveIntensity:.2,transparent:true,opacity:.19,roughness:.6,depthWrite:false}));
+    const robotGhostMats=[0x55d8cd,0xffc064,0x9bdff1].map(c=>rimGlow(new T.MeshStandardMaterial({color:c,emissive:c,emissiveIntensity:.2,transparent:true,opacity:.19,roughness:.6,depthWrite:false}),'0.55','1.6','0.14,0.22,0.22','mars-robot-ghost-rim'));
     function makeRobotPiece(i,parent,ghost){const m=ghost?robotGhostMats[i]:null;
       if(i===0){box([0,0,0],[1.45,.9,.77],m||C.teal,parent);ball([0,0,.44],[.60,.31,.075],m||C.dark,parent);
         [-.32,.32].forEach(x=>{const lid=ball([x,.05,.52],[.13,.025,.055],m||C.white,parent);if(!ghost){hoop([x,.05,.54],.16,C.silver,parent);const pupil=ball([x+.025,.07,.57],[.05,.055,.025],C.blue,parent);pupil.visible=false;robotEyes.push({lid,pupil});}});
@@ -79,10 +85,12 @@
       g.visible=false;target.visible=false;
 
     });
-    const robotSign=new T.Group();robotSign.position.set(robotX-1,rg+3.6,-2.4);root.add(robotSign);
+    // The robot's rigid body, legs and feet share draws; its three status lights keep their own colour swaps.
+    if(world.batchStation){robotLights.forEach(o=>bot.remove(o));world.batchStation(bot);robotLights.forEach(o=>bot.add(o));}
+    const robotSign=new T.Group();robotSign.position.set(robotX-.1,rg+3.6,-2.4);root.add(robotSign);// centred over the robot: its two posts stand clear of the head and arms
     box([0,0,-.06],[3.52,1.16,.14],C.dark,robotSign);
     M.WorkshopArt.sign(robotSign,['head','battery','robot'],0,0,.025,3.4,1.08);
-    for(const side of[-1,1])tube([side*1.57,-.58,-.05],[side*1.57,-2.55,-.05],.055,C.silver,robotSign);
+    for(const side of[-1,1])tube([side*1.7,-.58,-.05],[side*1.7,-2.55,-.05],.055,C.silver,robotSign);
     world.batchStation(robotSign);
     let selectedRobot=-1;
     const robot={phase:'scan',time:0,digIndex:-1,awake:false,lastTap:-10,cheer:0,nudge:0};
@@ -123,13 +131,15 @@
       robotPieces.forEach((q,i)=>{q.peek.visible=!q.dug&&robot.phase!=='dig';if(q.install){const a=q.install;a.time+=dt;const u=M.clamp(a.time/.75,0,1),v=u*u*(3-2*u);q.g.position.set(a.from.x+(q.slot.x-a.from.x)*v,a.from.y+(q.slot.y-a.from.y)*v+Math.sin(u*Math.PI)*.75,a.from.z+(q.slot.z-a.from.z)*v);if(u>=1){q.g.position.set(q.slot.x,q.slot.y,q.slot.z);q.install=null;q.pop=.25;robot.phase=robotPhase();}}
         if(q.dug&&!q.attached&&(!drag||drag.kind!=='robot'||drag.i!==i)){q.g.position.copy(q.home);q.g.position.y+=Math.sin(elapsed*1.8+i)*.06;}
         if(q.pop>0){q.pop=Math.max(0,q.pop-dt);q.g.scale.setScalar(1+Math.sin(q.pop*16)*q.pop*.12);}else q.g.scale.setScalar(1);
-        q.ghost.visible=!q.attached;robotGhostMats[i].opacity=i===focus&&q.dug?.38+Math.sin(elapsed*3)*.07:.13;
+        q.ghost.visible=!q.attached;robotGhostMats[i].opacity=i===focus&&q.dug?.38+Math.sin(elapsed*3)*.07:i===focus?.26:.18;
         mounds[i].target.visible=!q.dug&&i===focus&&robot.phase!=='dig';mounds[i].g.visible=!q.dug;robotLights[i].material=q.attached?C.green:C.dark;
       });
       if(!robot.awake&&robotPieces.every(q=>q.attached&&!q.install))finishRobot();robot.cheer=Math.max(0,robot.cheer-dt);robot.nudge=Math.max(0,robot.nudge-dt);
       const cheer=Math.min(1,robot.cheer);bot.position.y=rg+(robot.awake?Math.sin(elapsed*2)*.018:0);bot.rotation.z=robot.awake?Math.sin(elapsed*1.4)*.01:0;
       botArms.forEach((a,i)=>{a.rotation.z=robot.awake?(i?-.12-cheer*.8+Math.sin(elapsed*4)*.25*cheer:Math.sin(elapsed*2)*.04):0;});
-      robotEyes.forEach(e=>{e.lid.scale.y=robot.awake?.16:.025;e.pupil.visible=robot.awake;});if(botHeart){botHeart.material=robot.awake?C.teal:C.gold;botHeart.scale.setScalar(1+Math.sin(elapsed*3)*(robot.awake?.04:.08));}if(botAntenna)botAntenna.material=robot.awake?C.gold:C.dark;
+      const blink=robot.awake&&(elapsed%3.7)<.12;robotEyes.forEach(e=>{e.lid.scale.y=robot.awake&&!blink?.16:.025;e.pupil.visible=robot.awake&&!blink;});
+      // An awake friend gently blinks and tilts its head; nothing moves before it wakes.
+      const head=robotPieces[0].g;if(robot.awake&&!robotPieces[0].install)head.rotation.z=Math.sin(elapsed*1.5)*.045+cheer*Math.sin(elapsed*6)*.06;if(botHeart){botHeart.material=robot.awake?C.teal:C.gold;botHeart.scale.setScalar(1+Math.sin(elapsed*3)*(robot.awake?.04:.08));}if(botAntenna)botAntenna.material=robot.awake?C.gold:C.dark;
       if(nearby(70,12)&&!player.locked&&Math.abs(player.vx)<.5&&(!robot.awake||robot.cheer>2))call('frameActivity',Math.min(64,player.x-.8,dog.x-1.15),Math.max(77.8,player.x+.8,dog.x+.9),rg+1.85,.94);
     }
 
@@ -140,6 +150,8 @@
     const bumper=tube([1.7,.6,.92],[2.3,.85,.92],.12,C.dark,rover);box([-1.4,1.4,0],[.7,.35,1.2],C.dark,rover);
     [-.62,.62].forEach(z=>{const head=ball([2.16,1.05,z],[.14,.17,.1],C.gold,rover);head.rotation.y=Math.PI/2;});
     const roverSign=M.WorkshopArt.sign(root,['rover'],vx-5.6,vg+2.66,-2.3,1.3,1.3);let buildFade=0;
+    // The picture stands on a real post (it shrinks away with the sign) instead of hanging in the air.
+    tube([0,-.62,-.05],[0,-3.3,-.05],.055,C.silver,roverSign);
     const slots=[], parts=[], wheelRigs=[];
     function wheelSet(parent,material,ghost){const frame=new T.Group();parent.add(frame);for(const x of[-1.4,1.4])tube([x,.3,-.92],[x,.3,.92],.09,ghost?material:C.silver,frame);tube([-1.4,.3,0],[1.4,.3,0],.10,ghost?material:C.silver,frame);tube([-.25,.3,0],[.25,.3,0],.15,ghost?material:C.orange,frame);if(world.batchStation)world.batchStation(frame);[-1.4,1.4].forEach(x=>[-.92,.92].forEach(z=>{const rig=new T.Group();rig.position.set(x,.3,z);parent.add(rig);const tire=mesh(geo.cyl,material,[0,0,0],[.61,.3,.61],rig);tire.rotation.x=Math.PI/2;if(!ghost){wheelRigs.push(rig);const hub=mesh(geo.cyl,C.orange,[0,0,z>0?.17:-.17],[.28,.055,.28],rig);hub.rotation.x=Math.PI/2;for(let n=0;n<6;n++){const a=n*Math.PI/3;const tread=box([Math.sin(a)*.52,Math.cos(a)*.52,0],[.15,.2,.33],C.dark,rig);tread.rotation.z=-a;}box([0,0,z>0?.21:-.21],[.08,.49,.04],C.white,rig);}}));}
     function canopy(parent,material,ghost){
@@ -157,7 +169,9 @@
     const makers=[wheelSet,canopy,solar];
     const sources=[{x:175,y:vg+.8},{x:177.9,y:vg+1.25},{x:187,y:vg+1.2}];
     const dests=[{x:vx,y:vg+.45},{x:vx,y:vg+1.9},{x:vx-1.55,y:vg+2.3}];
-    makers.forEach((fn,i)=>{const slot=new T.Group();rover.add(slot);fn(slot,ghostMat,true);slots.push(slot);const p=new T.Group();root.add(p);fn(p,i===0?C.dark:i===1?glassMat:C.dark,false);const offset=i===0?new T.Vector3(0,.3,0):i===1?new T.Vector3(0,1.75,0):new T.Vector3(-1.55,2.11,0);p.position.set(sources[i].x-offset.x,sources[i].y-offset.y,-1.3);p.userData.home=p.position.clone();const plinth=new T.Group();plinth.position.set(sources[i].x,vg,-1.3);root.add(plinth);cyl([0,.31,0],[.87,.14,.67],C.dark,plinth);const edge=hoop([0,.39,0],.81,C.teal,plinth);edge.rotation.x=Math.PI/2;edge.scale.y=.78;[-1,1].forEach(s=>{tube([s*.38,.3,0],[s*.75,.07,.35],.075,C.silver,plinth);box([s*.75,.06,.35],[.36,.09,.27],C.orange,plinth);});const target=marker(dests[i].x,dests[i].y,.65,C.gold);target.position.z=-.55;target.visible=false;parts.push({g:p,offset,placed:false,target,plinth,spin:0});});
+    makers.forEach((fn,i)=>{const slot=new T.Group();rover.add(slot);fn(slot,ghostMat,true);slots.push(slot);const p=new T.Group();root.add(p);fn(p,i===0?C.dark:i===1?glassMat:C.dark,false);const offset=i===0?new T.Vector3(0,.3,0):i===1?new T.Vector3(0,1.75,0):new T.Vector3(-1.55,2.11,0);p.position.set(sources[i].x-offset.x,sources[i].y-offset.y,-1.3);p.userData.home=p.position.clone();const plinth=new T.Group();plinth.position.set(sources[i].x,vg,-1.3);root.add(plinth);cyl([0,.31,0],[.87,.14,.67],C.dark,plinth);const edge=hoop([0,.39,0],.81,C.teal,plinth);edge.rotation.x=Math.PI/2;edge.scale.y=.78;[-1,1].forEach(s=>{tube([s*.38,.3,0],[s*.75,.07,.35],.075,C.silver,plinth);box([s*.75,.06,.35],[.36,.09,.27],C.orange,plinth);});const target=marker(dests[i].x,dests[i].y,.65,C.gold);target.position.z=-.55;target.visible=false;parts.push({g:p,offset,placed:false,target,plinth,spin:0});
+      // Same-paint pieces of each plinth (and the rigid canopy trim) share one draw; each plinth still shrinks on its own.
+      if(world.batchStation){world.batchStation(plinth);if(i===1)world.batchStation(p);}});
     // These children stay rigid; only their parent wheel rig rotates.
     if(world.batchStation)for(const rig of wheelRigs)world.batchStation(rig);
     const roverState={phase:'build',x:vx,from:vx,to:264,time:0,bounce:0,bounceV:0,trips:0,stop:-1,route:[false,false,false,false],step:0,digAt:-1,actionAt:-1,speed:0,pickupAt:-10,pickupX:0,pickupY:0,pickupZ:0,intentStop:-1,intentStep:-1,intentPointer:null,intentId:null};
@@ -536,8 +550,9 @@
     const taxi={used:false,pad:NaN,at:NaN,target:3,time:0,airborne:false,moved:false,ship:null,flight:null,passenger:null};
     let boardingLamp, ticket, ticketMats;
     function destinationPicture(n){
-      const tile=document.createElement('canvas');tile.width=tile.height=128;
-      const g=tile.getContext('2d');g.lineJoin=g.lineCap='round';g.fillStyle='#184652';g.beginPath();g.arc(64,64,61,0,Math.PI*2);g.fill();
+      // Drawn at 256 px (same 128-unit drawing, scaled) so the round picture stays crisp on a Retina iPad.
+      const tile=document.createElement('canvas');tile.width=tile.height=256;
+      const g=tile.getContext('2d');g.scale(2,2);g.lineJoin=g.lineCap='round';g.fillStyle='#184652';g.beginPath();g.arc(64,64,61,0,Math.PI*2);g.fill();
       g.strokeStyle='#ffd475';g.lineWidth=6;g.stroke();g.fillStyle='#fff1c7';g.strokeStyle='#fff1c7';g.lineWidth=7;
       const dot=(x,y,r)=>{g.beginPath();g.arc(x,y,r,0,Math.PI*2);g.fill();};
       const line=(x,y,tx,ty)=>{g.beginPath();g.moveTo(x,y);g.lineTo(tx,ty);g.stroke();};
@@ -787,7 +802,7 @@
       helpBusy=false;
     }
     // Boarding sparkles keep falling while the shuttle flies instead of hanging frozen at the pad.
-    function tickSparks(dt){sparks.forEach(s=>{if(s.life<=0)return;s.life-=dt;s.o.visible=s.life>0;s.o.position.x+=s.vx*dt;s.o.position.y+=s.vy*dt;s.o.position.z+=s.vz*dt;s.vy-=4*dt;s.o.scale.setScalar(.09*Math.min(1,s.life*2));});}
+    function tickSparks(dt){if(!sparkMesh.visible)return;let live=false;for(const s of sparks){if(s.life<=0)continue;s.life-=dt;s.x+=s.vx*dt;s.y+=s.vy*dt;s.z+=s.vz*dt;s.vy-=4*dt;sparkPose.position.set(s.x,s.y,s.z);sparkPose.scale.setScalar(s.life>0?.09*Math.min(1,s.life*2):.0001);sparkPose.updateMatrix();sparkMesh.setMatrixAt(s.i,sparkPose.matrix);live=true;}if(live)sparkMesh.instanceMatrix.needsUpdate=true;else sparkMesh.visible=false;}
     function update(dt,t){
       elapsed=t||elapsed+dt;idle+=dt;autoHelp();noteClock+=dt;if(!player.locked&&Math.abs(player.vx)>.25)idle=0;
       if(taxi.airborne){taxiUpdate(dt);tickSparks(dt);return;}
@@ -879,6 +894,7 @@
     }
     function prepareCaveShaders(renderer,camera){
       // These moving objects first meet the cave lighting during an activity.
+      const sparkShown=sparkMesh.visible;sparkMesh.visible=true;renderer.compile(sparkMesh,camera,scene);sparkMesh.visible=sparkShown;
       for(const object of [rover,helper,sledPlay.gems,actors.feza.visor,...iceToys.filter(q=>q.aurora).map(q=>q.aurora)]){
         renderer.compile(object,camera,scene);
       }

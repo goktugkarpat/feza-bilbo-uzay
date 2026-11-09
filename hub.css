@@ -281,6 +281,10 @@ img,canvas,svg{-webkit-user-drag:none}
   .orb-ship img, .orb-ship .orb-exhaust { animation:orb-hover 4.8s ease-in-out infinite; }
   .orb-travelling .orb-ship .orb-exhaust { animation:orb-thrust .11s alternate infinite ease-in-out, orb-hover 4.8s ease-in-out infinite; }
 }
+.orb-port-glass { position:absolute; aspect-ratio:1; translate:-50% -50%; border-radius:50%; pointer-events:none;
+  background:
+    radial-gradient(ellipse 30% 17% at 36% 25%, #fffdf42e, #fffdf400 100%),
+    radial-gradient(circle closest-side, #2a180800 0 68%, #2a18082e 80%, #2a18086b 87.5%, #4a301445 91.5%, #4a301400 95%); }
 @keyframes orb-beacon { 0%,100% { opacity:.16; scale:.6; } 6% { opacity:1; scale:1.25; } 28% { opacity:.2; scale:.66; } }
 @keyframes orb-breathe { 0%,100% { opacity:.25; scale:.8; } 50% { opacity:1; scale:1.08; } }
 @keyframes orb-hover { 0%,100% { translate:0 0; } 50% { translate:0 -6px; } }
@@ -344,3 +348,12 @@ img,canvas,svg{-webkit-user-drag:none}
   mask:radial-gradient(ellipse 100% 50% at 100% 50%, #000 40%, transparent 100%);
   transition:opacity .3s; }
 .orb-travelling .orb-ship::before { opacity:1; }
+/* The end of the flight melts into the planet that is already waiting underneath. */
+.orbit-home.orb-landing { opacity:0; transition:opacity .34s ease-in; }
+
+/* Bigger, clearer planet pictures: the round worlds fill their place on the shelf; Saturn's wide rings keep their size. */
+.orb-planet:not([data-planet="saturn"]) .orb-globe { scale:1.46; }
+.orb-planet:not([data-planet="saturn"]) .orb-halo { width:87%; }
+.orb-planet.orb-picked:not([data-planet="saturn"])::after { width:89%; }
+@media(max-height:520px) and (orientation:portrait) { .orb-planet:not([data-planet="saturn"]) .orb-globe { scale:1.24; } }
+@media(max-height:500px) and (orientation:landscape) { .orb-planet:not([data-planet="saturn"]) .orb-globe { scale:1.32; } }

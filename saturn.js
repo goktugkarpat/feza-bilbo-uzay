@@ -42,7 +42,7 @@
     const root=group(parent),axis=group(root);axis.rotation.z=.22;
     const loader=new T.TextureLoader();
     const atlas=loader.load(M.saturnMaps.body),ringAtlas=loader.load(M.saturnMaps.rings);
-    atlas.colorSpace=ringAtlas.colorSpace=T.SRGBColorSpace;atlas.wrapS=T.RepeatWrapping;
+    atlas.colorSpace=ringAtlas.colorSpace=T.SRGBColorSpace;atlas.wrapS=T.RepeatWrapping;atlas.anisotropy=ringAtlas.anisotropy=4;
     const bodyShader=new T.ShaderMaterial({
       uniforms:{atlas:{value:atlas},ringProfile:{value:ringAtlas}},
       vertexShader:'varying vec3 n;varying vec3 pos;varying vec2 surfaceUV;void main(){n=normalize(normalMatrix*normal);pos=position;surfaceUV=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
@@ -79,7 +79,8 @@
         float ray=-dot(p,sun);float dist=length(p+ray*sun);
         float eclipse=ray>0.?1.-smoothstep(12.4,14.7,dist):0.;
         // Fine ringlets and a warm-to-icy tint give the rings crisp detail.
-        float lets=.86+.14*sin(r*23.)*sin(r*7.3+1.7);
+        // Ringlets finer than about two pixels fade out instead of shimmering.
+        float lets=.86+.14*sin(r*23.)*sin(r*7.3+1.7)*(1.-smoothstep(.05,.12,fwidth(r)));
         vec3 tint=mix(vec3(3.3,2.72,2.18),vec3(2.7,2.85,3.05),smoothstep(24.,31.,r));
         vec3 col=(icy.rgb*tint+vec3(.05,.045,.05))*lets;
         col*=1.-.82*eclipse;
@@ -146,14 +147,14 @@
   }
   M.createSaturn=function({scene,player,dog}){
     const root=group(scene),rand=seeded(),panorama=sky(scene),lessons=[];
-    // Magical layer over the painted vista: twinkling stars, a giant ring arc
-    // cutting the sky, Titan and little Enceladus, one slow shooting star now and then.
+    // Magical layer over the painted vista: twinkling stars, Titan and little
+    // Enceladus, one slow shooting star now and then. The real ringed planet is
+    // the only ring in the sky (the old second ring arc doubled it up).
     let spaceSky=null;
     try{spaceSky=M.createSpaceSky&&M.createSpaceSky({scene,preset:'saturn',
       dome:{overlay:true,nebulaAmount:.18,glow:false},
       stars:{count:650,brightness:.9,size:1,twinkle:1.2,parallax:.3},
       shooting:{every:[18,34],duration:2.6,color:'#fff4dc'},
-      arc:{y:.18,rise:.45,width:.085,tilt:-.1,opacity:.36,colors:['#f3e2bd','#a9c9d8']},
       bodies:[{preset:'titan',screen:[.34,.10],size:.07,light:[1,.3]},{preset:'enceladus',screen:[.46,.06],size:.032,light:[1,.3]}]});}catch(err){spaceSky=null;}
     const skyBody=putPlanet(root);
     // Warm low sun, cool ring-light from behind: more depth, same three lights.
@@ -1302,12 +1303,14 @@
     function createNursery(){
       const y=ground(nurseryX),seeds=[],bed=group(root,nurseryX,y,-.45);
       bed.name='Halka fidanlığı';
-      const bottom=mesh(bed,shapes.cyl,mats.ink,0,.12,-.5);bottom.scale.set(4.35,.24,1.10);
+      const bottom=mesh(bed,shapes.cyl,mats.petrol,0,.12,-.5);bottom.scale.set(4.35,.24,1.10);
       const lip=mesh(bed,shapes.cyl,mats.brass,0,.27,-.5);lip.scale.set(4.15,.08,1.0);
       let selected=null,owner=null,count=0,dragged=false;
+      // Each empty pot shows a soft frosted ghost of its crystal (not a black cut-out).
+      const hollowMat=new T.MeshStandardMaterial({color:0xd9f6f4,emissive:0x5fb8bf,emissiveIntensity:.45,roughness:.5,metalness:0,transparent:true,opacity:.5,depthWrite:false});
       for(let i=0;i<3;i++){
         const x=nurseryX+(i-1)*2.50,sourceX=nurseryX+(i-1)*3.35;
-        const hollow=mesh(root,specimenGeo[i],mats.ink,x,y+.90,.0);hollow.scale.set(.93,.93,.32);hollow.name='Fidanlığın boş kristal yuvası '+(i+1);
+        const hollow=mesh(root,specimenGeo[i],hollowMat,x,y+.90,.0);hollow.scale.set(.93,.93,.32);hollow.name='Fidanlığın boş kristal yuvası '+(i+1);
         const rimMaterial=mats.shine[i].clone();rimMaterial.transparent=true;rimMaterial.opacity=.95;rimMaterial.depthWrite=false;
         const rim=mesh(root,new T.TorusGeometry(.74,.055,7,36),rimMaterial,x,y+.84,.05);rim.rotation.x=.22;rim.name='Fidanlığın kristal yuva çemberi '+(i+1);
         rim.visible=false;
@@ -1896,6 +1899,15 @@
       key.position.set(x-8,15,10);key.target.position.set(x,ground(x),0);
       motes.position.y=Math.sin(time*.38)*.15;glintUniforms.time.value=time;decorTick(time);
     }
+    // A game's framing always keeps the pair in the picture. Right after the
+    // first sail lands by the bells, Feza used to wait off-screen on the left.
+    // At most 12 m wide, so the toys stay large while the children walk over.
+    function framePair(minX,maxX,y,zoom){
+      const d=clamp(dog.x,player.x-2.6,player.x+2.6),lo=Math.min(player.x,d)-1.05,hi=Math.max(player.x,d)+1.05;
+      if(lo<minX){minX=lo;maxX=Math.max(hi,Math.min(maxX,minX+12));}
+      else if(hi>maxX){maxX=hi;minX=Math.min(lo,Math.max(minX,maxX-12));}
+      M.frameActivity(minX,maxX,y,zoom);
+    }
     function update(dt,time){
       clock+=dt;gleam=Math.max(0,gleam-dt);
       sails.update(dt,time);view.ringSail=sails.phase;view.sailRepairs=sails.repaired;view.sailJourneys=sails.journeys;view.sailComplete=sails.complete;
@@ -1908,7 +1920,8 @@
       if(!ride&&!sails.riding){
         if(!tasks[1]&&close(dockX,6.4))M.parkForActivity(dockX-3.7,dockX-5.1,1);
         else if(!nursery.complete&&close(nurseryX,6.4))M.parkForActivity(nurseryX-3.7,nurseryX-5.0,1);
-        else if(!tasks[0]&&close(harpX,6.4))M.parkForActivity(harpX-3.5,harpX-4.9,1);
+        // Reaches the first sail's landing too: the pair steps over to the bells.
+        else if(!tasks[0]&&close(harpX,7.4))M.parkForActivity(harpX-3.5,harpX-4.9,1);
       }
       const rising=!player.locked&&!player.grounded&&player.vy>2.7;
       // Walking and jumping never complete a registered experiment.
@@ -1919,7 +1932,7 @@
         const next=harpNext();guide.position.set(next.x,next.y,0);
         guide.visible=true;
         dog.activityTargetX=next.x-1.15;dog.activityMode='look';dog.emote='curious';dog.lookY=.82;dog.lookX=.37;
-        M.frameActivity(harpX-4.0,harpX+4.0,harpY+2.22,1.25);
+        framePair(harpX-4.0,harpX+4.0,harpY+2.22,1.25);
       }else if(view.active==='scout'&&!tasks[1]){
         dog.activityTargetX=dockX-2.82;dog.activityMode='look';dog.emote='curious';dog.lookY=undocked?.82:.26;dog.lookX=.4;
         if(!flight){
@@ -1930,11 +1943,11 @@
           const q=samples[flight.index];guide.position.set(q.jarX,q.jarY,.2);guide.visible=flight.id===null||!flight.dragged;
           dog.activityTargetX=q.jarX-1.0;dog.lookY=.16;
         }
-        M.frameActivity(dockX-4.1,dockX+5.0,dockY+2.12,1.32);
+        framePair(dockX-4.1,dockX+5.0,dockY+2.12,1.32);
       }else if(view.active==='nursery'&&!nursery.complete){
         const target=nursery.target;if(target){guide.position.set(target.x,target.y,.18);guide.visible=true;}
         dog.activityTargetX=nurseryX-4.6;dog.activityMode='look';dog.emote='curious';dog.lookY=.55;dog.lookX=.40;
-        M.frameActivity(nurseryX-5.5,nurseryX+4.8,ground(nurseryX)+2.05,1.2);
+        framePair(nurseryX-5.5,nurseryX+4.8,ground(nurseryX)+2.05,1.2);
       }else if(eclipse.watching&&close(eclipseX,8)&&Math.abs(player.vx)<.55){
         dog.activityTargetX=player.x-player.facing*1.65;dog.activityMode='look';dog.emote='curious';
         dog.lookY=.82;dog.lookX=clamp((eclipse.moonPosition-dog.x)*.11,-.48,.48);

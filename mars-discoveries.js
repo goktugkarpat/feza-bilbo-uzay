@@ -14,14 +14,14 @@
     const amber=mat(0xf7ba46,.3), enamel=mat(0xf1ead9,.18), strut=mat(0x36535b,.5), rubber=mat(0x363248,.1);
     const turquoise=mat(0x45c6b0,.35), copper=mat(0xb56c46,.48), deep=mat(0x263f64,.26),silver=mat(0xb9c8ce,.65,.28);
     for(const material of[enamel,strut,turquoise,copper,deep]) M.WorkshopArt.paint(material,material===copper||material===strut?'metal':'enamel');
-    const leaf=mat(0x68c571,.03),terra=mat(0xa94d38,.08);
+    const leaf=mat(0x68c571,.03),terra=mat(0xcf7048,.06);
     const lamp=new T.MeshStandardMaterial({color:0xffe598,emissive:0xf5a14e,emissiveIntensity:.42});
     const glass=new T.MeshStandardMaterial({color:0x82cfdd,transparent:true,opacity:.16,roughness:.22,depthWrite:false});
     // A soft rim keeps the glass readable against the blue ice, while the flowers
     // remain visible inside. No refraction buffer or additional render pass.
     glass.onBeforeCompile=shader=>{
       shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>',
-        'float rim=pow(1.0-abs(dot(normal,normalize(vViewPosition))),2.6);diffuseColor.a=0.05+0.34*rim;outgoingLight+=vec3(0.14,0.30,0.36)*rim;\n#include <opaque_fragment>');
+        'float rim=pow(1.0-abs(dot(normal,normalize(vViewPosition))),2.2);diffuseColor.a=0.06+0.48*rim;outgoingLight+=vec3(0.20,0.40,0.44)*rim;\n#include <opaque_fragment>');
     };
     const roundedBox=new T.BoxGeometry(1,1,1,3,3,3),roundedVertices=roundedBox.attributes.position;
     for(let i=0;i<roundedVertices.count;i++){const x=roundedVertices.getX(i),y=roundedVertices.getY(i),z=roundedVertices.getZ(i),ax=M.clamp(x,-.40,.40),ay=M.clamp(y,-.40,.40),az=M.clamp(z,-.40,.40),dx=x-ax,dy=y-ay,dz=z-az,length=Math.hypot(dx,dy,dz)||1;roundedVertices.setXYZ(i,ax+dx/length*.10,ay+dy/length*.10,az+dz/length*.10);}roundedBox.computeVertexNormals();

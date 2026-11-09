@@ -9,15 +9,20 @@
     { id: 'venus', name: 'Venüs', color: '#f5d58c' }
   ];
   const pi = Math.PI;
-  function flightStars() {
+  function flightStars(w, h) {
+    // Drawn once at the screen's own shape and (bounded) pixel density, so the flight stars stay crisp on iPad.
     const canvas = document.createElement('canvas');
-    canvas.width = 1100; canvas.height = 810;
+    const k = Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(2000000 / Math.max(1, w * h)));
+    canvas.width = Math.max(1, Math.round(w * k)); canvas.height = Math.max(1, Math.round(h * k));
+    canvas.dataset.size = w + 'x' + h;
     const ctx = canvas.getContext('2d');
+    ctx.scale(k, k);
+    const area = Math.max(.35, w * h / (1100 * 810));
     let seed = 73;
     function random() {seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967295;}
     // A handful of big soft-glowing stars first, then the fine star dust.
-    for (let i = 0; i < 14; i++) {
-      const x = random() * canvas.width, y = random() * canvas.height, r = 7 + 9 * random();
+    for (let i = 0, n = Math.round(14 * area); i < n; i++) {
+      const x = random() * w, y = random() * h, r = 7 + 9 * random();
       const glow = ctx.createRadialGradient(x, y, 0, x, y, r);
       const warm = i % 3 === 0;
       glow.addColorStop(0, warm ? 'rgba(255,236,200,.95)' : 'rgba(225,243,255,.95)');
@@ -28,8 +33,8 @@
       ctx.globalAlpha = .5; ctx.fillStyle = '#f4f9ff';
       ctx.fillRect(x - r * 1.3, y - .5, r * 2.6, 1); ctx.fillRect(x - .5, y - r * 1.3, 1, r * 2.6);
     }
-    for (let i = 0; i < 420; i++) {
-      const x = random() * canvas.width, y = random() * canvas.height;
+    for (let i = 0, n = Math.round(420 * area); i < n; i++) {
+      const x = random() * w, y = random() * h;
       const light = random();
       const radius = .38 + 1.25 * light * light;
       ctx.globalAlpha = .25 + .58 * light;
@@ -62,7 +67,7 @@
       if (departureSound) {departureSound.pause(); departureSound = null;}
       if (flight) {flight.cancel(); flight = null;}
       target.replaceChildren();
-      container.classList.remove('orb-travelling');
+      container.classList.remove('orb-travelling', 'orb-landing');
       for (const x of buttons) x.classList.remove('orb-picked');
       busy = false;
     }
@@ -87,27 +92,45 @@
       target.style.setProperty('--planet-accent', planet.color);
       target.append(picture);
       const sky = container.querySelector('.orb-deep');
-      if (!sky.firstChild) sky.append(flightStars());
+      const cw = container.clientWidth, ch = container.clientHeight;
+      if (!sky.firstChild || sky.firstChild.dataset.size !== cw + 'x' + ch) sky.replaceChildren(flightStars(cw, ch));
       const start = ship.getBoundingClientRect();
       container.classList.add('orb-travelling');
       const end = target.getBoundingClientRect();
       const sx = start.left + start.width * .5, sy = start.top + start.height * .5;
-      const dx = end.left + end.width * .5 - sx, dy = end.top + end.height * .48 - sy;
+      const ex = end.left + end.width * .5, ey = end.top + end.height * .48;
       const w = container.clientWidth, h = container.clientHeight;
       const duration = reduce.matches ? 180 : 2360;
       if (!reduce.matches && ship.animate) {
+        // One continuous journey, each stretch with its own easing: a small crouch, out past the right
+        // edge while deep space opens, back in from the left (closer, so Feza and Bilbo show) and on into the planet.
+        const at = (x, y, rest) => 'translate(' + (x - sx).toFixed(1) + 'px,' + (y - sy).toFixed(1) + 'px)' + rest;
+        const half = start.width * .5, mx = w * .5, my = h * .47;
+        const tilt = Math.max(-30, Math.min(4, Math.atan2(ey - my, ex - mx) * 180 / pi * .7));
         flight = ship.animate([
-          {transform:'translate(0,0) scale(1)',opacity:1},
-          {transform:'translate(-6px,3px) rotate(4deg) scale(1.04)',opacity:1,offset:.08},
-          {transform:'translate(' + w*.23 + 'px,' + (-h*.18) + 'px) scale(.55)',opacity:0,offset:.25},
-          {transform:'translate(' + (w*.06-sx) + 'px,' + (h*.73-sy) + 'px) scale(1.5)',opacity:0,offset:.251},
-          {transform:'translate(' + (w*.23-sx) + 'px,' + (h*.62-sy) + 'px) scale(1.4)',opacity:1,offset:.38},
-          {transform:'translate(' + (w*.47-sx) + 'px,' + (h*.46-sy) + 'px) rotate(-5deg) scale(1.13)',opacity:1,offset:.62},
-          {transform:'translate(' + dx + 'px,' + dy + 'px) rotate(12deg) scale(.10)',opacity:.1}
-        ], {duration, easing:'cubic-bezier(.42,.06,.45,.99)', fill:'forwards'});
+          {transform:'translate(0,0) scale(1)', opacity:1, easing:'ease-in-out'},
+          {transform:'translate(-8px,4px) rotate(5deg) scale(1.03)', opacity:1, offset:.08, easing:'cubic-bezier(.55,0,.85,.55)'},
+          {transform:at(w + half * 1.4, sy - h * .12, ' rotate(-8deg) scale(1.1)'), opacity:1, offset:.25, easing:'step-end'},
+          {transform:at(-half * 1.5, h * .76, ' rotate(-6deg) scale(1.36)'), opacity:1, offset:.255, easing:'cubic-bezier(.2,.6,.4,1)'},
+          {transform:at(w * .26, h * .63, ' rotate(-7deg) scale(1.32)'), opacity:1, offset:.42, easing:'ease-in-out'},
+          {transform:at(mx, my, ' rotate(' + (tilt * .6).toFixed(1) + 'deg) scale(1.08)'), opacity:1, offset:.64, easing:'cubic-bezier(.45,0,.75,.6)'},
+          {transform:at(mx + (ex - mx) * .82, my + (ey - my) * .82, ' rotate(' + tilt.toFixed(1) + 'deg) scale(.34)'), opacity:1, offset:.9, easing:'ease-in'},
+          {transform:at(ex, ey, ' rotate(' + tilt.toFixed(1) + 'deg) scale(.06)'), opacity:0}
+        ], {duration, fill:'forwards'});
       }
       // Selection is one physical tap. No second label or launch confirmation to read.
-      launchTimer = setTimeout(() => {if (visible && busy) onLaunch(planet.id);}, duration);
+      // The last moment of the flight melts softly into the waiting planet instead of a hard cut.
+      const arrive = () => {
+        if (!visible || !busy) return;
+        onLaunch(planet.id);
+        if (visible) container.classList.remove('orb-landing');
+      };
+      if (reduce.matches) launchTimer = setTimeout(arrive, duration);
+      else launchTimer = setTimeout(() => {
+        if (!visible || !busy) return;
+        container.classList.add('orb-landing');
+        launchTimer = setTimeout(arrive, 340);
+      }, duration - 340);
     }
 
     for (const planet of destinations) {
@@ -183,11 +206,13 @@
         arrived.focus({preventScroll:true});
       }
       if (destinations.some(p=>p.id === arrival) && !reduce.matches && ship.animate) {
+        // Home again: the rocket glides in, overshoots a hair and settles softly at the station.
         flight = ship.animate([
-          {transform:'translate(-37vw,-22vh) rotate(19deg) scale(.12)',opacity:0},
-          {transform:'translate(-9vw,-6vh) rotate(12deg) scale(.82)',opacity:1,offset:.54},
-          {transform:'translate(0,0) rotate(0deg) scale(1)',opacity:1}
-        ], {duration:1530,easing:'ease-out'});
+          {transform:'translate(-37vw,-22vh) rotate(19deg) scale(.12)', opacity:0, easing:'cubic-bezier(.3,.5,.5,1)'},
+          {transform:'translate(-9vw,-6vh) rotate(12deg) scale(.82)', opacity:1, offset:.5, easing:'cubic-bezier(.3,.4,.5,1)'},
+          {transform:'translate(5px,-3px) rotate(-3deg) scale(1.02)', opacity:1, offset:.84, easing:'ease-in-out'},
+          {transform:'translate(0,0) rotate(0deg) scale(1)', opacity:1}
+        ], {duration:1650});
       }
     }
     function hide() {

@@ -79,6 +79,19 @@ float vnoise(vec2 q){
   return mix(mix(h21(i),h21(i+vec2(1.,0.)),f.x),mix(h21(i+vec2(0.,1.)),h21(i+vec2(1.,1.)),f.x),f.y);
 }
 uniform vec3 uMoon; uniform vec3 uNight;
+// Smooth B-spline reading of the 512 px cloud level: round, clean cloud masses without blocky edges.
+vec4 bsW(float v){vec4 n=vec4(1.,2.,3.,4.)-v;vec4 s=n*n*n;float x=s.x,y=s.y-4.*s.x,z=s.z-4.*s.y+6.*s.x;return vec4(x,y,z,6.-x-y-z)*(1./6.);}
+float cloudField(vec2 uv){
+  const vec2 size=vec2(512.,256.);
+  uv=uv*size-.5; vec2 f=fract(uv); uv-=f;
+  vec4 xc=bsW(f.x), yc=bsW(f.y);
+  vec4 c=uv.xxyy+vec2(-.5,1.5).xyxy;
+  vec4 s=vec4(xc.xz+xc.yw,yc.xz+yc.yw);
+  vec4 o=(c+vec4(xc.yw,yc.yw)/s)/size.xxyy;
+  float a=textureLod(uClouds,o.xz,2.).r, b=textureLod(uClouds,o.yz,2.).r, e=textureLod(uClouds,o.xw,2.).r, g=textureLod(uClouds,o.yw,2.).r;
+  float sx=s.x/(s.x+s.y), sy=s.z/(s.z+s.w);
+  return mix(mix(g,e,sx),mix(b,a,sx),sy);
+}
 void main(){
   vec2 css=vec2(gl_FragCoord.x,uRes.y-gl_FragCoord.y)/uDpr;
   vec2 p=(css-uOff)/uScale;
@@ -110,13 +123,19 @@ void main(){
   }
   // A small round moon, lit from the same sun as the Earth.
   vec2 md=(css-uMoon.xy)/uMoon.z; float mr=length(md);
-  if(mr<5.){
-    col+=vec3(.55,.65,.86)*(exp(-max(mr-1.,0.)*1.25)*.26+exp(-max(mr-1.,0.)*4.)*.22);
+  if(mr<4.){
+    // A softer, smaller moon glow (the wide blue disc competed with the moon itself).
+    col+=vec3(.55,.65,.86)*(exp(-max(mr-1.,0.)*1.9)*.15+exp(-max(mr-1.,0.)*5.)*.20);
     if(mr<1.04){
       vec3 mn=vec3(md.x,-md.y,sqrt(max(0.,1.-mr*mr)));
-      float maria=smoothstep(.5,.78,vnoise(md*2.2+5.))*.34+smoothstep(.55,.82,vnoise(md*5.3+1.7))*.16;
+      // A clean storybook moon: four round craters with a soft rim instead of blotchy grey patches.
+      vec2 q=vec2(md.x,-md.y);
+      float k1=length(q-vec2(-.30,.30))/.25, k2=length(q-vec2(.33,-.16))/.18, k3=length(q-vec2(-.10,-.44))/.14, k4=length(q-vec2(.20,.46))/.10;
+      float pit=smoothstep(1.,.72,k1)+smoothstep(1.,.72,k2)*.9+smoothstep(1.,.72,k3)*.85+smoothstep(1.,.72,k4)*.8;
+      float rim=exp(-pow((k1-1.)*5.,2.))+exp(-pow((k2-1.)*5.,2.))+exp(-pow((k3-1.)*5.,2.));
       float lit=clamp(dot(mn,normalize(vec3(-.78,.42,.46))),0.,1.);
-      vec3 moon=vec3(1.,.97,.9)*(1.-maria)*(.12+1.16*pow(lit,.7))+vec3(.07,.10,.18);
+      vec3 base=mix(vec3(.97,.95,.90),vec3(.76,.77,.82),clamp(pit,0.,1.))+vec3(.05,.045,.03)*rim;
+      vec3 moon=base*(.14+1.08*pow(lit,.65))+vec3(.06,.085,.15);
       col=mix(col,moon,smoothstep(1.03,.97,mr));
     }
   }
@@ -146,14 +165,18 @@ void main(){
     vec2 uv=vec2((lon+uSpin)/.87266,lat/.43633+.5);
     vec2 uvc=vec2((lon+uCloudSpin)/.69813,lat/.34907+.37);
     vec3 ground=texture2D(uSurface,uv).rgb;
-    float c=texture2D(uClouds,uvc).r;
-    float cLit=texture2D(uClouds,uvc+vec2(.0028,-.0042)).r;
-    float cShade=texture2D(uClouds,uvc+vec2(-.0035,.0060)).r;
-    ground*=1.-.33*cShade;
+    // Clouds: the painting's fine speckle melts into a thin veil; the big masses keep clean, rounded edges.
+    float cs=cloudField(uvc);
+    float cLit=textureLod(uClouds,uvc+vec2(.0045,-.0068),2.5).r;
+    float cShade=textureLod(uClouds,uvc+vec2(-.0030,.0048),3.).r;
+    float mass=smoothstep(.34,.60,cs);
+    float c=max(mass,cs*.32);
+    // Only a faint, soft shadow under the clouds (strong offset shadows looked like dark holes).
+    ground*=1.-.14*cShade;
     float water=smoothstep(.06,.24,ground.b-ground.r);
-    float lit=clamp(.62+(c-cLit)*2.6,0.,1.);
-    vec3 cloud=mix(vec3(.60,.70,.86),vec3(1.,.975,.93),lit);
-    float cover=smoothstep(.02,.85,c);
+    float lit=clamp(.68+(cs-cLit)*2.8,0.,1.);
+    vec3 cloud=mix(vec3(.64,.74,.89),vec3(1.,.98,.95),lit);
+    float cover=c;
     vec3 surf=mix(ground,cloud,cover);
     float dif=clamp(dot(n,uSun)*.75+.42,.25,1.18);
     surf*=dif;
@@ -172,9 +195,10 @@ void main(){
       float land=(1.-water)*(1.-smoothstep(.45,.75,dot(ground,vec3(.33))));
       float pop=smoothstep(.40,.74,vnoise(uv*vec2(26.,13.)))*land;
       vec2 cg=uv*vec2(420.,210.), ci=floor(cg), cf=fract(cg)-(.22+.56*vec2(h21(ci+1.3),h21(ci+8.1)));
-      float spark=step(h21(ci+3.7),pop)*exp(-dot(cf,cf)*24.)*(.55+.45*h21(ci+5.5));
-      float haze=pop*(.3+.7*vnoise(uv*vec2(150.,75.)));
-      surf+=vec3(1.,.74,.38)*(spark*2.6+haze*.34)*(1.-day)*(1.-cover*.75);
+      // City lights gather in warm clusters instead of an even dotted field.
+      float spark=step(h21(ci+3.7),pop*pop*1.15)*exp(-dot(cf,cf)*28.)*(.55+.45*h21(ci+5.5));
+      float haze=pop*pop*(.35+.65*vnoise(uv*vec2(150.,75.)));
+      surf+=vec3(1.,.74,.38)*(spark*2.4+haze*.40)*(1.-day)*(1.-cover*.75);
     }
     float fres=pow(1.-n.z,3.2);
     surf=mix(surf,mix(vec3(.10,.18,.42),vec3(.50,.80,1.),day),clamp(fres*.75,0.,.85));
@@ -202,8 +226,15 @@ void main(){
       dot.className = 'orb-light orb-light-' + kind;
       dot.style.left = (x / IMG_W * 100).toFixed(3) + '%'; dot.style.top = (y / IMG_H * 100).toFixed(3) + '%';
       dot.style.animationDelay = (-i * .83).toFixed(2) + 's';
+      dot.dataset.x = x; dot.dataset.y = y;
       lights.appendChild(dot);
     });
+    // The round window gets a soft inner shadow and a faint glass glint: a little depth, and no jagged rim.
+    const glass = document.createElement('i');
+    glass.className = 'orb-port-glass';
+    glass.style.left = (PORT.x / IMG_W * 100).toFixed(3) + '%'; glass.style.top = (PORT.y / IMG_H * 100).toFixed(3) + '%';
+    glass.style.width = ((PORT.r + 7) * 2 / IMG_W * 100).toFixed(3) + '%';
+    lights.appendChild(glass);
     container.insertBefore(canvas, anchor); container.insertBefore(station, anchor); container.insertBefore(lights, anchor);
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
     let T, renderer, backdrop, cabin, cabinCamera, feza, bilbo, fezaPose, bilboPose, gesture;
@@ -221,8 +252,8 @@ void main(){
     }
     function dprFor(w, h) {
       const dpr = window.devicePixelRatio || 1;
-      // Big tablets get a bounded drawing size; the backdrop is soft by design.
-      const budget = M.device && M.device.tablet ? 2000000 : 3400000;
+      // Big tablets get a bounded drawing size (about 1.6x on an 11 inch iPad: crisp stars and window, still light).
+      const budget = M.device && M.device.tablet ? 2600000 : 3400000;
       return Math.min(dpr, 2, Math.sqrt(budget / Math.max(1, w * h)));
     }
     function resize() {
@@ -245,6 +276,15 @@ void main(){
       // Blinking station lights follow the painted station exactly.
       lights.style.left = L.ox + 'px'; lights.style.top = L.oy + 'px';
       lights.style.width = IMG_W * L.scale + 'px'; lights.style.height = IMG_H * L.scale + 'px';
+      // A blinking beacon never flashes right beside the big title (it happens on tall screens).
+      const title = container.querySelector('.orb-title'), box = container.getBoundingClientRect();
+      const t = title ? title.getBoundingClientRect() : null;
+      for (const dot of lights.children) {
+        if (!dot.dataset.x) continue;
+        const x = box.left + L.ox + dot.dataset.x * L.scale, y = box.top + L.oy + dot.dataset.y * L.scale;
+        const near = t && t.width && x > t.left - 30 && x < t.right + 30 && y > t.top - 30 && y < t.bottom + 30;
+        dot.style.visibility = near ? 'hidden' : '';
+      }
     }
 
     async function build() {

@@ -30,7 +30,11 @@
  };
  const keys=new Set(),pointers=new Map(),raycaster=new T.Raycaster(),ndc=new T.Vector2(),plane=new T.Plane(new T.Vector3(0,0,1),0),hit=new T.Vector3();
  let viewportWidth=0,viewportHeight=0,displayDensity=0,densityQuery=null;
- let tabletPixels=1450000,windowTime=0,windowFrames=0,lateFrames=0,timelyFrames=0,slowWindows=0;
+ // Tablets start sharp: about 2.4 million drawn pixels (1.55× on an 11-inch iPad Pro, 1.3× on
+ // the 12.9-inch), never above 1.6×. A tablet that cannot keep 60 FPS falls back at once to the
+ // former 1.45-million budget, then in small steps (checkTabletPacing).
+ const TABLET_START_PIXELS=2400000,TABLET_SAFE_PIXELS=1450000,TABLET_DENSITY_CAP=1.6;
+ let tabletPixels=TABLET_START_PIXELS,windowTime=0,windowFrames=0,lateFrames=0,timelyFrames=0,slowWindows=0;
  let steer=0,activeWalk=null,jumpWalkId=null,jumpWalkAt=0,cameraX=11,cameraY=2.2,lookX=11,lookY=2.2,cameraZoom=1,resizeNeeded=true,landedAt=-10,headBob=0,endingShown=false,endingDelay=0,endingDuration=0;
  const workshop={life:0,x:0,dogX:null,z:1.45,facing:1};
  // A quiet step to the side keeps the actual child and the touched object visible.
@@ -154,7 +158,7 @@
  // DOM controls and the keepsake photo keep their own native resolutions.
  function resize(force=false){
   const width=Math.max(1,innerWidth),height=Math.max(1,innerHeight);
-  const maxDensity=M.device.tablet?Math.min(1.25,Math.sqrt(tabletPixels/(width*height))):1.75;
+  const maxDensity=M.device.tablet?Math.min(TABLET_DENSITY_CAP,Math.sqrt(tabletPixels/(width*height))):1.75;
   displayDensity=devicePixelRatio||1;
   const dpr=Math.min(displayDensity,maxDensity);
   resizeNeeded=false;
@@ -255,17 +259,46 @@
   const half=camera.position.z*Math.tan(camera.fov*Math.PI/360)*camera.aspect/Math.max(.2,camera.zoom);
   return maxX>=camera.position.x-half-margin&&minX<=camera.position.x+half+margin;
  };
+ // Usable width (metres on the walking plane) of the view at zoom 1, keeping 5% clear each side.
+ function viewWidth(portrait){return 2*(portrait?28:16)*Math.tan(camera.fov*Math.PI/360)*(innerWidth/innerHeight)*.9;}
  function cameraUpdate(dt){
-  let tx=innerWidth<innerHeight?M.clamp((player.x+dog.x)*.5+player.facing*.95,player.x-2,player.x+2):player.x+2+M.clamp(player.vx*.5,-1.5,1.5),ty=groundAt(player.x)+2.2+Math.max(0,player.y-groundAt(player.x))*.28;
-  
-  const rq=M.cameraRequest;if(rq.life>0){rq.life-=dt;tx=M.lerp(tx,rq.x,M.clamp(rq.weight,0,1));ty=M.lerp(ty,rq.y,M.clamp(rq.weight,0,1));cameraZoom=M.damp(cameraZoom,rq.zoom,3,dt);}else cameraZoom=M.damp(cameraZoom,innerWidth<innerHeight?PORTRAIT_ZOOM:1,3,dt);
+  const portrait=innerWidth<innerHeight;
+  let tx=portrait?M.clamp((player.x+dog.x)*.5+player.facing*.95,player.x-2,player.x+2):player.x+2+M.clamp(player.vx*.5,-1.5,1.5),ty=groundAt(player.x)+2.2+Math.max(0,player.y-groundAt(player.x))*.28;
   const walkIntent=(keys.has('ArrowRight')||keys.has('KeyD')?1:0)-(keys.has('ArrowLeft')||keys.has('KeyA')?1:0)+(activeWalk!==null?steer:0);
+  const rq=M.cameraRequest;if(rq.life>0){rq.life-=dt;tx=M.lerp(tx,rq.x,M.clamp(rq.weight,0,1));ty=M.lerp(ty,rq.y,M.clamp(rq.weight,0,1));cameraZoom=M.damp(cameraZoom,rq.zoom,3,dt);}
+  else{
+   let walkZoom=portrait?PORTRAIT_ZOOM:1;
+   // Standing still by a game the planet does not frame itself: keep the real object to touch
+   // and its goal in view together with Feza. A small pan first, then at most a gentle zoom-out;
+   // a game farther away than that is left alone. Walking always has the camera to itself.
+   const focus=phase==='play'&&!player.locked&&walkIntent===0&&Math.abs(player.vx)<.6?guide?.focus?.():null;
+   if(focus){
+    const minX=Math.min(player.x-1.3,dog.x-1.1,focus.from.x-.85,focus.to.x-.85),maxX=Math.max(player.x+1.3,dog.x+1.1,focus.from.x+.85,focus.to.x+.85);
+    const usable=viewWidth(portrait),zoom=Math.min(walkZoom,usable/(maxX-minX));
+    if(zoom>=walkZoom*.74){walkZoom=zoom;const half=usable/zoom*.5;tx=M.clamp(tx,maxX-half,minX+half);}
+   }
+   cameraZoom=M.damp(cameraZoom,walkZoom,3,dt);
+  }
   if(phase==='play'&&!player.locked&&walkIntent*player.vx>.01)tx=walkIntent>0?Math.max(tx,cameraX):Math.min(tx,cameraX);
-  cameraX=M.damp(cameraX,tx,3.5,dt);cameraY=M.damp(cameraY,ty,3.6,dt);camera.position.set(cameraX,cameraY+2.8,innerWidth<innerHeight?28:16);if(Math.abs(camera.zoom-cameraZoom)>.00001){camera.zoom=cameraZoom;camera.updateProjectionMatrix();}camera.lookAt(cameraX,cameraY,0);
+  // Feza herself never leaves the picture while she walks freely, whatever a planet frames.
+  if(phase==='play'&&!player.locked){const half=viewWidth(portrait)/Math.max(.2,cameraZoom)*.5;tx=M.clamp(tx,player.x-half,player.x+half);}
+  cameraX=M.damp(cameraX,tx,3.5,dt);cameraY=M.damp(cameraY,ty,3.6,dt);camera.position.set(cameraX,cameraY+2.8,portrait?28:16);if(Math.abs(camera.zoom-cameraZoom)>.00001){camera.zoom=cameraZoom;camera.updateProjectionMatrix();}camera.lookAt(cameraX,cameraY,0);
  }
  let showFirstSteps=M.device.tablet||matchMedia('(pointer:coarse)').matches;
- const walkGuide=$('walk-guide');
- let learnedWalk=false,walkStartX=NaN;
+ const walkGuide=$('walk-guide'),walkGuidePoint=new T.Vector3();
+ let learnedWalk=false,walkStartX=NaN,walkGuideX=NaN,walkGuideY=NaN;
+ // The "hold here" finger presses on the walkway itself, just right of Feza at her feet
+ // line: a press there really walks her, and it never covers a game object, the sky props
+ // or the jump button. Only a transform changes, and only when it moves a pixel.
+ function placeWalkGuide(){
+  if(walkGuide.hidden)return;
+  const portrait=innerWidth<innerHeight;
+  walkGuidePoint.set(player.x+(portrait?2.3:2.9),player.y+.05,(player.z||0)+.15).project(camera);
+  const x=Math.round(M.clamp((walkGuidePoint.x*.5+.5)*innerWidth,innerWidth*.2,innerWidth*.74)),
+   y=Math.round(M.clamp((.5-walkGuidePoint.y*.5)*innerHeight,innerHeight*.3,innerHeight-(portrait?200:150)));
+  if(x===walkGuideX&&y===walkGuideY)return;
+  walkGuideX=x;walkGuideY=y;walkGuide.style.transform='translate('+x+'px,'+y+'px) translate(-30.6%,-27.9%)';
+ }
  let hintClock=0,zoneLast='',learnedJump=false,jumpPrompt=false;
  const obsoleteSpokenHints=new Set(['robot','ringsScout','windRide','windChoice','observatory']);
  const welcomeCue=M.destination.welcomeCue||(M.planet==='mars'?'arrival':M.planet==='saturn'?'ringsHello':'windHello');
@@ -337,7 +370,7 @@
    maybeShowEnding();
   }
   const animDt=phase==='play'?dt:0;
-  let pt=perfParts?performance.now():0;world.update(animDt,time,state);if(perfParts){const n=performance.now();partMs[1]+=n-pt;pt=n;}player.wind=dog.wind=world.weather?world.weather.intensity:0;M.audio.setWeather(player.wind);actors.feza.root.position.set(player.x,player.y,player.z||0);actors.bilbo.root.position.set(dog.x,dog.y,dog.z??.3);actors.update(animDt,time,state);if(perfParts){const n=performance.now();partMs[2]+=n-pt;pt=n;}activities.afterActors?.();if(footprints)footprints.update(animDt,time,state);particlesUpdate(animDt);cameraUpdate(animDt);if(phase==='play'){if(perfParts)pt=performance.now();guide?.update(animDt,time);if(perfParts)partMs[3]+=performance.now()-pt;if(!showFirstSteps){const hideWalk=endingShown||!guide?.state().walkHint;if(walkGuide.hidden!==hideWalk)walkGuide.hidden=hideWalk;}}
+  let pt=perfParts?performance.now():0;world.update(animDt,time,state);if(perfParts){const n=performance.now();partMs[1]+=n-pt;pt=n;}player.wind=dog.wind=world.weather?world.weather.intensity:0;M.audio.setWeather(player.wind);actors.feza.root.position.set(player.x,player.y,player.z||0);actors.bilbo.root.position.set(dog.x,dog.y,dog.z??.3);actors.update(animDt,time,state);if(perfParts){const n=performance.now();partMs[2]+=n-pt;pt=n;}activities.afterActors?.();if(footprints)footprints.update(animDt,time,state);particlesUpdate(animDt);cameraUpdate(animDt);if(phase==='play'){if(perfParts)pt=performance.now();guide?.update(animDt,time);if(perfParts)partMs[3]+=performance.now()-pt;if(!showFirstSteps){const hideWalk=endingShown||!guide?.state().walkHint;if(walkGuide.hidden!==hideWalk)walkGuide.hidden=hideWalk;}placeWalkGuide();}
  }
  function resetPacingWindow(){
   windowTime=0;windowFrames=0;lateFrames=0;timelyFrames=0;slowWindows=0;
@@ -359,7 +392,8 @@
   if(slowWindows<2)return;
   slowWindows=0;
   const currentPixels=canvas.width*canvas.height;
-  const nextBudget=Math.max(minimumPixels,Math.round(Math.min(tabletPixels,currentPixels)*.84));
+  // Above the former budget, return to it in one step; below it, soften gently.
+  const nextBudget=currentPixels>TABLET_SAFE_PIXELS*1.1?TABLET_SAFE_PIXELS:Math.max(minimumPixels,Math.round(Math.min(tabletPixels,currentPixels)*.84));
   if(currentPixels>nextBudget*1.025){
    tabletPixels=nextBudget;resizeNeeded=true;
   }
@@ -482,6 +516,12 @@
    info.render.calls+' çizim · '+Math.round(info.render.triangles/1000)+' bin üçgen · '+info.programs.length+' program · CPU '+f.cpuAvg.toFixed(1)+' ms';
  }
  function progress(u,label){$('loading-fill').style.width=u+'%';$('loading-label').textContent=label;}
+ const SURFACE_MAPS=['map','normalMap','roughnessMap','metalnessMap','aoMap','emissiveMap','bumpMap','alphaMap'];
+ function sharpenTextures(){
+  const aniso=Math.min(8,renderer.capabilities.getMaxAnisotropy?.()||1);if(aniso<=1)return;
+  scene.traverse(o=>{if(!o.material||o.isSprite||o.isPoints)return;const list=Array.isArray(o.material)?o.material:[o.material];
+   for(const m of list){if(!m)continue;for(const k of SURFACE_MAPS){const t=m[k];if(t&&t.isTexture&&!t.isRenderTargetTexture&&t.anisotropy<aniso)t.anisotropy=aniso;}}});
+ }
  const tick=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
  async function init(){try{
   renderer=new T.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;M.renderer=renderer;
@@ -509,6 +549,9 @@
   }
   M.activities=activities;M.discoveries=discoveries;guide=M.createPlayGuide({scene,world,player,dog,autoTouch,lessons:[...(activities.lessons||[]),...(discoveries?.lessons||[])]});M.guide=guide;M.playGuideActive=guide.lessons.length>0;guide.prepare(renderer);createFamilyPhoto();progress(84,'Işıklar ve gölgeler hazırlanıyor');await tick();
   actors.feza.root.position.set(player.x,player.y,player.z||0);actors.bilbo.root.position.set(dog.x,dog.y,dog.z??.3);cameraUpdate(1);actors.update(0,0,state);footprints?.warm(true);
+  // The side camera sees floors, decks and walls at a low angle: anisotropic filtering keeps
+  // their surface detail crisp instead of smearing it. Set once, before anything is uploaded.
+  sharpenTextures();
   // Compile against the initial lighting, then upload the different scenery behind
   // the loading screen. A small viewport exercises the same programs and textures.
   world.update(0,0,state);
@@ -551,7 +594,7 @@
   if(disposed||graphicsLost)return;
   // Landing fades in softly while the sky lights its stars; the cover never takes touches.
   {const cover=$('loading');cover.classList.add('fading');setTimeout(()=>{if(!graphicsLost)cover.classList.add('hidden');cover.classList.remove('fading');},650);}ready=true;start();
-  M.debug={get phase(){return phase;},get time(){return time;},get frameMs(){return frameAvg;},get audioContexts(){return M.audio.contexts;},get errors(){return errors;},warp(x){if(!Q.has('atla')&&!Q.has('test'))return false;player.x=x;player.y=world.ground(x);player.vx=player.vy=0;dog.x=x-2;dog.y=world.ground(dog.x);dog.vx=dog.vy=0;cameraX=x+2;cameraY=player.y+2.2;return true;},state:()=>({phase,player:{...player},dog:{...dog},activities:activities.state(),weatherPost:discoveries?.weatherPost(),guide:guide?.state(),draws:renderer.info.render.calls,triangles:renderer.info.render.triangles,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures})};
+  M.debug={get phase(){return phase;},get time(){return time;},get frameMs(){return frameAvg;},get audioContexts(){return M.audio.contexts;},get errors(){return errors;},warp(x){if(!Q.has('atla')&&!Q.has('test'))return false;player.x=x;player.y=world.ground(x);player.vx=player.vy=0;dog.x=x-2;dog.y=world.ground(dog.x);dog.vx=dog.vy=0;cameraX=x+2;cameraY=player.y+2.2;return true;},state:()=>({phase,player:{...player},dog:{...dog},activities:activities.state(),weatherPost:discoveries?.weatherPost(),guide:guide?.state(),draws:renderer.info.render.calls,triangles:renderer.info.render.triangles,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,pixelRatio:Math.round(renderer.getPixelRatio()*1000)/1000,canvas:canvas.width+'x'+canvas.height})};
  }catch(e){console.error(e);$('loading-label').textContent='Bu gezegen hazırlanamadı. Üsse dönüp yeniden deneyebilirsin.';$('loading').classList.add('error');}}
  const errors=[];addEventListener('error',e=>{errors.push(e.message);});addEventListener('unhandledrejection',e=>{errors.push(String(e.reason));});
  init();

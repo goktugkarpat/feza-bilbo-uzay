@@ -85,7 +85,7 @@ body[data-planet="neptune"] #loading{background:radial-gradient(ellipse at 55% 3
 
 #pause-button svg{display:block;width:25px;height:25px;margin:auto}
 
-#walk-guide{position:absolute;left:69%;top:51%;width:clamp(104px,12vw,150px);pointer-events:none;filter:drop-shadow(0 2px 3px #12233c65)}
+#walk-guide{position:absolute;left:0;top:0;transform:translate(69vw,60vh) translate(-30.6%,-27.9%);width:clamp(118px,12.5vw,150px);pointer-events:none;filter:drop-shadow(0 2px 3px #12233c65);will-change:transform}
 #walk-guide[hidden]{display:none}
 #walk-guide svg{display:block;width:100%;height:auto}
 @media(prefers-reduced-motion:no-preference){

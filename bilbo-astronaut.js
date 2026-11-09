@@ -133,7 +133,9 @@
    weightKeys.forEach(k=>weights[k]=ease(weights[k],k===mode?1:0,10,dt));
    walk=ease(walk,grounded&&mode==='walk'?clamp(speed/5.2,0,1):0,11,dt);air=ease(air,grounded?0:1,10,dt);
    locomotion=ease(locomotion,grounded&&mode==='walk'&&speed>.07?1:0,10,dt);
-   const run=clamp(speed/4.4,0,1),stance=.58-.32*run,lead=.09+.13*run,strideLength=2*lead/stance;
+   // A tall, springy trot: shorter reach keeps the legs long and straight under the
+   // body, and a brief float between steps suits the low gravity. Paws stay planted.
+   const run=clamp(speed/4.4,0,1),stance=.56-.34*run,lead=.085+.07*run,strideLength=2*lead/stance;
    const travel=Number.isFinite(pose.x)&&lastX!==null?Math.abs(pose.x-lastX):speed*dt;
    if(grounded&&mode==='walk'&&travel<.4)distance+=travel/strideLength*Math.PI*2;
    lastX=Number.isFinite(pose.x)?pose.x:null;poseState.stridePhase=distance;
@@ -147,9 +149,12 @@
    model.update(dt,poseState);
    // Soft low-gravity landing compression, motion lag, and sled crouch are layered
    // on the original bone poses; no external root position is ever overwritten.
-   const cycle=((distance/(Math.PI*2))%1+1)%1,pairPhase=(cycle*2)%1,contactFraction=Math.min(.99,stance*2),bound=pairPhase>contactFraction?Math.sin((pairPhase-contactFraction)/(1-contactFraction)*Math.PI)*.045*run:0;
+   const cycle=((distance/(Math.PI*2))%1+1)%1,pairPhase=(cycle*2)%1,contactFraction=Math.min(.99,stance*2),floatU=pairPhase>contactFraction?(pairPhase-contactFraction)/(1-contactFraction):-1,bound=floatU>=0?Math.sin(floatU*Math.PI)*.05*run:0;
    const impact=Math.max(land,weights.land*.4);
-   model.body.position.y-=impact*.075+weights.slide*.08+weights.dig*.035+Math.max(weights.sniff,poseState.sniff?.65:0)*.035+locomotion*(.075+.045*run)-bound/scale*locomotion;
+   model.body.position.y-=impact*.075+weights.slide*.08+weights.dig*.035+Math.max(weights.sniff,poseState.sniff?.65:0)*.035+locomotion*(.042+.024*run)-bound/scale*locomotion;
+   // Proud trotting carriage: head up, tail high, ears lifting on each float.
+   model.neck.rotation.x-=locomotion*(.07+.05*run);model.head.rotation.x+=locomotion*.04;model.tail.rotation.x+=locomotion*(.1+.08*run);
+   const earFloat=floatU>=0?Math.sin(floatU*Math.PI)*run*locomotion:0;
    model.body.rotation.x-=weights.slide*.11+weights.dig*.13;model.neck.rotation.x+=weights.dig*.13;model.head.rotation.y-=turnVelocity*.1;
    // A friendly, tiny brace inside the suit; the breeze never moves the actor root.
    const brace=wind*(grounded?1:.2);model.body.position.y-=brace*.025;model.body.rotation.x+=brace*.025;
@@ -158,7 +163,7 @@
    const lp=hasWorldLook&&Number.isFinite(worldLookY)?clamp(-Math.atan2(worldLookY-(Number.isFinite(pose.y)?pose.y:root.position.y)-.76,Math.max(.4,Math.abs(dx))),-.48,.55):hasLook?-clamp(pose.lookY||0,-1,1)*.55:0;
    lookYaw=ease(lookYaw,ly,8,dt);lookPitch=ease(lookPitch,lp,8,dt);model.head.rotation.y+=lookYaw;model.head.rotation.x+=lookPitch*(mode==='sniff'?.22:.68);model.neck.rotation.x+=lookPitch*(mode==='sniff'?.05:.18);
    model.head.rotation.z+=Math.sin(localTime*1.7)*.025*(1-walk);
-   model.ears.forEach(e=>{e.b.rotation.x-=air*.18+weights.slide*.12;e.b.rotation.z=clamp(e.b.rotation.z+e.side*impact*.12,-.18,.18);});
+   model.ears.forEach(e=>{e.b.rotation.x-=air*.18+weights.slide*.12+earFloat*.2;e.b.rotation.z=clamp(e.b.rotation.z+e.side*impact*.12,-.18,.18);});
    model.legs.forEach(L=>{L.b.rotation.x+=impact*.12;if(mode==='slide'){L.b.rotation.x-=.38*weights.slide;L.shin.rotation.x+=(L.front?.25:-.24)*weights.slide;}});
    // The harness takes the weight in the air. On the ice sail he widens
    // his stance and lets the deck roll underneath his planted paws.

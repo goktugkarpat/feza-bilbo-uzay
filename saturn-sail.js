@@ -13,8 +13,10 @@
     const CRUISE=3.0;
     const shellMat=new T.MeshStandardMaterial({vertexColors:true,roughness:.35,metalness:.29});
     M.WorkshopArt.paint(shellMat,'enamel');
-    const sailMat=new T.MeshStandardMaterial({vertexColors:true,roughness:.38,metalness:.18,side:T.DoubleSide,map:glazeTexture,
-      emissive:0x3a6a70,emissiveIntensity:.42});
+    // Clear, sunny sail cloth: deep sea-green at the hinge, bright aqua panels
+    // and a warm gold hem, so the wing reads as a sail against the pale ice.
+    const sailMat=new T.MeshStandardMaterial({vertexColors:true,roughness:.46,metalness:.04,side:T.DoubleSide,
+      emissive:0x1b6468,emissiveIntensity:.34});
     // Ring-ice silhouettes share the polished ice look of the walking surface.
     const frost=new T.MeshStandardMaterial({color:0xc2ecf6,map:glazeTexture,roughness:.3,metalness:.12,emissive:0x0c4152,emissiveIntensity:.5});
     // Glacier glow to match the big ice arches: bright cyan rim, soft inner light (no extra draws).
@@ -22,6 +24,15 @@
       shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>',`
         float rim=pow(1.-abs(dot(normal,normalize(vViewPosition))),2.4);
         outgoingLight+=vec3(.09,.32,.40)*rim+diffuseColor.rgb*vec3(.03,.09,.11);
+        #include <opaque_fragment>`);
+    };
+    // Honey-amber crystal for the second crossing's spires: a warm inner glow
+    // and a bright rim, so they read as gems instead of matte wood.
+    const amber=new T.MeshStandardMaterial({color:0xffbf66,roughness:.22,metalness:.06,emissive:0xc8661c,emissiveIntensity:.46,flatShading:true});
+    amber.onBeforeCompile=shader=>{
+      shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>',`
+        float rim=pow(1.-abs(dot(normal,normalize(vViewPosition))),2.0);
+        outgoingLight+=vec3(.48,.32,.10)*rim;
         #include <opaque_fragment>`);
     };
     const reactorColors=[0x75f5e3,0xffcf8d];
@@ -58,14 +69,15 @@
     // a thin translucent-looking edge. Its hinge opens as magnetic pull rises.
     function sailGeometry(){
       const p=[],c=[],uv=[],ix=[],sectors=11,steps=7;
-      const jade=new T.Color(0x398e9a),ice=new T.Color(0xbce3d4),sun=new T.Color(0xe4c095),out=new T.Color();
+      const jade=new T.Color(0x1c8f8c),ice=new T.Color(0x86e8dc),sun=new T.Color(0xffc56a),out=new T.Color();
       for(let a=0;a<=sectors;a++){
         const t=a/sectors,theta=.12+1.82*t,L=1.56+.30*Math.sin(Math.PI*t);
         for(let j=0;j<=steps;j++){
           const v=j/steps,delicate=(a%2?.19:0)*v;
           p.push(Math.cos(theta)*L*v,Math.sin(theta)*L*v+.055*Math.sin(v*Math.PI),-.24*Math.sin(t*Math.PI)*v+delicate);
-          out.copy(jade).lerp(ice,.16+.64*v).lerp(sun,t*.50);
-          if(j===steps-1)out.lerp(sun,.54);if(a%3===0&&v>.12)out.lerp(sun,.24);c.push(out.r,out.g,out.b);uv.push(t,v);
+          // Alternate pleats are a shade lighter, so the folds read clearly.
+          out.copy(jade).lerp(ice,.10+.72*v).lerp(sun,t*.22).multiplyScalar(a%2?1.06:.9);
+          if(j>=steps-1)out.lerp(sun,j===steps?.86:.5);c.push(out.r,out.g,out.b);uv.push(t,v);
           if(a&&j){const i=a*(steps+1)+j,q=i-steps-1;ix.push(q-1,q,i,q-1,i,i-1);}
         }
       }
@@ -89,7 +101,7 @@
         strut(wing,[0,0,0],[Math.cos(theta)*L,Math.sin(theta)*L,-.24*Math.sin(u*Math.PI)],j===0?.039:.013,mats.brass);
       }
       part(g,shapes.cyl,mats.brass,-.82,.28,-.39,.16,.25,.16);
-      part(g,seatG,mats.ink,0,.346,-.03,1.99,.11,.69);
+      part(g,seatG,mats.petrol,0,.346,-.03,1.99,.11,.69);
       // A sprung magnetic runner below either flank and a recessed inspection port.
       for(const side of [-1,1]){
         part(g,skateG,mats.brass,0,-.02,side*.47);
@@ -128,7 +140,7 @@
       const beam=new T.Line(beamG,beamM);beam.frustumCulled=false;g.add(beam);
       const dots=new T.Points(beamG,new T.PointsMaterial({vertexColors:true,size:.063,transparent:true,opacity:.78,blending:T.AdditiveBlending,depthWrite:false}));
       dots.frustumCulled=false;g.add(dots);
-      ships.push({root:g,wing,moons,beam,beamData,dots,x:o.start,lo:o.start,hi:o.end,dir:1,cruiseDir:1,v:0,shipY:g.position.y,lights:0,clock:idx*1.03,phase:'dock',timer:0,wants:0,boost:0,beenAway:false,step:0,soundAt:-10});
+      ships.push({root:g,wing,moons,beam,beamData,dots,x:o.start,lo:o.start,hi:o.end,dir:1,cruiseDir:1,v:0,shipY:g.position.y,lights:0,clock:idx*1.03,phase:'dock',timer:0,wants:0,boost:0,beenAway:false,step:0,soundAt:-10,bob:0,pitch:0});
     }
     // A handful of actual ring grains meet the shepherd field, sweep around
     // the selected moon, then settle back into their original orbital stream.
@@ -280,14 +292,19 @@
       // Sculptural navigation silhouettes change with the leg. They are
       // well behind the touchable machinery and share the existing surfaces.
       for(let j=0;j<4;j++){
-        const x=M.lerp(s.lo+4,s.hi-3,(j+.3)/4),g=group(root,x,ground(x)-.7,-6.8-j%2);
+        // Never stand right behind a mooring: the wheel, lantern or moon socket
+        // the child touches keeps a clean background.
+        let x=M.lerp(s.lo+4,s.hi-3,(j+.3)/4);
+        // (5 m: seen from the moored sail, far scenery drifts toward the middle.)
+        for(const q of s.stops)if(Math.abs(x-q.x)<5)x=q.x+5;
+        const g=group(root,x,ground(x)-.7,-6.8-j%2);
         if(leg===0){
           for(const side of[-1,1]){const ridge=part(g,shapes.iceRock,frost,side*1.65,1.5,0,.72,2.10,.95);ridge.rotation.z=side*.23;}part(g,shapes.iceRock,frost,0,3.25,0,2.1,.55,1.05);
           part(g,shapes.iceRock,mats.gem[0],-1.9,1.0,.1,.55,1.8,.9);
         }else if(leg===1){
           // Amber crystal cluster: a tall spire with two slimmer leaning companions.
-          part(g,shapes.iceRock,mats.gem[1],0,2.05,0,.40,2.75,.40).rotation.y=.5;
-          for(let side=-1;side<=1;side+=2){const leaf=part(g,shapes.iceRock,mats.gem[1],side*.8,1.5,.12,.33,1.95,.33);leaf.rotation.z=side*.36;}
+          part(g,shapes.iceRock,amber,0,2.05,0,.40,2.75,.40).rotation.y=.5;
+          for(let side=-1;side<=1;side+=2){const leaf=part(g,shapes.iceRock,amber,side*.8,1.5,.12,.33,1.95,.33);leaf.rotation.z=side*.36;}
         }else{
           for(let k=0;k<3;k++){const spire=part(g,shapes.iceRock,k%2?mats.gem[2]:frost,(k-1)*.62,1.5+k%2,.16*k,.38,2.3+k%2,.48);spire.rotation.z=(k-1)*-.18;}
         }
@@ -302,7 +319,7 @@
       if(riding?.stop===q){riding.phase='sail';riding.stop=null;riding.boost=0;riding.v=0;riding.wants=0;riding.dir=riding.cruiseDir;player.facing=dog.facing=riding.dir;heldDir=0;inputId=null;}
     }
     function stopAt(s,q){
-      s.phase='moor';s.stop=q;s.v=0;s.boost=s.wants=0;heldDir=0;inputId=null;
+      s.phase='moor';s.stop=q;s.v=0;s.boost=s.wants=0;heldDir=0;inputId=null;player.emote='';
       player.skating=dog.skating=0;M.sfx('saturn-latch');
     }
     function updateStops(dt){
@@ -435,6 +452,7 @@
     function board(s){
       if(s.visited||riding||player.locked||Math.abs(player.x-s.x)>5.5)return false;
       riding=s;s.phase='board';s.stop=null;s.timer=0;s.boost=0;s.v=0;s.wants=0;s.beenAway=false;
+      s.bob=0;s.pitch=0;
       s.atX=s.x;s.fromX=player.x;s.fromY=player.y;s.fromZ=player.z||0;
       s.dogX=dog.x;s.dogY=dog.y;s.dogZ=dog.z??.3;s.fromHeight=s.root.position.y;
       s.dir=Math.abs(s.x-s.hi)<1?-1:Math.abs(s.x-s.lo)<1?1:s.cruiseDir;
@@ -462,10 +480,23 @@
     function disembark(s){
       if(s.phase==='land')return;
       if(s.stop){s.stop.owner=null;s.stop=null;}
-      s.phase='land';s.timer=0;player.skating=dog.skating=undefined;s.fromX=player.x;s.fromY=player.y;s.fromZ=player.z||0;
+      s.phase='land';s.timer=0;player.skating=dog.skating=undefined;s.fromX=player.x;s.fromY=player.y;s.fromZ=player.z||0;player.emote='';
       s.dogX=dog.x;s.dogY=dog.y;s.dogZ=dog.z??0;s.fromHeight=s.root.position.y;
       s.landing=clamp(s.x+s.dir*1.78,2,routeLength-3);
       inputId=null;heldDir=0;s.boost=s.wants=0;s.v=0;
+    }
+    // The hull gently noses along its swoops; the two seats follow that tilt so
+    // Feza and Bilbo stay planted on their cushions (no floating or sinking).
+    function seatOnHull(s,y,z){
+      const c=Math.cos(s.pitch),n=Math.sin(s.pitch);
+      player.x=s.x+.59*c-.49*n;player.y=y+.59*n+.49*c;player.z=z;
+      dog.x=s.x-.67*c-.50*n;dog.y=y-.67*n+.50*c;dog.z=z+.07;
+    }
+    function pathY(s,x){const keep=s.x;s.x=x;const y=ground(x)+.35+ringLift(s)+swoop(s);s.x=keep;return y;}
+    function tiltHull(s,dt,calm){
+      const slope=calm?0:clamp(Math.atan((pathY(s,s.x+.3)-pathY(s,s.x-.3))/.6),-.11,.11);
+      s.pitch=M.damp(s.pitch,slope,3.6,dt);s.root.rotation.z=s.pitch;
+      s.root.rotation.x=M.damp(s.root.rotation.x,calm?0:.026*Math.sin(s.clock*1.3),4,dt);
     }
     function seatPose(s,u,y,z){
       const hop=Math.sin(Math.PI*u)*.34;
@@ -513,7 +544,14 @@
             // Moon steering is optional and returns to the crossing direction.
             const drive=heldDir||(s.boost>0?s.wants:s.cruiseDir);
             if(drive&&drive!==s.dir){s.dir=drive;player.facing=dog.facing=drive;}
-            s.v=M.damp(s.v,drive*CRUISE,drive?2.2:1.88,dt);const move=s.v*dt;
+            s.v=M.damp(s.v,drive*CRUISE,drive?2.2:1.88,dt);
+            // Glide softly into the next mooring (or the far shore) instead of
+            // stopping dead from full speed: about two seconds of easing in.
+            let room=s.dir>0?s.hi-s.x:s.x-s.lo;
+            for(const q of s.stops){if(q.done)continue;const d=(q.x-s.dir*3.6-s.x)*s.dir;if(d>-.02&&d<room)room=d;}
+            const cap=Math.max(.45,Math.sqrt(2.6*Math.max(0,room)));
+            if(s.v*s.dir>cap)s.v=s.dir*cap;
+            const move=s.v*dt;
             const before=s.x;
             s.x=clamp(s.x+move,s.lo,s.hi);
             for(let qi=0;qi<s.stops.length;qi++){
@@ -523,11 +561,14 @@
                 s.x=berth;stopAt(s,q);break;
               }
             }
-            const y=ground(s.x)+.35+ringLift(s)+swoop(s)+.054*Math.sin(s.clock*2.6);
-            s.root.position.set(s.x,y,-.18);
-            player.x=s.x+.59;player.y=y+.49;player.z=-.18;
-            dog.x=s.x-.67;dog.y=y+.50;dog.z=-.11;
+            // One continuous float: the bob only grows or settles, never jumps.
+            s.bob=M.damp(s.bob,.054,2,dt);
+            const y=ground(s.x)+.35+ringLift(s)+swoop(s)+s.bob*Math.sin(s.clock*2.4);
+            s.root.position.set(s.x,y,-.18);tiltHull(s,dt,false);seatOnHull(s,y,-.18);
             player.mode=dog.mode='idle';player.skating=s.v/CRUISE;dog.skating=player.skating;
+            // Little joys of the ride: Feza smiles down each swoop, Bilbo gazes around.
+            player.emote=s.v*s.dir>1.4&&s.pitch*s.dir<-.03?'happy':'';
+            if(cheer<=0){dog.lookX=.26+.16*Math.sin(s.clock*.8);dog.lookY=.2+.1*Math.sin(s.clock*.55+1);}
             // A slightly wider, forward-looking view shows the ice and rings ahead.
             M.setCameraTarget(s.x+s.dir*1.2+s.v*.2,y+1.7,innerWidth<innerHeight?1.3:1.04,.91);
             if(Math.abs(s.x-s.atX)>1.8)s.beenAway=true;
@@ -539,16 +580,16 @@
               else{const back=s.x<=s.lo+.012?1:-1;s.dir=s.wants=s.cruiseDir=back;s.v=0;s.boost=0;heldDir=0;player.facing=dog.facing=back;}
             }
           }else if(s.phase==='moor'){
-            const y=ground(s.x)+.35+ringLift(s)+swoop(s)+.025*Math.sin(s.clock*2.2);
-            s.root.position.set(s.x,y,-.18);
-            player.x=s.x+.59;player.y=y+.49;player.z=-.18;
-            dog.x=s.x-.67;dog.y=y+.50;dog.z=-.11;
+            s.bob=M.damp(s.bob,.025,2,dt);
+            const y=ground(s.x)+.35+ringLift(s)+swoop(s)+s.bob*Math.sin(s.clock*2.4);
+            s.root.position.set(s.x,y,-.18);tiltHull(s,dt,true);seatOnHull(s,y,-.18);
             player.mode=dog.mode='idle';player.skating=dog.skating=0;
             dog.lookX=clamp((s.stop.x-dog.x)*.11,-.5,.5);dog.lookY=.48;
             M.setCameraTarget((s.x+s.stop.x)*.5,ground(s.x)+.35+ringLift(s)+2.0,innerWidth<innerHeight?1.38:.89,.95);
           }else{
             const u=ease(s.timer/.68),h=Math.sin(Math.PI*u)*.22;
             s.root.position.set(s.x,M.lerp(s.fromHeight,ground(s.x)+.31,u),M.lerp(-.18,parkDepth(),u));
+            s.pitch=M.damp(s.pitch,0,8,dt);s.root.rotation.z=s.pitch;s.root.rotation.x=M.damp(s.root.rotation.x,0,8,dt);
             player.x=M.lerp(s.fromX,s.landing,u);player.y=M.lerp(s.fromY,ground(player.x),u)+h;player.z=M.lerp(s.fromZ,0,u);
             dog.x=M.lerp(s.dogX,s.landing-s.dir*.92,u);dog.y=M.lerp(s.dogY,ground(dog.x),u)+h;dog.z=M.lerp(s.dogZ,.30,u);
             player.mode=dog.mode='jump';
@@ -556,7 +597,7 @@
               player.grounded=dog.grounded=true;player.mode=dog.mode='idle';dog.lookX=dog.lookY=0;M.sfx('saturn-cradle');}
           }
         }else if(s.phase==='dock'){
-          s.root.position.set(s.x,ground(s.x)+.31+.035*Math.sin(s.clock*1.7),parkDepth());
+          s.root.position.set(s.x,ground(s.x)+.31+.035*Math.sin(s.clock*1.7),parkDepth());s.root.rotation.set(0,0,0);s.pitch=0;
           // An unfinished crossing cannot be walked past: stepping onto (or
           // over) the docked sail climbs aboard, so no long walk back later.
           const px=player.x,crossed=s.lastPX!==undefined&&(s.lastPX-s.x)*(px-s.x)<0&&Math.abs(px-s.lastPX)<3;
