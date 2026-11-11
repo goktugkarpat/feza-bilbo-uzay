@@ -205,7 +205,14 @@
    'jupiter-station-prepare':[-4.8,-1],'jupiter-io-samples':[-5.9,-1],'jupiter-io-lava-window':[-5.8,-1],'jupiter-io-camera':[-4.5,-1],'jupiter-europa-ice-hatch':[-5.8,-1],'jupiter-europa-sub-samples':[-8.9,-1],'jupiter-europa-float-lab':[-5.7,-1],'jupiter-museum-displays':[10.6,1],'jupiter-museum-delivery':[-8.6,-1],
    'venus-crawler-board':[5.2,1],'venus-crawler-call':[-6.15,-1],'venus-observatory':[-8,-1],'venus-observatory-open':[-8.6,-1]
   };
-  const flags=entries.map(entry=>{const sprite=new T.Sprite(flagMaterials[0]);sprite.name='Oyun bayrağı '+entry.id;sprite.matrixAutoUpdate=false;root.add(sprite);return{entry,sprite,poseX:NaN,poseY:NaN,poseZ:NaN,poseSize:NaN,x:0,y:0,poleX:0,poleY:0,poleZ:0,side:-1,size:1,done:false,enabled:false,seen:false,startX:undefined,startY:undefined};});
+  const results=new WeakMap();
+  const flags=entries.map(entry=>{const sprite=new T.Sprite(flagMaterials[0]);sprite.name='Oyun bayrağı '+entry.id;sprite.matrixAutoUpdate=false;root.add(sprite);const result={observedDone:undefined,reported:false,progress:undefined,total:1,x:NaN,y:NaN,sourceIcon:'',goal:entry.goal};results.set(entry,result);return{entry,sprite,result,poseX:NaN,poseY:NaN,poseZ:NaN,poseSize:NaN,x:0,y:0,poleX:0,poleY:0,poleZ:0,side:-1,size:1,done:false,enabled:false,seen:false,startX:undefined,startY:undefined};});
+  function reportResult(entry,result,complete){
+   if(complete){if(result.reported)return;result.reported=true;}
+   // Only a real state change earns a reaction; touching decoration never does.
+   const close=Number.isFinite(result.x)&&Math.abs(result.x-player.x)<9;
+   M.events.dispatchEvent(new CustomEvent('activity-success',{detail:{id:entry.id,complete,sourceIcon:result.sourceIcon,goal:result.goal,x:close?result.x:player.x,y:close?result.y:player.y+1.15,progress:complete?result.total:result.progress,total:result.total}}));
+  }
   const groupedFlags=new Map();for(const f of flags){const id=f.entry.id,key=id==='mars-rover-build'||id==='mars-rover-ride'?'mars-rover-dock':id==='venus-observatory'||id==='venus-observatory-open'?'venus-observatory':id.startsWith('neptune-route-game-')?'neptune-floating-workshop':null;if(key){let group=groupedFlags.get(key);if(!group)groupedFlags.set(key,group=[]);group.push(f);}}
   const stakeSlots=flags.map(()=>({x:NaN,y:NaN,z:NaN,size:NaN}));
   const markerInfo=flags.map(flag=>({id:flag.entry.id,visible:false,x:0,y:0,z:0,scale:1,side:-1})),framing={minX:0,maxX:0};
@@ -267,6 +274,7 @@
    let stakeCount=0;
    for(let k=0;k<flags.length;k++){
     const flag=flags[k],e=flag.entry;flag.enabled=!e.enabled||!!e.enabled();flag.done=!!e.completed?.();flag.x=Number(value(e.x));if(flag.enabled)flag.seen=true;
+    if(flag.result.observedDone===false&&flag.done&&flag.seen&&Math.abs(player.x-flag.x)<(e.range||10)+3)reportResult(e,flag.result,true);flag.result.observedDone=flag.done;
     const planted=markerPosition(flag);flag.sprite.visible=planted&&(flag.enabled||flag.done&&flag.seen||flag.seen&&e===active&&clock-lastValidAt<2.8)&&Math.abs(player.x-flag.poleX)<30;
     if(flag.poseX!==flag.poleX||flag.poseY!==flag.poleY||flag.poseZ!==flag.poleZ||flag.poseSize!==flag.size){flag.poseX=flag.poleX;flag.poseY=flag.poleY;flag.poseZ=flag.poleZ;flag.poseSize=flag.size;flag.sprite.scale.set(1.15*flag.size,.84*flag.size,1);flag.sprite.position.set(flag.poleX,flag.poleY+1.20*flag.size,flag.poleZ);flag.sprite.updateMatrix();}flag.sprite.center.set(flag.side<0?.935:.065,.5);flag.sprite.material=flagMaterials[(flag.side<0?0:2)+(flag.done?1:0)];
     const record=markerInfo[k];record.visible=flag.sprite.visible;record.x=flag.poleX;record.y=flag.poleY;record.z=flag.poleZ;record.scale=flag.size;record.side=flag.side;
@@ -287,6 +295,7 @@
    if(!active){showCard(false);info.action=null;info.walkHint=lastSuccessAt>=0&&clock-lastSuccessAt>3&&clock-lastInput>3&&!player.locked&&player.grounded&&Math.abs(player.vx)<.4&&player.x<world.length-10;return;}
    step.demoObject=null;step.pointAt=null;step.targetId='';step.action='tap';step.progress=0;step.total=1;step.sourceIcon='';step.goalIcon='';step.radius=.55;step.pivot.set(NaN,NaN,NaN);step.centerX=step.centerY=step.startAngle=step.endAngle=NaN;step.from.set(0,0,0);step.to.set(0,0,0);
    const available=active.describe(step);if(!available){if(lastValidLesson===active&&clock-lastValidAt<2.8){showCard(true);info.action='wait';}else showCard(false);return;}lastValidLesson=active;lastValidAt=clock;lastValidSource=step.sourceIcon;lastValidGoal=step.goalIcon||active.goal;info.demoAvailable=!!(step.demoObject&&ghostBySource.get(step.demoObject));
+   const result=results.get(active);if(Number.isFinite(step.progress)){const progressed=Number.isFinite(result.progress)&&step.progress>result.progress&&!result.reported;result.progress=step.progress;if(progressed)reportResult(active,result,false);}result.total=step.total;result.x=step.from.x;result.y=step.from.y;result.sourceIcon=step.sourceIcon;result.goal=step.goalIcon||active.goal;
    info.action=step.action;info.goal=step.goalIcon||active.goal;info.progress=step.progress;info.total=step.total;step.from.toArray(info.source);step.to.toArray(info.target);showCard(true);updateCard(active,false);focusOn=step.action!=='wait'&&Number.isFinite(step.from.x)&&Number.isFinite(step.to.x);
    if(step.action!=='wait'&&contactOwner===null){const beat=.5+.5*Math.sin(clock*4.2);sourceRing.position.copy(step.from);sourceRing.position.z+=.03;sourceRing.scale.setScalar(1.7+.35*beat);sourceRing.material.opacity=.55+.4*beat;sourceRing.visible=true;
     if((step.action==='drag'||step.action==='press')&&step.from.distanceToSquared(step.to)>.09){// Keep the gold ring clear of the turquoise one: a near target gets a smaller, softer ring.
@@ -306,7 +315,7 @@
     hand.position.x-=.03;hand.position.y+=.44;hand.material.opacity=Math.min(1,t*4,(shown-t)*4);
    }
   }
-  function pointer(type,p){if(type!=='down'||disposed)return false;lastInput=clock;hand.visible=false;for(const flag of flags){if(!flag.sprite.visible||Math.abs(player.x-flag.x)>(flag.entry.range||10)+2)continue;if(M.touchPlayPart(p,flag.sprite,0)){if(!flag.done){selected=flag.entry;entered=clock;lastInput=-20;}return true;}}return false;}
+  function pointer(type,p){if(type!=='down'||disposed)return false;lastInput=clock;hand.visible=false;for(const flag of flags){if(flag.done||!flag.enabled||flag.entry.completed?.()||flag.entry.enabled&&!flag.entry.enabled())continue;if(!flag.sprite.visible||Math.abs(player.x-flag.x)>(flag.entry.range||10)+2)continue;if(M.touchPlayPart(p,flag.sprite,0)){selected=flag.entry;entered=clock;lastInput=-20;return true;}}return false;}
   function moveContact(p,owner){if(contactOwner!==owner)return;touchPulse.position.set(p.x,p.y,.02);touchHand.position.set(p.x-.022,p.y+.33,.02);lastInput=clock;}
   function releaseContact(p,owner,cancel=false){if(contactOwner!==owner)return;moveContact(p,owner);contactOwner=null;touchedAt=cancel?-20:clock;}
   function clearContact(){contactOwner=null;touchedAt=-20;touchPulse.visible=touchHand.visible=false;}

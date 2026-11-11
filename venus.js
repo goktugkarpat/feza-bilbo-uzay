@@ -39,7 +39,43 @@
     function grip(parent,color){const q=new T.Group();parent.add(q);mesh(q,G.rod,paint(color),0,0,0,.115,.40,.115).rotation.z=Math.PI*.5;for(const side of [-1,1]){mesh(q,G.ball,paint(C.cream),side*.22,0,0,.135,.135,.135);mesh(q,G.rod,paint(C.gold),side*.155,0,0,.128,.035,.128).rotation.z=Math.PI*.5;}weld(q);return q;}
     function bolt(parent,x,y,z){const q=mesh(parent,G.rod,paint(C.pale),x,y,z,.045,.035,.045);q.rotation.x=Math.PI*.5;return q;}
     function hose(parent,points,color=C.teal,r=.055){for(let k=1;k<points.length;k++)rod(parent,...points[k-1],...points[k],r,paint(color));}
-    function plant(parent,x,y,z,i){const q=new T.Group();q.position.set(x,y,z);parent.add(q);mesh(q,G.rod,paint(C.copper),0,.10,0,.28,.20,.28);mesh(q,G.rod,paint(C.navy,true),0,.205,0,.235,.025,.235);rod(q,0,.21,0,.03,.93+(i%2)*.18,0,.025,paint(C.teal));for(let k=0;k<4;k++){const side=k%2?1:-1;const leaf=mesh(q,G.pearl,paint(k%2?C.teal:0x9acb90,true),side*.15,.38+k*.14,0,.21,.065,.10);leaf.rotation.z=side*.48;}mesh(q,G.pearl,paint(C.coral,true),.03,1.03+(i%2)*.18,0,.19,.12,.13);for(let k=0;k<5;k++){const a=k*TAU/5;mesh(q,G.pearl,paint(C.cream,true),.03+Math.cos(a)*.16,1.03+(i%2)*.18+Math.sin(a)*.12,.02,.11,.08,.07);}weld(q);return q;}
+    // A seedling is one painted draw, including its pot and curved leaves. The
+    // bud unfolds along authored poses when the real water/filter work succeeds.
+    const plantGeometryCache=[],plantPaint=new T.MeshStandardMaterial({vertexColors:true,roughness:.82,metalness:.025,side:T.DoubleSide});
+    function plantGeometry(tall){
+      if(plantGeometryCache[tall])return plantGeometryCache[tall];
+      const positions=[],buds=[],colours=[],indices=[],ink=new T.Color(),pose=new T.Object3D(),p=new T.Vector3(),h=1.03+tall*.18;
+      function fixed(g,color,x,y,z,sx,sy,sz,rz=0){
+        const at=g.attributes.position,start=positions.length/3;ink.setHex(color);pose.position.set(x,y,z);pose.rotation.set(0,0,rz);pose.scale.set(sx,sy,sz);pose.updateMatrix();
+        for(let k=0;k<at.count;k++){p.fromBufferAttribute(at,k).applyMatrix4(pose.matrix);positions.push(p.x,p.y,p.z);buds.push(p.x,p.y,p.z);colours.push(ink.r,ink.g,ink.b);}
+        if(g.index)for(let k=0;k<g.index.count;k++)indices.push(start+g.index.getX(k));else for(let k=0;k<at.count;k++)indices.push(start+k);
+      }
+      fixed(G.rod,C.copper,0,.10,0,.28,.20,.28);fixed(G.rod,C.cream,0,.19,0,.286,.042,.286);fixed(G.rod,C.navy,0,.215,0,.235,.025,.235);
+      fixed(G.rod,C.teal,.015,(h+.21)*.5,0,.025,h-.21,.025,-.035);
+      function ribbon(angle,y,length,width,color,petal){
+        const start=positions.length/3,N=6,W=4,cs=Math.cos(angle),sn=Math.sin(angle);ink.setHex(color);
+        for(let a=0;a<=N;a++)for(let b=0;b<=W;b++){
+          const u=a/N,v=b/W*2-1,spread=Math.sin(Math.PI*u)*width*v,r=.055+length*u,curve=Math.sin(Math.PI*u);
+          const px=(petal?.03:0)+cs*r-sn*spread,py=y+sn*r+cs*spread,pz=.035+curve*(petal?.11:.075)-v*v*curve*.045;
+          positions.push(px,py,pz);
+          if(petal)buds.push(.03+cs*(.035+u*.065)-sn*spread*.23,y+sn*(.035+u*.065)+cs*spread*.23,.045+u*.18);
+          else buds.push(px*.67,y+(py-y)*.36+u*.12,pz*.65);
+          const vein=Math.abs(v)<.15?.88:1,tip=.91+.09*curve;colours.push(ink.r*vein*tip,ink.g*vein*tip,ink.b*vein*tip);
+          if(a<N&&b<W){const k=start+a*(W+1)+b;indices.push(k,k+W+1,k+1,k+1,k+W+1,k+W+2);}
+        }
+      }
+      for(let k=0;k<4;k++)ribbon(k%2?.44:Math.PI-.44,.36+k*.14,.36,.105,k%2?C.teal:0x8abb8c,false);
+      for(let k=0;k<6;k++)ribbon(k*TAU/6+.18,h,.26,.105,k%2?0xffe9b2:0xf5cf9e,true);
+      fixed(G.pearl,C.coral,.03,h,.095,.12,.12,.082);fixed(G.pearl,C.gold,.03,h,.172,.063,.063,.025);
+      const g=new T.BufferGeometry();g.name='Curved Venus seedling and opening petals';g.setAttribute('position',new T.Float32BufferAttribute(positions,3));g.setAttribute('color',new T.Float32BufferAttribute(colours,3));g.setIndex(indices);g.computeVertexNormals();
+      const closed=g.clone();closed.setAttribute('position',new T.Float32BufferAttribute(buds,3));closed.computeVertexNormals();g.setAttribute('budPosition',new T.Float32BufferAttribute(buds,3));g.setAttribute('budNormal',closed.attributes.normal.clone());closed.dispose();g.computeBoundingBox();g.computeBoundingSphere();plantGeometryCache[tall]=g;return g;
+    }
+    function plant(parent,x,y,z,i){
+      const q=new T.Group();q.position.set(x,y,z);parent.add(q);const bloom={value:0},mat=plantPaint.clone();
+      mat.onBeforeCompile=shader=>{shader.uniforms.uSeedlingBloom=bloom;shader.vertexShader='attribute vec3 budPosition;attribute vec3 budNormal;uniform float uSeedlingBloom;\n'+shader.vertexShader.replace('#include <begin_vertex>','vec3 transformed=mix(budPosition,position,uSeedlingBloom);').replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\nobjectNormal=normalize(mix(budNormal,objectNormal,uSeedlingBloom));');};
+      mat.customProgramCacheKey=()=>'venus-seedling-bloom-v1';const flower=mesh(q,plantGeometry(i%2),mat);flower.name='Venus seedling, naturally opening flower';flower.castShadow=false;q.userData.bloom=bloom;return q;
+    }
+    function bloomPlant(q,amount,dt){q.userData.bloom.value=M.damp(q.userData.bloom.value,clamp(amount,0,1),3.6,dt);}
 
     function ground(x){return .32*Math.sin(x*.047)+.13*Math.sin(x*.139)+1.65*smooth(250,303,x)+1.05*smooth(374,407,x);}
     const platforms=[],weather={intensity:.12,gust:0,direction:1};
@@ -196,7 +232,7 @@
     function rebasePlantedBase(s){const p=s.plantedBase;if(!p||p.x===s.x&&p.y===s.y&&p.z===s.group.position.z)return;p.x=s.x;p.y=s.y;p.z=s.group.position.z;const a=p.g.attributes.position.array;for(let i=0;i<a.length;i+=3){const x=p.anchors[i],z=p.anchors[i+1];a[i]=x;a[i+1]=terrainSurfaceY(s.x+x,s.group.position.z+z)+.065-s.y+p.anchors[i+2];a[i+2]=z;}p.g.attributes.position.needsUpdate=true;p.g.computeBoundingBox();p.g.computeBoundingSphere();}
     function workshop(id,x,kind){const group=new T.Group(),fixed=new T.Group();group.position.set(x,ground(x),-.55);group.add(fixed);root.add(group);const s={id,x,home:x,y:ground(x),kind,group,fixed,jobs:[],done:false,recovered:false,anim:0};workshops.push(s);createPlantedBase(s);for(const side of [-1,1]){mesh(fixed,G.box,paint(C.copper),side*3.1,.18,-.95,.16,.36,.30);mesh(fixed,G.pearl,basic,side*3.1,.38,-.95,.08,.055,.08);for(let i=0;i<3;i++){const q=mesh(fixed,G.box,paint(C.navy),side*(2.65-i*.17),.075,.86,.07,.025,.24);q.rotation.y=-.52;}}return s;}
     function addJob(s,id,mode,from,to,options={}){
-      const j={id,station:s,mode,from:[...from],to:[...to],x:from[0],y:from[1],done:false,progress:0,requires:options.requires||[],angle:options.angle??-.9,radius:options.radius??.70,center:options.center||null,onDone:options.onDone||null,hideDone:!!options.hideDone,reveal:!!options.reveal,persistTarget:!!options.persistTarget,hitOffset:options.hitOffset||[0,0],depth:options.depth??.66,size:options.size||.30,strokes:options.strokes||0,count:0,armed:true,fill:0,spring:!!(options.spring||options.strokes),passive:!!options.passive,home:!!options.home};
+      const j={id,station:s,mode,from:[...from],to:[...to],x:from[0],y:from[1],done:false,progress:0,requires:options.requires||[],angle:options.angle??-.9,radius:options.radius??.70,center:options.center||null,onDone:options.onDone||null,hideDone:!!options.hideDone,reveal:!!options.reveal,persistTarget:!!options.persistTarget,hitOffset:options.hitOffset||[0,0],depth:options.depth??.66,size:options.size||.30,strokes:options.strokes||0,count:0,armed:true,fill:0,spring:!!(options.spring||options.strokes),passive:!!options.passive,home:options.home??(mode==='carry')};
       j.mesh=options.mesh||mesh(s.group,options.shape||G.pearl,paint(options.color||C.gold),j.x,j.y,.66,j.size,j.size*(mode==='press'?.52:1),j.size*.65);
       j.mesh.name='Venus source '+id;const target=new T.Object3D();target.position.set(to[0],to[1],.50);s.group.add(target);j.target=target;
       if(mode==='turn'){if(!options.mesh){s.group.remove(j.mesh);j.mesh=grip(s.group,options.color||C.gold);}j.center=options.center||[from[0]-.70,from[1]+.55];j.radius=options.radius||.87;j.angle=-.9;j.x=j.center[0]+Math.cos(j.angle)*j.radius;j.y=j.center[1]+Math.sin(j.angle)*j.radius;j.to=[j.center[0]+Math.cos(.72)*j.radius,j.center[1]+Math.sin(.72)*j.radius];target.position.set(j.to[0],j.to[1],.50);j.wheel=mesh(s.group,G.wheelRim,paint(options.color||C.gold),j.center[0],j.center[1],.34,j.radius,j.radius,.27);mesh(s.fixed,G.rod,paint(C.navy),j.center[0],j.center[1],.12,.21,.33,.21).rotation.x=Math.PI*.5;const spokes=new T.Group();j.wheel.add(spokes);for(let i=0;i<5;i++){const a=i*TAU/5+.3;rod(spokes,.16*Math.cos(a),.16*Math.sin(a),.06,.88*Math.cos(a),.88*Math.sin(a),.06,.045,paint(C.gold));const k=a+TAU/10;mesh(spokes,G.pearl,paint(C.cream),Math.cos(k),Math.sin(k),.10,.085,.085,.30);}mesh(spokes,G.ball,paint(C.copper),0,0,.08,.22,.22,.40);mesh(spokes,G.ball,paint(C.cream),0,0,.30,.12,.12,.25);mesh(spokes,G.thinRing,paint(C.gold),0,0,.20,.20,.20,1);weld(spokes);j.mesh.position.set(j.x,j.y,.66);}
@@ -220,7 +256,8 @@
     mesh(canopy.fixed,G.box,paint(C.cream),0,.22,-.62,5.1,.38,1.83);mesh(canopy.fixed,domeG,glass,0,.40,-.62,2.42,2.55,1.00);
     canopy.shade=mesh(canopy.group,domeG,new T.MeshBasicMaterial({color:C.amber,transparent:true,opacity:.30,side:T.DoubleSide,depthWrite:false}),0,.40,-.62,2.44,2.57,1.02);
     for(const x of [-2.05,0,2.05]){const r=Math.sqrt(1-(x/2.45)**2);const frame=mesh(canopy.fixed,new T.TorusGeometry(1,.028,5,32,Math.PI),paint(C.cream),x,.40,-.62,r,r*2.55,1);frame.rotation.y=Math.PI*.5;}
-    for(let i=0;i<5;i++)canopy.plants.push(plant(canopy.group,-1.60+i*.8,.42,-.69,i));
+    // Leave the central filter's working space clear: the flowers form two natural clusters beside it.
+    for(const [i,x]of [-1.72,-1.08,-.62,.94,1.64].entries())canopy.plants.push(plant(canopy.group,x,.42,-.69,i));
     mesh(canopy.fixed,G.box,paint(C.copper),0,.66,.42,4.65,.10,.12);for(let i=0;i<2;i++){const x=i?2.23:-2.23;mesh(canopy.fixed,G.box,paint(C.blue),x,.98,.40,.44,.85,.22);const latch=new T.Group();canopy.group.add(latch);const side=i?-1:1,mid=side*.67;mesh(latch,G.box,glass,mid,.02,0,1.34,1.42,.035);for(const y of [-.70,.74])mesh(latch,G.roundBox,paint(C.cream),mid,y,.025,1.43,.065,.07);for(const x of [0,side*1.34])mesh(latch,G.roundBox,paint(C.cream),x,.02,.025,.065,1.49,.07);const handle=grip(latch,C.coral);handle.position.set(0,0,.10);weld(latch);handle.scale.setScalar(1.45);addJob(canopy,'latch'+i,'slide',[i?2.85:-2.85,1.25],[i?1.45:-1.45,1.25],{mesh:latch,size:.46});}
     hose(canopy.fixed,[[-2.50,.21,.0],[-2.50,1.84,.0],[-.85,1.84,.0]],C.teal,.075);addJob(canopy,'filter','turn',[-.1,1.45],[0,0],{center:[.10,1.72],color:C.coral,radius:.60,requires:['latch0','latch1']});
     const steamCanvas=document.createElement('canvas');steamCanvas.width=steamCanvas.height=128;const sc=steamCanvas.getContext('2d');{const blob=(x,y,r,al)=>{const g=sc.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,'rgba(255,240,206,'+al+')');g.addColorStop(.5,'rgba(255,238,200,'+(al*.55)+')');g.addColorStop(1,'rgba(255,236,196,0)');sc.fillStyle=g;sc.fillRect(0,0,128,128);};blob(64,68,60,.62);for(const [x,y]of [[46,62],[82,60],[64,46],[56,82],[74,80]])blob(x,y,36,.34);}const steamTex=new T.CanvasTexture(steamCanvas);const steamMat=new T.MeshBasicMaterial({map:steamTex,transparent:true,opacity:.80,depthWrite:false,fog:false}),steamG=new T.PlaneGeometry(.82,.96);
@@ -514,16 +551,18 @@
         refreshState();
       }
       function pointHit(p,x,y,rx,ry=rx){return Math.abs(p.x-x)<=rx&&Math.abs(p.y-y)<=ry;}
+      // Loose parts gently settle back on their tray after a missed or interrupted move.
+      function returnLooseJob(j){if(j?.home&&!j.done){j.x=j.from[0];j.y=j.from[1];j.progress=0;}}
       function pointer(type,p,e){
         const id=e?.pointerId??'primary';
-        if(type==='cancel'){if(!e||owner===id){owner=null;drag=null;}return false;}
+        if(type==='cancel'){if(!e||owner===id){returnLooseJob(drag?.job);owner=null;drag=null;}return false;}
         if(!p)return false;
         if(type==='move'||type==='up'){
           if(owner===null||owner!==id||!drag)return false;
           if(Math.hypot(p.x-drag.startX,p.y-drag.startY)>.10)drag.moved=true;
           if(drag.moved){if(drag.type==='job')moveJob(drag.job,p);else if(drag.type==='ending')moveEnding(p);}
           if(type==='up'){
-            const dj=drag.job;if(drag.moved&&drag.type==='job'&&!dj.strokes&&dj.progress>(dj.mode==='turn'?.55:.70))finishJob(dj);if(drag.type==='job'&&dj.home&&!dj.done){dj.x=dj.from[0];dj.y=dj.from[1];}
+            const dj=drag.job;if(drag.moved&&drag.type==='job'&&!dj.strokes&&dj.progress>(dj.mode==='turn'?.55:.70))finishJob(dj);if(drag.type==='job')returnLooseJob(dj);
             if(drag.moved&&drag.type==='ending'&&ending.pull>.70){ending.phase='open';ending.clock=0;M.sfx('robot');}
             owner=null;drag=null;
           }
@@ -556,8 +595,8 @@
         for(const j of allJobs){j.target.visible=false;j.target.rotation.z=.06*Math.sin(t*1.1+j.from[0]);j.target.scale.x=j.target.scale.y=j.size*1.35*(1+.035*Math.sin(t*2));}
         for(const g of ghostJobs){const j=jobMap.get(g.id);g.q.visible=!j.done&&requiresDone(j);if(g.q.visible)g.q.material.opacity=.22+.10*Math.sin(t*3);}
         for(let i=0;i<3;i++){const placed=bridgeJobs[i].done;if(placed)bridge.beams[i].position.z=-1.10;bridge.lights[i].material=paint(placed?C.teal:C.navy);}
-        for(let i=0;i<3;i++){coolant.pipes[i].scale.setScalar(coolantJobs[i].done?.20:.11);const fill=coolantJobs[i].done?1:0;coolant.tanks[i].scale.y=M.damp(coolant.tanks[i].scale.y,.05+fill*.77,3,dt);coolant.tanks[i].position.y=.54+coolant.tanks[i].scale.y*.5;const flower=coolant.flowers[i],growth=.14+Math.min(1,(coolant.tanks[i].scale.y-.05)/.77)*.57;flower.scale.setScalar(growth);flower.rotation.z=.035*Math.sin(t*1.3+i)*fill;const closed=ventJobs[i].progress,plume=vents.plumes[i];plume.rotation.z=-closed*.30;plume.scale.setScalar(1-closed);vents.fans[i].rotation.z+=dt*closed*(2.8+i*.3);vents.lamps[i].material=paint(closed>.94?C.teal:C.navy);for(let k=0;k<3;k++){const q=plume.children[k];q.position.y=.26+((t*.46+k*.30)%1)*1.3;q.position.x=.09*Math.sin(t*1.3+k);}}
-        lavaMat.color.setScalar(.86+.14*(.5+.5*Math.sin(t*1.15)));riverMat.color.copy(lavaMat.color);lavaClock.value=t;const watered=coolant.jobs.reduce((n,j)=>n+(j.done?1:0),0)/3;canopy.shade.material.opacity=.30-.28*filterJob.progress;for(let i=0;i<canopy.plants.length;i++){const q=canopy.plants[i],growth=.22+.10*watered+.68*filterJob.progress;q.scale.set(growth,growth,growth);q.rotation.z=Math.sin(t*.8+i)*.035*filterJob.progress;}
+        for(let i=0;i<3;i++){coolant.pipes[i].scale.setScalar(coolantJobs[i].done?.20:.11);const fill=coolantJobs[i].done?1:0;coolant.tanks[i].scale.y=M.damp(coolant.tanks[i].scale.y,.05+fill*.77,3,dt);coolant.tanks[i].position.y=.54+coolant.tanks[i].scale.y*.5;const flower=coolant.flowers[i],growth=.14+Math.min(1,(coolant.tanks[i].scale.y-.05)/.77)*.57;flower.scale.setScalar(growth);bloomPlant(flower,fill,dt);flower.rotation.z=.035*Math.sin(t*1.3+i)*fill;const closed=ventJobs[i].progress,plume=vents.plumes[i];plume.rotation.z=-closed*.30;plume.scale.setScalar(1-closed);vents.fans[i].rotation.z+=dt*closed*(2.8+i*.3);vents.lamps[i].material=paint(closed>.94?C.teal:C.navy);for(let k=0;k<3;k++){const q=plume.children[k];q.position.y=.26+((t*.46+k*.30)%1)*1.3;q.position.x=.09*Math.sin(t*1.3+k);}}
+        lavaMat.color.setScalar(.86+.14*(.5+.5*Math.sin(t*1.15)));riverMat.color.copy(lavaMat.color);lavaClock.value=t;const watered=coolant.jobs.reduce((n,j)=>n+(j.done?1:0),0)/3;canopy.shade.material.opacity=.30-.28*filterJob.progress;for(let i=0;i<canopy.plants.length;i++){const q=canopy.plants[i],growth=.22+.10*watered+.68*filterJob.progress;q.scale.set(growth,growth,growth);bloomPlant(q,filterJob.progress,dt);q.rotation.z=Math.sin(t*.8+i)*.035*filterJob.progress;}
         const pressJob=corePressJob,pressed=pressJob.done?1:pressJob.progress,handleY=mix(2.72,1.60,pressed),bitY=1.11-.50*pressed,shaft=Math.max(.2,handleY-.06-(bitY+.16));quarry.drillRod.scale.y=shaft;quarry.drillRod.position.y=bitY+.16+shaft*.5;quarry.bit.position.y=bitY;quarry.drillSpin=(quarry.drillSpin||0)+dt*(drag?.job===pressJob?14:0);quarry.bit.rotation.y=pressed*TAU*3+quarry.drillSpin;const dug=sniffJob.done?1:sniffJob.progress;quarry.rock.scale.y=.76-.30*dug;quarry.rock.scale.x=.87+.12*dug;quarry.boom.rotation.z=.30-1.03*dug;
         const pumpJob=cabinetPumpJob;for(let i=0;i<pressure.lamps.length;i++)pressure.lamps[i].material=paint(pumpJob.done||pumpJob.count>i?[C.teal,C.pale,C.coral][i]:C.navy);
         pressure.gauge.rotation.z=1.35-2.7*pumpJob.fill+.06*(pumpJob.puff||0)*Math.sin(t*30);const pumped=pumpJob.fill,air=cabinetAirJob.done?pumped:0,piston=Math.max(.2,pumpJob.y-.42),level=.03+1.40*pumped*(1-.70*air);pressure.piston.scale.y=piston;pressure.piston.position.y=.40+piston*.5;pressure.level.scale.y=level;pressure.level.position.y=.42+level*.5;

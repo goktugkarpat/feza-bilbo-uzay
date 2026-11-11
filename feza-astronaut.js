@@ -87,6 +87,27 @@ M.createFezaAstronaut=function(){
    line('rubber','chest',[[sign*.158,.752,-.082],[sign*.159,.732,.062],[sign*.139,.654,.129],[sign*.112,.548,.12]],.013,0x49999d);
    kit('metal','chest',k=>k.add(H.G.torus(TAU,.19,14),0xe5b472,[sign*.147,.687,.116],[-.25,sign*.34,0],[.025,.032,.025]));
   }
+ }else if(M.planet==='jupiter'){
+  // Two protected specimens travel in a fitted belt case: warm Io stone and
+  // pale Europa ice. Everything stays in the existing suit batches.
+  kit('rubber','hips',k=>k.add(H.G.rbox(2),C.white,[.155,.444,.093],[0,.58,-.08],[.103,.122,.060]));
+  kit('metal','hips',k=>{
+   k.add(H.G.rbox(1),0xd2a66f,[.157,.494,.100],[0,.58,-.08],[.112,.027,.064]);
+   k.add(H.G.rbox(1),C.dark,[.173,.450,.124],[0,.58,-.08],[.075,.075,.014]);
+   k.add(H.G.sphere(10,7),0xe7a66d,[.168,.461,.139],0,[.017,.021,.011]);
+   k.add(H.G.sphere(10,7),0xb0dce2,[.184,.435,.130],0,[.016,.019,.011]);
+  });
+  line('rubber','hips',[[.109,.478,.106],[.119,.434,.132],[.166,.398,.122]],.004,C.seam);
+ }else if(M.planet==='venus'){
+  // A slim ribbed heat-exchanger sits on the life-support pack. The original
+  // child's silhouette and clear visor are kept entirely unobstructed.
+  kit('metal','chest',k=>{
+   k.add(H.G.rbox(1),0xd6ba87,[0,.638,-.278],0,[.207,.191,.015]);
+   for(let j=0;j<6;j++)k.add(H.G.rbox(1),0x687b7f,[0,.574+j*.026,-.290],0,[.169,.010,.008]);
+   k.add(H.G.rbox(1),C.white,[.164,.622,.102],[0,.35,-.06],[.065,.093,.036]);
+   k.add(H.G.rbox(1),0xe5b36d,[.172,.642,.124],[0,.35,-.06],[.043,.023,.009]);
+   k.add(H.G.rbox(1),C.teal,[.172,.611,.125],[0,.35,-.06],[.039,.012,.009]);
+  });
  }
  // A fully clear, torso-mounted dome lets the actual original head move freely inside.
  const helmet=new T.Group();helmet.name='Pressure helmet';helmet.position.set(0,.53,-.09);B.chest.add(helmet);
@@ -98,14 +119,22 @@ M.createFezaAstronaut=function(){
  kit('metal','chest',k=>{k.add(H.G.torus(TAU,.085,36),C.white,[0,.792,-.09],[PI/2,0,0],[.279,.342,.279]);k.add(H.G.torus(TAU,.04,36),C.teal,[0,.752,-.088],[PI/2,0,0],[.29,.338,.29]);k.add(H.G.torus(TAU,.025,36),C.orange,[0,.804,-.09],[PI/2,0,0],[.273,.334,.273]);for(const s of [-1,1]){k.add(H.G.rbox(1),C.edge,[s*.279,.786,-.09],0,[.027,.038,.055]);k.add(H.G.rbox(1),C.white,[s*.215,.768,-.065],[0,0,s*.1],[.145,.051,.13]);}});
  // Chest panel, embroidered mission medallion and a tiny friendly star.
  kit('metal','chest',k=>{k.add(H.G.rbox(1),C.teal,[.064,.666,.143],[-.06,0,0],[.105,.092,.019]);k.add(H.G.cyl(1,1,16),C.orange,[-.067,.71,.129],[PI/2,0,0],[.042,.009,.042]);k.add(H.G.cyl(1,1,16),C.dark,[-.067,.71,.136],[PI/2,0,0],[.031,.009,.031]);});
- kit('glow','chest',k=>{k.add(H.G.rbox(1),C.light,[.064,.686,.156],0,[.072,.024,.006]);for(let j=0;j<3;j++)k.add(H.G.sphere(8,6),j===0?C.orange:C.light,[.037+j*.027,.649,.156],0,[.007,.007,.004]);k.add(H.G.sphere(12,8),0xfff2be,[-.067,.712,.143],0,[.012,.012,.004]);});
+ kit('glow','chest',k=>{k.add(H.G.rbox(1),C.light,[.064,.686,.156],0,[.072,.024,.006]);for(let j=0;j<3;j++)k.add(H.G.sphere(8,6),j===0?C.orange:C.light,[.037+j*.027,.649,.156],0,[.007,.007,.004]);});
+ // A real sewn five-point mission star replaces the old round dot, in the
+ // existing suit batch: its warm little silhouette needs no extra draw call.
+ const badge=new T.Shape();for(let j=0;j<10;j++){const a=PI*.5+j*PI/5,r=j%2?.0095:.0215,x=-.067+Math.cos(a)*r,y=.712+Math.sin(a)*r;if(j)badge.lineTo(x,y);else badge.moveTo(x,y);}badge.closePath();const badgeGeo=new T.ShapeGeometry(badge);badgeGeo.translate(0,0,.148);add('glow','chest',badgeGeo,0xffedbd);
  const label=patch(B.chest,'FEZA',.121,.035);label.position.set(-.015,.003,.15);
  for(const side of SIDES){const s=side==='L'?1:-1,g=new T.CapsuleGeometry(.012,.066,4,10);g.translate(s*.175-s*.0207,.369,.029);add('rubber','index'+side,g,C.white);}
  for(const [name,mat]of [['rubber',rubberMat],['metal',metalMat],['glow',emissiveMat]]){const g=H.mergeSkinned(parts[name]),mesh=new T.SkinnedMesh(g,mat);mesh.name='Feza astronaut '+name;root.add(mesh);mesh.bind(original.skeleton,original.meshes.skin.bindMatrix);mesh.castShadow=name!=='glow';mesh.frustumCulled=false;}
  const fingers={};for(const side of SIDES){fingers[side]=B['index'+side];fingers[side].scale.y=.001;}
- const gaze=V(),targetEye=V(),targetMouth=new T.Vector4(),targetBrow=V(),a={phase:0,time:0,move:0,air:0,land:0,yaw:0,lookX:0,lookY:0,gestureY:.1,curious:0,happy:0,point:0,pointL:0,pointR:0,curiousL:0,curiousR:0,wind:0,sailing:0,sailTug:0,deck:0,deckLean:0,wasGrounded:true,weights:{wave:0,dig:0,slide:0,ride:0},ik:{upper:0,knee:0},cyc:0,stepW:0,runK:0,gait:{s:.55,A:0,H:.05,bob:0},blinkAt:1.8,blinkT:-1,glanceAt:3.5,glance:0,glanceV:0};
+ const gaze=V(),targetEye=V(),targetMouth=new T.Vector4(),targetBrow=V(),a={phase:0,time:0,move:0,air:0,land:0,yaw:0,lookX:0,lookY:0,gestureY:.1,curious:0,happy:0,point:0,pointL:0,pointR:0,curiousL:0,curiousR:0,wind:0,sailing:0,sailTug:0,deck:0,deckLean:0,celebrateInput:0,celebratePose:0,wasGrounded:true,weights:{wave:0,dig:0,slide:0,ride:0},ik:{upper:0,knee:0},cyc:0,stepW:0,runK:0,gait:{s:.55,A:0,H:.05,bob:0},blinkAt:1.8,blinkT:-1,glanceAt:3.5,glance:0,glanceV:0};
  function update(dt,t,p=EMPTY_POSE,celebrate=0,buddy=null){
   dt=clamp(dt||0,0,.06);if(dt<=0)return;a.time+=dt;t=a.time;const speed=Math.abs(p.vx||0),grounded=p.grounded!==false,mode=p.mode||(!grounded?'jump':speed>.1?'walk':'idle');
+  // The result arrives instantly; only the old raised-arm pose eases in.
+  // An exact two-stage envelope starts gently at every display rate.
+  const cheerTarget=grounded&&(mode==='idle'||mode==='look')&&!p.locked&&!p.sailing&&!Number.isFinite(p.skating)?clamp(celebrate||0,0,1):0,cheerDecay=Math.exp(-22*dt);
+  a.celebratePose=cheerTarget+(a.celebratePose-cheerTarget+22*dt*(a.celebrateInput-cheerTarget))*cheerDecay;
+  a.celebrateInput=cheerTarget+(a.celebrateInput-cheerTarget)*cheerDecay;
   if(grounded&&!a.wasGrounded&&mode!=='ride'&&mode!=='slide')a.land=1;a.wasGrounded=grounded;a.land=damp(a.land,0,11,dt);a.air=damp(a.air,grounded||mode==='ride'||mode==='slide'?0:1,grounded?22:10,dt);a.move=damp(a.move,grounded&&mode==='walk'?clamp(speed/3.5,0,1):0,10,dt);
   // Distance-driven stride: a planted boot moves back exactly as far as Feza travels, so
   // the soles never skate. Running uses quick light steps with a short float between them.
@@ -118,8 +147,9 @@ M.createFezaAstronaut=function(){
   a.deckLean=damp(a.deckLean,clamp(p.skating||0,-1,1),5.4,dt);
   const uL=a.cyc,ph=(uL<G.s?PI*uL/G.s:PI+PI*(uL-G.s)/(1-G.s))-PI/2,run=a.runK*a.stepW;
   const w=a.weights,wind=a.wind,walk=a.move,jump=a.air,land=a.land,sn=Math.sin(ph),cs=Math.cos(ph),tuck=smooth(-3.2,.4,p.vy||0)*(1-.7*smooth(4,5.8,p.vy||0)),stretch=smooth(4.2,5.9,p.vy||0),facing=p.facing<0?-1:1;
+  celebrate=a.celebratePose*(1-walk)*(1-jump)*(1-w.ride)*(1-w.slide)*(1-w.dig)*(1-w.wave)*(1-a.sailing)*(1-a.deck);
   // The greeting turns only the rendered pose. A child can keep steering or jump away.
-  const wave=buddy?.wave||0,turn=wave*(1-walk),toward=buddy?.toDog||facing;
+  const wave=buddy?.wave||0,success=buddy?.success||0,successPhase=buddy?.successPhase||0,turn=wave*(1-walk),toward=buddy?.toDog||facing;
   a.yaw=angleDamp(a.yaw,mix(facing*.99,toward*.81,turn),8,dt);B.root.rotation.set(walk*.07-jump*.09+w.slide*-.17, a.yaw, -sn*.022*walk);const reach=(.39-Math.sqrt(.1521-G.A*G.A))+Math.max(0,G.bob*Math.cos(TAU*G.s))+.006,bob=G.bob*Math.cos(2*TAU*(uL-G.s/2));B.root.position.set(0,a.stepW*(bob-reach)+Math.sin(t*2.3)*.0015*(1-a.stepW)-land*.055-w.ride*.11-w.slide*.17,0);
   B.hips.rotation.set(0,walk*.12*sn,walk*.022*cs);B.chest.rotation.set(.02+Math.sin(t*2.3)*.01-land*-.1+w.dig*.2+wind*.035+run*walk*.08,-walk*.16*sn,-walk*.016*cs+wind*.008*Math.sin(t*.7));B.head.rotation.set(-.22+Math.sin(t*1.9)*.016+w.dig*.17-jump*tuck*.05-wind*.008-run*walk*.06,-a.yaw*.18+Math.sin(t*.68)*.035+wind*.012*Math.sin(t*.45),.045+Math.sin(t*1.1)*.018+a.curious*.035+wind*.008);
   // Idle life: a slow upper-body sway and, now and then, a curious glance around the scenery.
@@ -146,6 +176,19 @@ M.createFezaAstronaut=function(){
   const pointingSide=a.yaw>=0?'R':'L';a.pointL=damp(a.pointL,pointingSide==='L'?a.point:0,8,dt);a.pointR=damp(a.pointR,pointingSide==='R'?a.point:0,8,dt);a.curiousL=damp(a.curiousL,pointingSide==='L'?a.curious:0,8,dt);a.curiousR=damp(a.curiousR,pointingSide==='R'?a.curious:0,8,dt);
   for(const side of SIDES){const weight=side==='L'?a.curiousL:a.curiousR;if(weight>.001){const arm=B['arm'+side],fore=B['fore'+side],k=weight*(1-walk)*.85;arm.rotation.x=mix(arm.rotation.x,-1.1,k);fore.rotation.x=mix(fore.rotation.x,-.95,k);arm.rotation.y=mix(arm.rotation.y,side==='R'?.28:-.28,k);}}
   for(const side of SIDES){const s=side==='L'?1:-1,point=side==='L'?a.pointL:a.pointR;fingers[side].scale.y=Math.max(.001,point);if(point>.001){const arm=B['arm'+side],fore=B['fore'+side];arm.rotation.x=mix(arm.rotation.x,-1.22-clamp(gestureY,-1,1)*.42,point);arm.rotation.y=mix(arm.rotation.y,-s*.06,point);arm.rotation.z=mix(arm.rotation.z,s*.25,point);fore.rotation.x=mix(fore.rotation.x,-.22,point);B['hand'+side].rotation.x=mix(B['hand'+side].rotation.x,.1,point);}}
+  // A completed discovery gets one small, proud "we did it" flourish. The
+  // boots remain planted, and the running, seated and working poses take priority.
+  const joyFree=(1-walk)*(1-jump)*(1-w.ride)*(1-w.slide)*(1-w.dig)*(1-w.wave)*(1-wave)*(1-a.sailing)*(1-a.deck),cheer=success*(buddy?.successComplete?1:0)*joyFree;
+  B.head.rotation.x+=success*.065*Math.sin(TAU*successPhase)*joyFree;
+  if(cheer>.001){
+   const pump=Math.sin(PI*smooth(.03,.82,successPhase)),lead=a.yaw>=0?'R':'L';
+   B.chest.rotation.x-=cheer*.045;B.head.rotation.z-=cheer*.035;
+   for(const side of SIDES){const s=side==='L'?1:-1,front=side===lead?1:.58,arm=B['arm'+side],fore=B['fore'+side],hand=B['hand'+side],k=cheer*front;
+    fingers[side].scale.y*=1-cheer;
+    arm.rotation.x=mix(arm.rotation.x,-.86-.24*pump,k);arm.rotation.z=mix(arm.rotation.z,s*(.31+.06*pump),k);
+    fore.rotation.x=mix(fore.rotation.x,-.83-.23*pump,k);hand.rotation.x=mix(hand.rotation.x,-.12,k);hand.rotation.z=mix(hand.rotation.z,s*.17,k);
+   }
+  }
   // Suspended from a sail she takes a riser in each hand. Pulling the sail
   // draws both elbows down; releasing it lets her stretch out again.
   const sail=a.sailing,tug=a.sailTug,deck=a.deck,lean=a.deckLean;
@@ -173,7 +216,7 @@ M.createFezaAstronaut=function(){
   // Quick, natural blinks every few seconds (sometimes a double blink) instead of a slow sleepy lid.
   a.blinkAt-=dt;if(a.blinkAt<=0){a.blinkT=0;a.blinkAt=Math.random()<.2?.34:2.6+Math.random()*2.6;}
   if(a.blinkT>=0&&(a.blinkT+=dt)>.15)a.blinkT=-1;
-  const U=original.face,blink=a.blinkT>=0?Math.sin(PI*Math.min(1,a.blinkT/.15)):0,joy=clamp(Math.max(a.happy*.85,celebrate+w.wave*.35+w.slide*.22,wave*.72)+a.point*.12,0,1),eyeHappy=Math.max(joy*.08,a.happy,smooth(.4,.7,celebrate)),grin=clamp(joy*.65+jump*.1+wind*.06,0,1),o=clamp((a.curious*.3+jump*tuck*.08)*(1-grin),0,1),blend=1-Math.exp(-22*dt);U.fzEye.value.set(blink*(1-eyeHappy),a.lookX,a.lookY,w.dig*.13);U.fzEyeW.value.lerp(targetEye.set(1-eyeHappy,eyeHappy,0),blend);U.fzMouth.value.lerp(targetMouth.set(1-grin-o,grin,o,0),blend);U.fzBrow.value.lerp(targetBrow.set(.4+jump*tuck*.35+joy*.18+a.curious*.3+wind*.13,w.dig*.2,.4+joy*.35),blend);original.hairUniforms.fzHOff.value.set(-sn*.003*walk,Math.sin(t*3)*.0015+jump*.003,0);original.hairUniforms.fzHExp.value=joy*.002;
+  const U=original.face,blink=a.blinkT>=0?Math.sin(PI*Math.min(1,a.blinkT/.15)):0,joy=clamp(Math.max(a.happy*.85,celebrate+w.wave*.35+w.slide*.22,wave*.72,success*.94)+a.point*.12,0,1),eyeHappy=Math.max(joy*.08,a.happy,smooth(.4,.7,celebrate),success*.36),grin=clamp(joy*.65+jump*.1+wind*.06,0,1),o=clamp((a.curious*.3+jump*tuck*.08)*(1-grin),0,1),blend=1-Math.exp(-22*dt);U.fzEye.value.set(blink*(1-eyeHappy),a.lookX,a.lookY,w.dig*.13);U.fzEyeW.value.lerp(targetEye.set(1-eyeHappy,eyeHappy,0),blend);U.fzMouth.value.lerp(targetMouth.set(1-grin-o,grin,o,0),blend);U.fzBrow.value.lerp(targetBrow.set(.4+jump*tuck*.35+joy*.18+a.curious*.3+wind*.13,w.dig*.2,.4+joy*.35),blend);original.hairUniforms.fzHOff.value.set(-sn*.003*walk,Math.sin(t*3)*.0015+jump*.003,0);original.hairUniforms.fzHExp.value=joy*.002;
  }
  return{root,update,source:original,rig:B,helmet,visor:dome,height:1.813,anchors:{rideHip:.3795,slideHip:.3105},rideSeatHeight:.3795,slideSeatHeight:.3105,modelIdentity:'actual feza-piril-3d-arpg Feza'};
 };

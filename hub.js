@@ -50,6 +50,15 @@
   }
 
   const rocketDrawing = '<i class="orb-exhaust" aria-hidden="true"></i><img src="assets/orbit/shuttle.webp" alt="" draggable="false">';
+  // Small, painted mission pictures help a child recognise the five destinations
+  // before reading their names. They belong to the large planet button itself.
+  const missionPictures = {
+    mars: '<path d="M12 17h24v13H12z" fill="#bd6b49"/><rect x="14" y="6" width="20" height="14" rx="5" fill="#e9dec4"/><path d="M24 6V3m-10 9H9m25 0h5M12 23H7v7m29-7h5v7M18 30v5m12-5v5"/><path d="M18 12h3m6 0h3" stroke="#284e5c" stroke-width="3.4"/><path d="M21 17h6" stroke="#9a694e"/>',
+    saturn: '<path d="M5 29h37l-7 7H14z" fill="#d9c38c"/><path d="M23 29V5m0 1L9 25h14m3-18 12 17H26" fill="#9edbd5"/><path d="m6 38 7-1 8 1 9-1 10 1" stroke="#a4d8e4"/>',
+    neptune: '<path d="M9 27c-8 0-7-11 0-12 0-10 15-12 19-4 10-3 18 9 10 15" fill="#b6dcf1"/><path d="M9 29h26m-30 6h21m-12 5h26" stroke="#e0edf7"/><path d="m26 8 10-4 8 9-10 5z" fill="#f1c987"/><path d="m34 18-3 7 5 6" stroke="#efc68d"/>',
+    jupiter: '<ellipse cx="24" cy="22" rx="21" ry="10" transform="rotate(-22 24 22)" stroke="#d8bf9b" opacity=".7"/><circle cx="24" cy="22" r="10" fill="#e9cfa5"/><path d="m15 18 17 1m-16 7 16 1" stroke="#b67c54"/><circle cx="7" cy="29" r="5" fill="#e3a868"/><circle cx="41" cy="13" r="5" fill="#c6e7ec"/>',
+    venus: '<path d="M13 15a11 12 0 0 1 22 0c0 7-7 13-11 16-4-3-11-9-11-16Z" fill="#efcb8e"/><path d="M24 3c-6 9-6 16 0 28m0-28c6 9 6 16 0 28M14 13h20M17 23h14" stroke="#bd8a61"/><path d="m19 29 2 6h6l2-6m-8 6v3h6v-3" fill="#89cbd1"/><path d="M4 29h9m23 4h8" stroke="#f0dfb9"/>'
+  };
 
   M.createHub = function ({container, onDepart, onLaunch, initialArrival}) {
     container.classList.add('orbit-home');
@@ -68,7 +77,7 @@
       if (flight) {flight.cancel(); flight = null;}
       target.replaceChildren();
       container.classList.remove('orb-travelling', 'orb-landing');
-      for (const x of buttons) x.classList.remove('orb-picked');
+      for (const x of buttons) {x.classList.remove('orb-picked');x.removeAttribute('aria-busy');}
       busy = false;
     }
     function launch(planet) {
@@ -77,7 +86,8 @@
       busy = true;
       live?.pause();
       // One short happy hop and a sparkle on the chosen picture, then the flight.
-      buttons.find(x => x.dataset.planet === planet.id)?.classList.add('orb-picked');
+      const chosen = buttons.find(x => x.dataset.planet === planet.id);
+      if (chosen) {chosen.classList.add('orb-picked');chosen.setAttribute('aria-busy','true');}
       onDepart(planet.id);
       if (!M.soundIsOff()) {
         departureSound = new Audio('assets/orbit/liftoff.mp3');
@@ -142,10 +152,13 @@
       art.className = 'orb-globe'; art.alt = ''; art.draggable = false;
       art.width = 1000; art.height = 610;
       art.src = 'assets/orbit/' + planet.id + '-globe.webp';
-      const name = document.createElement('span'); name.textContent = planet.name;
+      const name = document.createElement('span'); name.className = 'orb-caption';
+      name.innerHTML = '<svg class="orb-mission-mark" viewBox="0 0 48 42" aria-hidden="true" focusable="false" fill="none" stroke="#f4e7cc" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + missionPictures[planet.id] + '</svg>';
+      name.append(document.createTextNode(planet.name));
+      const pins = document.createElement('i');pins.className = 'orb-panel-pins';pins.setAttribute('aria-hidden','true');
       // A soft ring in the planet's own colour runs along the dock now and then: "touch me".
       const halo = document.createElement('i'); halo.className = 'orb-halo'; halo.setAttribute('aria-hidden', 'true');
-      b.append(halo, art, name); b.addEventListener('click', () => launch(planet));
+      b.append(halo, pins, art, name); b.addEventListener('click', () => launch(planet));
       grid.appendChild(b); buttons.push(b);
     }
     grid.addEventListener('keydown', e => {
@@ -178,6 +191,7 @@
         button.append(print);
       }
       print.src = src;
+      button.dataset.visited = 'true';
       button.setAttribute('aria-label', button.textContent + ' gezegenine yeniden uç');
     }
 

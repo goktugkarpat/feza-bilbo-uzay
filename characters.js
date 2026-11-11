@@ -39,8 +39,17 @@
  M.createCharacters=function(scene){
   const feza=M.createFezaAstronaut(),bilbo=M.createBilboAstronaut();
   scene.add(feza.root,bilbo.root);dressSuits(feza.root);dressSuits(bilbo.root);
-  let current=null,greetingTime=0,cooldown=0;
-  const gesture={wag:0,paw:0,wave:0,toDog:1};
+  let current=null,greetingTime=0,cooldown=0,successTime=-1,successDuration=1,successComplete=false;
+  const gesture={wag:0,paw:0,wave:0,toDog:1,success:0,successPhase:0,successComplete:false};
+  const smooth=(a,b,x)=>{const u=M.clamp((x-a)/(b-a),0,1);return u*u*(3-2*u);};
+  // A real result in the world earns a shared reaction. This is presentation
+  // only: it never changes a puzzle, moves the actors, or locks their controls.
+  function onSuccess(e){
+   const complete=!!e.detail?.complete;
+   if(!complete&&successComplete&&successTime>=0&&successTime<.85)return;
+   successTime=0;successComplete=complete;successDuration=complete?1.9:.95;
+  }
+  M.events.addEventListener('activity-success',onSuccess);
   function available(){
    if(!current||current.activity||current.completed||current.rover||current.celebrate>.05)return false;
    const {player,dog}=current;
@@ -64,7 +73,16 @@
   function update(dt,t,state){
    current=state;
    const s=state||{},celebrate=s.celebrate||0;
-   let reply=null;
+   const reply=gesture;
+   gesture.wag=gesture.paw=gesture.wave=0;gesture.toDog=Math.sign((s.dog?.x||0)-(s.player?.x||0))||s.player?.facing||1;
+   let success=0;
+   if(successTime>=0){
+    successTime+=dt;const u=Math.min(1,successTime/successDuration);
+    gesture.successPhase=u;gesture.successComplete=successComplete;
+    success=(successComplete?1:.48)*smooth(0,.13,u)*(1-smooth(.58,1,u));
+    if(u>=1)successTime=-1;
+   }
+   gesture.success=M.damp(gesture.success,success,18,dt);
    cooldown=Math.max(0,cooldown-dt);
    if(greetingTime>0){
     greetingTime+=dt;
@@ -75,13 +93,14 @@
      gesture.paw=gesture.wag*Math.max(0,1-Math.abs(s.dog.vx||0)/1.1);
      gesture.wave=Math.max(0,Math.min(1,(progress-.09)*5,(1-progress)*4));
      gesture.toDog=Math.sign(s.dog.x-s.player.x)||s.player.facing||1;
-     reply=gesture;
     }
    }
+   gesture.wag=Math.max(gesture.wag,gesture.success*.88);
    feza.update(dt,t,s.player||{},celebrate,reply);
    bilbo.update(dt,t,s.dog||{},celebrate,reply);
   }
-  return {feza,bilbo,greet,resetGreeting,update};
+  function dispose(){M.events.removeEventListener('activity-success',onSuccess);}
+  return {feza,bilbo,greet,resetGreeting,update,dispose};
  };
 })(window.MARS);
 

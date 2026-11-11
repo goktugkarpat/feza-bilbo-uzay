@@ -2,7 +2,7 @@
   'use strict';
   const requested = new URLSearchParams(location.search).get('planet');
   const planets = {
-    mars:{label:'Mars', theme:'#ad5e41', destination:'Mars’a doğru…', welcome:'Mars’a hoş geldiniz! Kızıl yollar keşfinizi bekliyor.', ending:'Mars’ın iki kaşifi', note:'Topladıkları örnekler ve kurdukları düzenekler, Mars bilim kampını birlikte uyandırdı.', scripts:['world-assets.js','mars-weather.js','world.js','sled-play.js','activities.js','footprints.js','mars-aerostat.js','mars-samples.js','mars-discoveries.js']},
+    mars:{label:'Mars', theme:'#ad5e41', destination:'Mars’a doğru…', welcome:'Mars’a hoş geldiniz! Kızıl yollar keşfinizi bekliyor.', ending:'Mars’ın iki kaşifi', note:'Topladıkları örnekler ve kurdukları düzenekler, Mars bilim kampını birlikte uyandırdı.', scripts:['world-assets.js','mars-weather.js','world.js','sled-play.js','activities.js','footprints.js','mars-aerostat.js','mars-samples.js','mars-discoveries.js','family-postcard.js','family-postcard-host.js']},
     saturn:{label:'Satürn', theme:'#64526b', destination:'Satürn’e doğru…', welcome:'Satürn’ün halkalarına hoş geldiniz! Buz yolları sizi bekliyor.', ending:'Halkaların iki kaşifi', note:'Çanların sesi ve taşıdıkları örnekler, halkaların kristal bahçesini birlikte büyüttü.', scripts:['assets/orbit/saturn-surfaces.js','saturn-sail.js','saturn.js']},
     neptune:{label:'Neptün', theme:'#315679', destination:'Neptün’e doğru…', welcome:'Neptün’ün rüzgârlarına hoş geldiniz! Bulut bahçelerini birlikte uyandıralım.', ending:'Rüzgârın iki kaşifi', note:'Uyandırdıkları rüzgâr, büyüttükleri çiçekler ve dokudukları yelken, keşif balonunu göğe taşıdı.', scripts:['neptune.js','family-postcard.js','family-postcard-host.js']},
     jupiter:{label:'Jüpiter', theme:'#785745', destination:'Jüpiter’e doğru…', welcome:'Jüpiter’in yörünge istasyonuna hoş geldiniz! Io ve Europa sizi bekliyor.', ending:'Uyduların iki kaşifi', note:'Io’nun yanardağ örnekleri ve Europa’nın buz keşifleri, birlikte açtıkları müzede buluştu.', scripts:['jupiter.js','family-postcard.js','family-postcard-host.js']},
@@ -81,7 +81,7 @@
     const voices = M.planet === 'mars' ? 'voices.js' : 'orbit-voices.js';
     load(voices, true).catch(() => {});
     // Fetch the scene scripts together and execute in insertion order, even from file://.
-    await Promise.all(M.destination.scripts.map(src => load(src)));
+    await Promise.all([...M.destination.scripts,'planet-details.js'].map(src => load(src)));
     if (!returning) await load('main.js');
   })().catch(err => {
     console.error(err);

@@ -1,5 +1,5 @@
 'use strict';
-window.MARS = {version:'0.10.2', events:new EventTarget(), progress:{world:0,characters:0,activities:0,engine:0,qa:0}};
+window.MARS = {version:'0.11.0', events:new EventTarget(), progress:{world:0,characters:0,activities:0,engine:0,qa:0}};
 (function(M){
   // This runs in both the station and the expedition iframe. Native selection
   // and callouts must not take over a child's held finger or drag gesture.

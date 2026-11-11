@@ -475,6 +475,25 @@
     // Cila: the instanced cloud field picks its atlas row and drifts on the GPU (cloudInfo = row, phase).
     const cloudWind={value:0};cloudMat.onBeforeCompile=shader=>{shader.uniforms.uCloudWind=cloudWind;shader.vertexShader='uniform float uCloudWind;\n#ifdef USE_INSTANCING\nattribute vec2 cloudInfo;\n#endif\n'+shader.vertexShader;shader.vertexShader=shader.vertexShader.replace('#include <uv_vertex>','#include <uv_vertex>\n#if defined( USE_INSTANCING ) && defined( USE_MAP )\n vMapUv.y += .5*cloudInfo.x;\n#endif').replace('#include <begin_vertex>','#include <begin_vertex>\n transformed.y += .014*sin(position.x*7.0+uCloudWind*.27)+.009*sin(position.x*15.0-uCloudWind*.19);\n#ifdef USE_INSTANCING\n transformed.x += 1.6*sin(uCloudWind*.10+cloudInfo.y)/length(instanceMatrix[0].xyz);\n transformed.y += .13*sin(uCloudWind*.19+cloudInfo.y*.7)/length(instanceMatrix[1].xyz);\n#endif');};
     const cloudGeos=[0,1].map(row=>{const g=new T.PlaneGeometry(1,1),uv=g.attributes.uv;for(let i=0;i<uv.count;i++)uv.setY(i,uv.getY(i)*.496+.5*row+.002);return g;});
+    // Existing cloth keeps its stitched texture and draw call. Only its free
+    // vertices breathe in the wind; fixed cords and brass straps stay put.
+    function softWindCloth(material,kind,phase=0){
+      const previous=material.onBeforeCompile,key=material.customProgramCacheKey;
+      material.onBeforeCompile=function(shader,renderer){
+        previous.call(this,shader,renderer);shader.uniforms.uFabricClock=cloudWind;shader.uniforms.uFabricPhase={value:phase};
+        const declarations='uniform float uFabricClock;uniform float uFabricPhase;\n'+(kind==='canopy'?'attribute float clothFlex;\n':'');
+        shader.vertexShader=declarations+shader.vertexShader;
+        if(kind==='tail'){
+          shader.vertexShader=shader.vertexShader.replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\n float fx=max(0.,position.x),fp=uFabricClock*3.1+uFabricPhase-fx*5.;\n objectNormal.x-=objectNormal.z*.10*(2.*fx*sin(fp)-5.*fx*fx*cos(fp));');
+          shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n float tx=max(0.,position.x),tp=uFabricClock*3.1+uFabricPhase-tx*5.;\n transformed.z+=.10*tx*tx*sin(tp);transformed.y+=.018*tx*tx*sin(tp*.72);');
+        }else{
+          shader.vertexShader=shader.vertexShader.replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\n objectNormal.x+=.0735*clothFlex*cos(uFabricClock*.95-position.x*2.1)*(normal.y*normal.y+normal.z*normal.z);');
+          shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n float breath=.035*clothFlex*sin(uFabricClock*.95-position.x*2.1);\n transformed.y+=normal.y*breath;transformed.z+=normal.z*breath;');
+        }
+      };
+      material.customProgramCacheKey=function(){return key.call(this)+'|neptune-soft-fabric-'+kind;};
+      return material;
+    }
     // Cila: all 57 background clouds share one draw, painted far lane first so the soft
     // edges still layer exactly as before (was up to ten separate draws on screen).
     {
@@ -688,6 +707,7 @@
         g.beginPath();g.moveTo(xx,yy-16);g.bezierCurveTo(xx+27,yy-12,xx+27,yy+12,xx,yy+16);g.stroke();
       }
       g.globalAlpha=1;g.fillStyle='#e9cf9d';g.fillRect(0,0,13,192);
+      g.strokeStyle='rgba(104,82,58,.48)';g.lineWidth=1.25;g.beginPath();for(let y=3;y<192;y+=10){g.moveTo(6,y);g.lineTo(6,y+4);}g.stroke();
       for(const y of [49,145]){g.fillStyle='#f9ecc3';g.beginPath();g.arc(63,y,17,0,TAU);g.fill();g.fillStyle='#354b67';g.beginPath();g.arc(58,y-1,10.5,0,TAU);g.fill();g.fillStyle='#fff5d8';g.beginPath();g.arc(55,y-5,3.2,0,TAU);g.fill();}
       const tex=new T.CanvasTexture(cv);tex.colorSpace=T.SRGBColorSpace;tex.anisotropy=4;
       const p=[],uv=[],idx=[],L=17,K=16;
@@ -695,6 +715,14 @@
         const u=j/L,a=k/K*TAU,r=.13+.20*Math.pow(Math.sin(Math.PI*(.061+u*.92)),.68)+.07*(1-u),xx=-.77+1.43*u;
         p.push(xx,r*Math.cos(a)+.073*Math.sin(u*Math.PI),r*.70*Math.sin(a));uv.push(u,k/K);
         if(j<L&&k<K){const n=j*(K+1)+k;idx.push(n,n+K+1,n+1,n+1,n+K+1,n+K+2);}
+      }
+      // A rolled, stitched opening makes the wind sleeve look sewn rather
+      // than sliced off. It shares the body's geometry, paint and one draw.
+      const mouthRadius=.20+.20*Math.pow(Math.sin(Math.PI*.061),.68),rimStart=p.length/3,rimSteps=24,rimSides=6;
+      for(let a=0;a<=rimSteps;a++)for(let b=0;b<=rimSides;b++){
+        const angle=a/rimSteps*TAU,fold=b/rimSides*TAU,r=mouthRadius+Math.cos(fold)*.022;
+        p.push(-.781+Math.sin(fold)*.022,r*Math.cos(angle),r*.70*Math.sin(angle));uv.push(.024+.012*Math.cos(fold),a/rimSteps);
+        if(a<rimSteps&&b<rimSides){const n=rimStart+a*(rimSides+1)+b;idx.push(n,n+1,n+rimSides+1,n+1,n+rimSides+2,n+rimSides+1);}
       }
       const body=new T.BufferGeometry();body.setAttribute('position',new T.Float32BufferAttribute(p,3));body.setAttribute('uv',new T.Float32BufferAttribute(uv,2));body.setIndex(idx);body.computeVertexNormals();
       mesh(group,body,new T.MeshStandardMaterial({map:tex,side:T.DoubleSide,roughness:.78,metalness:.04}),0,0,0);
@@ -708,11 +736,11 @@
         if(j<8&&k<4){const n=(s===1?45:0)+j*5+k;ix.push(n,n+5,n+1,n+1,n+5,n+6);}
       }
       const fg=new T.BufferGeometry();fg.setAttribute('position',new T.Float32BufferAttribute(fpos,3));fg.setAttribute('color',new T.Float32BufferAttribute(fcolors,3));fg.setIndex(ix);fg.computeVertexNormals();
-      mesh(tails,fg,new T.MeshStandardMaterial({vertexColors:true,side:T.DoubleSide,roughness:.78}),0,0,0);
+      mesh(tails,fg,softWindCloth(new T.MeshStandardMaterial({vertexColors:true,side:T.DoubleSide,roughness:.78}),'tail',i*1.73),0,0,0);
       // The same moving frame drives the visible cord and the moving cloth, even when first inflating.
       const knots=new Float32Array(5*3),line=new T.BufferGeometry();line.setAttribute('position',new T.BufferAttribute(knots,3));const tether=new T.Line(line,new T.LineBasicMaterial({color:0xc5ad88}));tether.frustumCulled=false;root.add(tether);
       group.visible=tether.visible=false;
-      return {group,tails,line,tether,x,baseY,z,inflate:0,flick:0,bob:i*1.73};
+      return {group,tails,line,tether,x,baseY,z,mouthY:-mouthRadius*.52,mouthZ:mouthRadius*.70*.855,inflate:0,flick:0,bob:i*1.73};
     }
     const windsocks=fans.map((_,i)=>weatherFish(i));
     function swimWindsock(f,fish,dt,t){
@@ -727,7 +755,7 @@
       fish.tails.rotation.y=.38*Math.sin(t*4.2+fish.bob);fish.tails.rotation.z=.16*Math.sin(t*3.4+fish.bob);
       const q=fish.line.attributes.position;
       // Find the exact moving mouth rather than tethering to the fish's centre.
-      fish.group.updateWorldMatrix(true,false);start.set(-.77,.02,0).applyMatrix4(fish.group.matrixWorld);
+      fish.group.updateWorldMatrix(true,false);start.set(-.781,fish.mouthY,fish.mouthZ).applyMatrix4(fish.group.matrixWorld);
       for(let j=0;j<5;j++){const k=j/4;q.setXYZ(j,mix(fish.x, start.x,k),mix(fish.baseY+.59,start.y,k)-Math.sin(k*Math.PI)*.24*v,mix(-1.16,start.z,k));}
       q.needsUpdate=true;
     }
@@ -767,6 +795,8 @@
       if(i<seams&&j<bays){const a=i*(bays+1)+j;silkIds.push(a,a+bays+1,a+1,a+1,a+bays+1,a+bays+2);}
     }
     const silkGeo=new T.BufferGeometry();silkGeo.setAttribute('position',new T.Float32BufferAttribute(silkPos,3));silkGeo.setAttribute('uv',new T.Float32BufferAttribute(silkUV,2));silkGeo.setIndex(silkIds);silkGeo.computeVertexNormals();
+    const clothFlex=new Float32Array(silkGeo.attributes.position.count);for(let k=0;k<clothFlex.length;k++){const x=Math.abs(silkGeo.attributes.position.getX(k)),free=clamp(Math.min(Math.abs(x-.9),Math.abs(x-1.99),2.98-x)/.38,0,1);clothFlex[k]=free*free;}
+    silkGeo.setAttribute('clothFlex',new T.BufferAttribute(clothFlex,1));
     const fabric=document.createElement('canvas');fabric.width=768;fabric.height=256;const brush=fabric.getContext('2d');
     // Rnd2: a bright storybook envelope. Cream and lagoon-teal gores, coral nose and tail caps
     // with scalloped gold trim, a golden side band and Bilbo's brown paw badge facing the deck.
@@ -795,7 +825,7 @@
       brush.restore();
     }
     const silkMap=new T.CanvasTexture(fabric);silkMap.colorSpace=T.SRGBColorSpace;
-    mesh(ship,silkGeo,new T.MeshStandardMaterial({map:silkMap,roughness:.69,metalness:.1,side:T.DoubleSide}),0,4.03,-.20,1,1.09,1);
+    mesh(ship,silkGeo,softWindCloth(new T.MeshStandardMaterial({map:silkMap,roughness:.69,metalness:.1,side:T.DoubleSide}),'canopy'),0,4.03,-.20,1,1.09,1);
     for(const x of [-1.99,-.90,.9,1.99]){
       const rr=Math.sqrt(1-(x/2.99)**2);
       const tie=mesh(ship,geo.torus,bronzePaint,x,4.03,-.20,rr*.82,rr*.806,.29);tie.rotation.y=Math.PI*.5;
@@ -1153,8 +1183,10 @@
       return {fins,jaw,tongue,jawBack,tongueBack};
     }
     function swimWhale(puppet,t,mood=0){
-      puppet.fins[0].rotation.x=.20+.32*Math.sin(t*2.9);puppet.fins[1].rotation.x=-.20+.42*Math.sin(t*2.9+.6);
-      puppet.fins[1].rotation.z=.11*Math.sin(t*2.9+.6);const open=.74+.26*Math.sin(t*2.7)+mood*.45;puppet.jaw.scale.y=puppet.jawBack.scale.y=.045*open;puppet.tongue.position.y=puppet.tongueBack.position.y=-.175-.008*mood;
+      const stroke=t*2.15;
+      puppet.fins[0].rotation.x=.18+.34*Math.sin(stroke+.35);puppet.fins[1].rotation.x=-.18+.43*Math.sin(stroke);
+      puppet.fins[0].rotation.z=-.045+.075*Math.sin(stroke-.25);puppet.fins[1].rotation.z=.07+.12*Math.sin(stroke-.60);
+      const open=.80+.15*Math.sin(stroke-.30)+mood*.45;puppet.jaw.scale.y=puppet.jawBack.scale.y=.045*open;puppet.tongue.position.y=puppet.tongueBack.position.y=-.175-.008*mood;
     }
 
     const whalePreview=new T.Group();whalePreview.position.set(0,.08,.33);whalePreview.scale.setScalar(.48);choices[1].add(whalePreview);mesh(whalePreview,whaleParts.body,whalePaint,0,0,0);const previewTail=mesh(whalePreview,whaleParts.tail,whalePaint,-1.43,.15,0),previewPuppet=whalePuppet(whalePreview);
@@ -1177,7 +1209,7 @@
       mesh(group,whaleParts.body,whalePaint,0,0,0);
       const tail=mesh(group,whaleParts.tail,whalePaint,-1.43,.15,0);
       const plume=mesh(group,plumeG,plumePaint,.48,.646,.02);plume.visible=false;
-      const puppet=whalePuppet(group);whales.push({group,tail,plume,puppet,x:whaleX+(i?-1.92:1.36),y:whaleY+(i?-.98:.48),z:i?-2.46:-3.62});
+      const puppet=whalePuppet(group);whales.push({group,tail,plume,puppet,size,x:whaleX+(i?-1.92:1.36),y:whaleY+(i?-.98:.48),z:i?-2.46:-3.62});
     }
     let whaleClock=3,whaleFirst=0,whaleSongs=0;
     function greetWhales(index){
@@ -1195,8 +1227,9 @@
         const local=whaleClock-(i===whaleFirst?0:.74),beat=local>0&&local<1.5?Math.sin(local*Math.PI/1.5):0;
         const escortX=ride.phase==='ready'?px-2:ride.x,escortY=ride.phase==='ready'?ground(px):ship.position.y;const xx=escort?escortX+5.8-i*3.0:w.x,yy=escort?escortY+3.8-i*.85:w.y;w.group.position.set(xx+Math.sin(t*.45+i)*.48,yy+Math.sin(t*.82+i)*.21+beat*.52,escort?-4.6:w.z);
         w.group.rotation.set(.09*Math.sin(t*.68+i),-.26+.09*Math.sin(t*.55+i),.085*Math.sin(t*.82+i)+beat*.12);
-        swimWhale(w.puppet,t+i,beat);w.tail.rotation.x=.59+.36*Math.sin(t*2.5+i);
-        w.tail.rotation.z=.22*Math.sin(t*2.5+i)+.19*beat;
+        const breath=Math.sin(t*1.15+i*.7);w.group.scale.set(w.size,w.size*(1+.008*breath),w.size*(1-.004*breath));
+        swimWhale(w.puppet,t+i,beat);w.tail.rotation.x=.49+.29*Math.sin((t+i)*2.15-.65);
+        w.tail.rotation.z=.14*Math.sin((t+i)*2.15-.65)+.16*beat;
         w.plume.visible=beat>.025;
         if(w.plume.visible)w.plume.scale.set(.20+.80*beat,beat,1);
       }
@@ -1217,7 +1250,8 @@
     const rope=new T.Line(wg,new T.LineBasicMaterial({color:0xffde99}));rope.frustumCulled=false;root.add(rope);
     // Wind strokes are slender curved streamers near the scenery, kept behind the player.
     const trails=[];
-    const wispMat=new T.MeshBasicMaterial({color:0xe6f3ed,transparent:true,opacity:.48,depthWrite:false,side:T.DoubleSide});
+    const wispMat=new T.MeshBasicMaterial({color:0xe6f3ed,transparent:true,opacity:.36,depthWrite:false,side:T.DoubleSide});
+    wispMat.onBeforeCompile=shader=>{shader.uniforms.uRibbonWind=cloudWind;shader.vertexShader='uniform float uRibbonWind;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n transformed.y+=.05*sin(position.x*1.25-uRibbonWind*1.05)+.018*sin(position.x*3.3+uRibbonWind*.72);');};
     function streamer(x,y,z,width,index){
       const pos=[],ii=[];
       for(let n=0;n<=18;n++){
@@ -1783,7 +1817,7 @@
     const sunMirrorStopU=.405;
     const journeyStops=[.31,.51,.72,.91],eventPoints=[[.15,2.6],[1.4,3.65],[2.66,2.6]];
     let drag=null,dragPointer=null;
-    function clearDrag(){drag=null;dragPointer=null;journey.drag=false;}
+    function clearDrag(){if(drag?.scope==='pumpPress')pump.pad.scale.y=.10;drag=null;dragPointer=null;journey.drag=false;}
     function beginJourneyStop(index){
       clearDrag();journey.index=index;journey.stage=0;journey.value=0;journey.reply=0;journey.baseY=null;journey.wait=0;
       journey.kind=index===0?(ride.route>0?'sunMirror':'dewShell'):index===1?(ride.route>0?'kiteWeave':'whaleGuide'):index===2?'silkGate':'windDelivery';

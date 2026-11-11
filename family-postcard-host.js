@@ -1,5 +1,5 @@
-/* QA-only integration candidate. This is NOT loaded by the game. The frozen
- * BA0FAF offscreen helper stays unchanged. No UI, renderer or planet mutation. */
+/* Production coordinator for asynchronous family postcards. Warm-up, retries,
+ * cancellation and a bounded deadline keep photos from delaying the trip home. */
 (function(M){
  'use strict';
  M.createFamilyPostcardHost=function(options){

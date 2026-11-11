@@ -2,7 +2,7 @@
  'use strict';
  const T=THREE,$=id=>document.getElementById(id),Q=new URLSearchParams(location.search);
  const canvas=$('game'), scene=new T.Scene(),camera=new T.PerspectiveCamera(34,innerWidth/innerHeight,.15,1500);
- let renderer,world,actors,activities,footprints,discoveries,guide,phase='loading',time=0,prev=0,renderSlot=0,lastDisplayTick=0,displayPeriod=0,perfT=0,perfVisible=Q.has('fps')||Q.has('perf'),frameAvg=0,jumpBuffer=0,coyote=0,jumpHeld=false;
+ let renderer,world,actors,activities,footprints,discoveries,guide,planetDetails,phase='loading',time=0,prev=0,renderSlot=0,lastDisplayTick=0,displayPeriod=0,perfT=0,perfVisible=Q.has('fps')||Q.has('perf'),frameAvg=0,jumpBuffer=0,coyote=0,jumpHeld=false;
  // Last 120 drawn frames in fixed buffers: MARS.perf() and the ?perf corner meter read them without allocating per frame.
  const PERF_N=120,perfGap=new Float32Array(PERF_N),perfCpu=new Float32Array(PERF_N);let perfIdx=0,perfCount=0;
  // ?perf also splits our CPU time per part (activities, world, characters, guide, render submit).
@@ -12,7 +12,7 @@
  const player={x:8,y:0,vx:0,vy:0,grounded:true,facing:1,mode:'idle',locked:false},dog={x:5.4,y:0,vx:0,vy:0,grounded:true,facing:1,mode:'idle',locked:false};
  const state={player,dog,celebrate:0,rover:false,activity:null},pathActors=[player,dog];
  Object.assign(M,{scene,camera,player,dog,state});
- M.frameActivity=function(minX,maxX,y,maxZoom=.94){
+ M.frameActivity=function(minX,maxX,y,maxZoom=.94,includeMarker=true){
   if(workshop.life>0){
    minX=Math.min(minX,workshop.x-1.15,player.x-1.15);
    maxX=Math.max(maxX,workshop.x+1.15,player.x+1.15);
@@ -23,7 +23,7 @@
   }
   // Portrait is narrow: frame the game itself tightly (the flag may sit at the edge) so the
   // objects a child touches stay large. Landscape keeps the flag and wider margins.
-  const portrait=innerWidth<innerHeight,marker=portrait?null:M.guide?.frameBounds();if(marker){minX=Math.min(minX,marker.minX);maxX=Math.max(maxX,marker.maxX);}
+  const portrait=innerWidth<innerHeight,marker=portrait||!includeMarker?null:M.guide?.frameBounds();if(marker){minX=Math.min(minX,marker.minX);maxX=Math.max(maxX,marker.maxX);}
   const width=portrait?Math.max(6,maxX-minX+1.1):Math.max(8,maxX-minX+1.8);
   const visible=2*camera.position.z*Math.tan(camera.fov*Math.PI/360)*camera.aspect;
   M.setCameraTarget((minX+maxX)/2,y,Math.min(portrait?maxZoom*1.3:maxZoom,visible/width),1);
@@ -48,16 +48,22 @@
  };
  const particles=[],particleGeo=new T.BufferGeometry(),particlePos=new Float32Array(128*3),particleCol=new Float32Array(128*3),particleSizes=new Float32Array(128);
  particleGeo.setAttribute('position',new T.BufferAttribute(particlePos,3));particleGeo.setAttribute('color',new T.BufferAttribute(particleCol,3));particleGeo.setAttribute('aSize',new T.BufferAttribute(particleSizes,1));
- for(let i=0;i<128;i++)particles.push({life:0,x:0,y:0,z:0,vx:0,vy:0,vz:0,max:1});
- const particleMat=new T.ShaderMaterial({vertexColors:true,transparent:true,depthWrite:false,uniforms:{uRatio:{value:1}},vertexShader:'attribute float aSize; varying vec3 vColor; uniform float uRatio; void main(){vColor=color;vec4 v=modelViewMatrix*vec4(position,1.);gl_PointSize=aSize*uRatio*(160./max(1.,-v.z));gl_Position=projectionMatrix*v;}',fragmentShader:'varying vec3 vColor;void main(){float d=length(gl_PointCoord-.5);float a=smoothstep(.5,.06,d);if(a<.01)discard;gl_FragColor=vec4(vColor,a*.8);}',blending:T.AdditiveBlending});
+ const starPalette=({mars:[0xffd291,0xa8e7db,0xfff1ce],saturn:[0xf5deac,0xc8c5f2,0xabe1e6],neptune:[0xbdece4,0xd9cbf5,0xffe2aa],jupiter:[0xffd0a0,0xaedcde,0xffedc6],venus:[0xf1d296,0xc9ded6,0xffe5c0]})[M.planet]||[0xffd291,0xa8e7db,0xfff1ce];
+ const starTints=starPalette.map(hex=>new T.Color(hex));
+ for(let i=0;i<128;i++){const c=starTints[i%3];particles.push({life:0,x:0,y:0,z:0,vx:0,vy:0,vz:0,max:1,size:1,r:c.r,g:c.g,b:c.b});}
+ const particleMat=new T.ShaderMaterial({vertexColors:true,transparent:true,depthWrite:false,uniforms:{uRatio:{value:1}},vertexShader:'attribute float aSize; varying vec3 vColor; uniform float uRatio; void main(){vColor=color;vec4 v=modelViewMatrix*vec4(position,1.);gl_PointSize=aSize*uRatio*(160./max(1.,-v.z));gl_Position=projectionMatrix*v;}',fragmentShader:'varying vec3 vColor;void main(){vec2 p=abs(gl_PointCoord-.5);float d=p.x+p.y+min(p.x,p.y)*1.65;float a=1.-smoothstep(.30,.49,d);if(a<.01)discard;gl_FragColor=vec4(vColor,a*.86);}',blending:T.AdditiveBlending});
  const points=new T.Points(particleGeo,particleMat);points.frustumCulled=false;points.visible=false;scene.add(points);
- M.celebrate=function(x,y){points.visible=true;if(!Number.isFinite(x))x=player.x;if(!Number.isFinite(y))y=player.y+1;let count=0;for(const p of particles){if(p.life>0)continue;p.x=x;p.y=y;p.z=.5;p.max=p.life=1.3+Math.random()*.7;const a=Math.random()*Math.PI*2,s=1+Math.random()*2;p.vx=Math.cos(a)*s;p.vy=1+Math.random()*3;p.vz=(Math.random()-.5)*1.2;if(++count>=24)break;}state.celebrate=1;};
+ function starsAt(x,y,amount,spread=1){points.visible=true;let count=0;for(const p of particles){if(p.life>0)continue;p.x=x;p.y=y;p.z=.5;p.max=p.life=1.05+Math.random()*.65;p.size=1.05+Math.random()*.75;const a=Math.random()*Math.PI*2,s=(.5+Math.random()*1.8)*spread;p.vx=Math.cos(a)*s;p.vy=(.8+Math.random()*2.6)*spread;p.vz=(Math.random()-.5)*.5;if(++count>=amount)break;}}
+ M.celebrate=function(x,y){if(!Number.isFinite(x))x=player.x;if(!Number.isFinite(y))y=player.y+1;starsAt(x,y,24);state.celebrate=1;};
+ function rewardDiscovery(event){const result=event.detail;if(phase!=='play'||!result?.complete||state.celebrate>.25)return;starsAt(result.x,result.y,9,.65);}
+ M.events.addEventListener('activity-success',rewardDiscovery);
  function clearInput(){guide?.clearContact();keys.clear();discoveries?.pointer?.('cancel',hit,null);if(activities)activities.pointer('cancel',hit,null);for(const id of pointers.keys()){try{if(canvas.hasPointerCapture(id))canvas.releasePointerCapture(id);}catch(_){}}pointers.clear();activeWalk=null;steer=0;jumpWalkId=null;jumpHeld=false;jumpBuffer=0;$('jump-button').classList.remove('pressed');}
  function setPhase(p){
   phase=p;prev=renderSlot=lastDisplayTick=displayPeriod=0;resetPacingWindow();perfIdx=perfCount=0;perfT=0;partFrames=0;partMs.fill(0);
   $('hud').classList.toggle('hidden',p!=='play');
   $('pause').classList.toggle('hidden',p!=='pause');
   $('ending').classList.toggle('hidden',p!=='ending');
+  if(p==='pause'||p==='ending')$(p).querySelector('.menu-card').scrollTop=0;
   M.audio?.setPaused(p==='pause');clearInput();
   if(p!=='play')actors?.resetGreeting?.();
   const focus=p==='pause'?$('resume'):p==='ending'?$('end-home'):canvas;
@@ -79,7 +85,7 @@
  // A child may fly home while the celebration is still framing the souvenir.
  // A WebGL backbuffer can clear between paints, so draw once before copying it.
  function createFamilyPhoto(){
-  if(!['neptune','jupiter','venus'].includes(M.planet)||typeof M.createFamilyPostcard!=='function'||typeof M.createFamilyPostcardHost!=='function')return;
+  if(!['mars','neptune','jupiter','venus'].includes(M.planet)||typeof M.createFamilyPostcard!=='function'||typeof M.createFamilyPostcardHost!=='function')return;
   const postcard=M.createFamilyPostcard({scene,getActors:()=>actors,getRenderer:()=>renderer,getWorld:()=>world,onReady:()=>{}});
   familyPhotoHost=M.createFamilyPostcardHost({postcard,isAlive:()=>ready&&!disposed&&!graphicsLost,accept:film=>{M.keepPhoto(film);return hasPhoto;},maxAttempts:2,retryDelayMs:180,maxWaitMs:1800});
  }
@@ -107,11 +113,17 @@
   renderer.render(scene,camera);M.keepPhoto(canvas);return hasPhoto;
  };
  function start(){setPhase('play');if(navigator.userActivation?.hasBeenActive)M.audio.start();startedAt=time;M.notify(M.destination.welcome,4);M.setHint('Ekranın sağına basılı tut. Birlikte keşfedelim!');canvas.focus();}
- M.shutdown=function(){if(disposed)return;disposed=true;cancelAnimationFrame(scheduledFrame);scheduledFrame=0;clearInput();guide?.dispose();familyPhotoHost?.dispose();try{activities?.dispose?.();}catch(e){console.warn('Keşif kaynakları bırakılırken',e);}M.audio.close();densityQuery?.removeEventListener('change',onDensityChange);if(renderer){renderer.dispose();renderer.forceContextLoss();}};
+ M.shutdown=function(){if(disposed)return;disposed=true;cancelAnimationFrame(scheduledFrame);scheduledFrame=0;clearInput();guide?.dispose();actors?.dispose?.();planetDetails?.dispose();M.events.removeEventListener('activity-success',rewardDiscovery);familyPhotoHost?.dispose();try{activities?.dispose?.();}catch(e){console.warn('Keşif kaynakları bırakılırken',e);}M.audio.close();densityQuery?.removeEventListener('change',onDensityChange);if(renderer){renderer.dispose();renderer.forceContextLoss();}};
  function reset(){M.shutdown();location.reload();}
  function pause(){if(disposed||graphicsLost)return;if(phase==='play')setPhase('pause');else if(phase==='pause')setPhase('play');}
  function jump(){if(disposed||phase!=='play'||graphicsLost)return;M.audio.start();if(player.locked){activities?.jump?.();return;}jumpBuffer=.20;jumpHeld=true;}
- function uiAction(id,fn){$(id).addEventListener(id==='jump-button'?'pointerdown':'click',e=>{e.preventDefault();e.stopPropagation();fn(e);});}
+ function uiAction(id,fn){
+  const button=$(id);let secondaryUntil=0;
+  // A child can pause with a second finger while the first still holds a part.
+  // Secondary touch pointers do not reliably produce compatibility clicks.
+  if(id!=='jump-button')button.addEventListener('pointerdown',e=>{if(e.isPrimary){secondaryUntil=0;return;}if(e.pointerType!=='touch')return;e.preventDefault();e.stopPropagation();secondaryUntil=performance.now()+900;fn(e);});
+  button.addEventListener(id==='jump-button'?'pointerdown':'click',e=>{e.preventDefault();e.stopPropagation();if(id!=='jump-button'&&e.detail!==0&&performance.now()<secondaryUntil)return;fn(e);});
+ }
  uiAction('pause-button',pause);uiAction('resume',()=>setPhase('play'));uiAction('restart',reset);uiAction('again',reset);uiAction('home-button',M.dock);uiAction('pause-home',M.dock);uiAction('end-home',M.dock);
  uiAction('jump-button',e=>{jump();jumpWalkId=e.pointerId;jumpWalkAt=performance.now();$('jump-button').classList.add('pressed');try{e.target.setPointerCapture(e.pointerId);}catch(_){};});
  // Keyboard and assistive switches activate buttons through click, without a pointer.
@@ -190,7 +202,7 @@
   // Let activity/photo context-restored listeners invalidate their former targets first.
   await Promise.resolve();if(disposed||restoredEpoch!==graphicsEpoch)return;
   // The new context has no programs. Cover hidden activity materials before play resumes.
-  try{await renderer.compileAsync(scene,camera);}catch(e){console.warn('Yenilenen ışıklar hazırlanamadı',e);}
+  try{await renderer.compileAsync(scene,camera);renderer.compile(points,camera,scene);}catch(e){console.warn('Yenilenen ışıklar hazırlanamadı',e);}
   if(disposed||restoredEpoch!==graphicsEpoch)return;
   guide?.prepare(renderer);
   const restoredViewport=renderer.getViewport(new T.Vector4());renderer.setViewport(0,0,80,60);
@@ -245,7 +257,7 @@
    const target=workshop.life>0?workshop.z:under&&!supported?Math.max(1.15,baseDepth):baseDepth;a.z=M.damp(a.z??baseDepth,target,13,dt);
   }
  }
- function particlesUpdate(dt){if(!points.visible||dt<=0)return;let active=0;for(let i=0;i<particles.length;i++){const p=particles[i];p.life=Math.max(0,p.life-dt);if(p.life){active++;p.vy-=1.1*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=p.vz*dt;particlePos[i*3]=p.x;particlePos[i*3+1]=p.y;particlePos[i*3+2]=p.z;const a=p.life/p.max;particleCol[i*3]=a*.9;particleCol[i*3+1]=a;particleCol[i*3+2]=a*.68;particleSizes[i]=1.3*a;}else particleSizes[i]=0;}points.visible=active>0;if(!active)return;particleGeo.attributes.position.needsUpdate=true;particleGeo.attributes.color.needsUpdate=true;particleGeo.attributes.aSize.needsUpdate=true;}
+ function particlesUpdate(dt){if(!points.visible||dt<=0)return;let active=0;for(let i=0;i<particles.length;i++){const p=particles[i];p.life=Math.max(0,p.life-dt);if(p.life){active++;p.vy-=1.1*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=p.vz*dt;particlePos[i*3]=p.x;particlePos[i*3+1]=p.y;particlePos[i*3+2]=p.z;const a=p.life/p.max;particleCol[i*3]=p.r*a;particleCol[i*3+1]=p.g*a;particleCol[i*3+2]=p.b*a;particleSizes[i]=p.size*Math.min(1,a*4)*Math.min(1,(1-a)*10);}else particleSizes[i]=0;}points.visible=active>0;if(!active)return;particleGeo.attributes.position.needsUpdate=true;particleGeo.attributes.color.needsUpdate=true;particleGeo.attributes.aSize.needsUpdate=true;}
  // Portrait iPad: the walking view is zoomed in so the children stay large. Planet-specific
  // camera requests keep their tuned zoom; activity framing still fits the game's width.
  const PORTRAIT_ZOOM=1.38;
@@ -370,7 +382,7 @@
    maybeShowEnding();
   }
   const animDt=phase==='play'?dt:0;
-  let pt=perfParts?performance.now():0;world.update(animDt,time,state);if(perfParts){const n=performance.now();partMs[1]+=n-pt;pt=n;}player.wind=dog.wind=world.weather?world.weather.intensity:0;M.audio.setWeather(player.wind);actors.feza.root.position.set(player.x,player.y,player.z||0);actors.bilbo.root.position.set(dog.x,dog.y,dog.z??.3);actors.update(animDt,time,state);if(perfParts){const n=performance.now();partMs[2]+=n-pt;pt=n;}activities.afterActors?.();if(footprints)footprints.update(animDt,time,state);particlesUpdate(animDt);cameraUpdate(animDt);if(phase==='play'){if(perfParts)pt=performance.now();guide?.update(animDt,time);if(perfParts)partMs[3]+=performance.now()-pt;if(!showFirstSteps){const hideWalk=endingShown||!guide?.state().walkHint;if(walkGuide.hidden!==hideWalk)walkGuide.hidden=hideWalk;}placeWalkGuide();}
+  let pt=perfParts?performance.now():0;world.update(animDt,time,state);planetDetails?.update(animDt,time);if(perfParts){const n=performance.now();partMs[1]+=n-pt;pt=n;}player.wind=dog.wind=world.weather?world.weather.intensity:0;M.audio.setWeather(player.wind);actors.feza.root.position.set(player.x,player.y,player.z||0);actors.bilbo.root.position.set(dog.x,dog.y,dog.z??.3);actors.update(animDt,time,state);if(perfParts){const n=performance.now();partMs[2]+=n-pt;pt=n;}activities.afterActors?.();if(footprints)footprints.update(animDt,time,state);particlesUpdate(animDt);cameraUpdate(animDt);if(phase==='play'){if(perfParts)pt=performance.now();guide?.update(animDt,time);if(perfParts)partMs[3]+=performance.now()-pt;if(!showFirstSteps){const hideWalk=endingShown||!guide?.state().walkHint;if(walkGuide.hidden!==hideWalk)walkGuide.hidden=hideWalk;}placeWalkGuide();}
  }
  function resetPacingWindow(){
   windowTime=0;windowFrames=0;lateFrames=0;timelyFrames=0;slowWindows=0;
@@ -538,7 +550,7 @@
     const expedition=createExpedition({scene,player,dog});
     world=expedition.world;activities=expedition.activities;
   }
-  M.world=world;progress(40,'Keşif kıyafetleri giyiliyor');await tick();
+  M.world=world;planetDetails=M.createPlanetDetails({scene,world,player});M.planetDetails=planetDetails;progress(40,'Keşif kıyafetleri giyiliyor');await tick();
   actors=M.createCharacters(scene);M.actors=actors;player.y=groundAt(player.x);dog.y=groundAt(dog.x);
   if(M.planet==='jupiter'||M.planet==='venus'){player.z=.95;dog.z=1.05;}
   progress(66,'Bilbo keşfe hazırlanıyor');await tick();
@@ -555,7 +567,7 @@
   // Compile against the initial lighting, then upload the different scenery behind
   // the loading screen. A small viewport exercises the same programs and textures.
   world.update(0,0,state);
-  await renderer.compileAsync(scene,camera);
+  await renderer.compileAsync(scene,camera);renderer.compile(points,camera,scene);
   if(disposed||graphicsLost)return;
   renderer.setViewport(0,0,80,60);
   renderer.render(scene,camera);guide?.warm(renderer,camera);footprints?.warm(false);

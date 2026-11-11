@@ -123,3 +123,61 @@ header #notice{top:calc(100% + 10px);width:max-content;max-width:min(560px,94%)}
 .action-button.jump{background:radial-gradient(circle at 34% 26%,#ffffff6b 0 14%,#ffffff00 40%),radial-gradient(circle at 50% 120%,#0d4d6280,#0d4d6200 60%),linear-gradient(150deg,#63c9d4,#2a87a0 55%,#1d6782);border:3px solid #e8fffd;box-shadow:inset 0 0 0 4px #ffffff24,inset 0 -7px 14px #07364766,0 6px 0 #164c5d,0 10px 24px #1a2c3a66}
 #pause-button{background:radial-gradient(circle at 38% 30%,#ffffff40 0 12%,#ffffff00 42%),radial-gradient(ellipse at 50% 40%,#3a6a86,#163651 70%,#102a44);border:2px solid #ffe3a0;color:#fff1cd;box-shadow:inset 0 1px 1px #fff6,0 3px 0 #6e5845,0 5px 12px #101d3366}
 #pause-button:active{transform:translateY(2px);box-shadow:inset 0 1px 1px #fff6,0 1px 0 #6e5845}
+
+/* A quiet mission-window frame: no moving full-screen effects while paused. */
+#pause .menu-card{position:relative;width:min(460px,calc(100vw - 28px));padding:26px 28px 23px;background:radial-gradient(ellipse at 8% 0%,#43627666,transparent 67%),linear-gradient(145deg,#243e51,#182b3e 78%);border:1px solid #adc7c08a;box-shadow:inset 0 1px 0 #edfbf32b,0 15px 42px #06152366}
+#pause .menu-card::before{content:"";position:absolute;inset:8px;border:1px solid #d5e3c41b;border-radius:18px;pointer-events:none}
+.pause-heading{display:flex;align-items:center;gap:16px;text-align:left;padding-bottom:16px;border-bottom:1px solid #dce6d127}
+.pause-heading>div{flex:1;min-width:0}.pause-heading .eyebrow{font-size:10px;letter-spacing:2px;color:#c9d8cb}
+#pause .pause-heading h2{margin:3px 0 0;font-size:36px;line-height:1.05;color:#fff0d1}
+.pause-globe{display:block;width:64px;height:64px;flex:none;border:2px solid #c9d9cb88;box-shadow:0 0 0 5px #10293b99,inset 0 0 10px #05182e55}
+.pause-paw{width:39px;height:39px;flex:none;color:#d8bd83;opacity:.8;pointer-events:none}
+#pause .menu-card>p{font-size:14px;line-height:1.5;color:#c4d3d4;margin:15px 0 18px}
+#pause #resume{background:linear-gradient(140deg,#3e999c,#22727d);border:1px solid #b8e7d28c;box-shadow:inset 0 1px 0 #d7f8e433,0 4px 0 #102f4266;min-height:64px;padding:11px 17px}
+#pause #resume>span{display:grid;place-items:center;flex:none;width:41px;height:41px;border-radius:50%;font-size:22px;background:#e9efd8;color:#276973;border:1px solid #fff4ce}
+#pause .setting-row{border-color:#c7ded529}#pause .menu-note{color:#b5c8cd;line-height:1.5}
+body[data-planet=saturn] #pause .menu-card{background:radial-gradient(ellipse at 8% 0%,#71647766,transparent 67%),linear-gradient(145deg,#3c4057,#222c40 78%)}
+body[data-planet=venus] #pause .menu-card{background:radial-gradient(ellipse at 8% 0%,#98765d55,transparent 67%),linear-gradient(145deg,#48464c,#27313e 78%)}
+@media(max-height:560px){#pause .menu-card{padding:18px 24px 17px}.pause-heading{padding-bottom:11px;gap:13px}.pause-globe{width:47px;height:47px}#pause .pause-heading h2{font-size:29px}.pause-paw{width:31px;height:31px}#pause .menu-card>p{margin:10px 0 12px}#pause #resume{min-height:53px;padding:8px 14px}#pause #resume>span{width:35px;height:35px;font-size:20px}}
+@media(max-width:360px){#pause .menu-card{padding-left:20px;padding-right:20px}.pause-heading{gap:12px}.pause-globe{width:52px;height:52px}.pause-paw{width:31px;height:31px}}
+
+.pause-links{display:grid;grid-template-columns:minmax(0,1.16fr) minmax(0,1fr);gap:10px;margin-top:19px}
+#pause .pause-links>.secondary{display:flex;align-items:center;justify-content:center;gap:7px;min-width:0;min-height:55px;margin:0;padding:8px 10px;font-size:13px;line-height:1.25}
+#pause .pause-links .station-mark{width:34px;height:24px;flex:none}
+#pause .pause-links .replay svg{width:20px;height:20px;flex:none}
+@media(max-width:360px){.pause-links{gap:7px}#pause .pause-links>.secondary{padding:8px 6px;font-size:12px}.pause-links .station-mark{width:29px}}
+/* The inner trim belongs to the viewport, not to the scrolling menu content. */
+#pause .menu-card{outline:1px solid #d5e3c41b;outline-offset:-9px;scroll-padding:18px}
+#pause .menu-card::before{display:none}
+@media(max-height:560px) and (min-aspect-ratio:3/2){
+ #pause .menu-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px 22px;width:min(720px,94vw);padding:18px 24px 20px}
+ #pause .pause-heading{grid-column:1/-1;padding:0;border-bottom:0}
+ #pause .menu-card>p,#pause .menu-note{display:none}
+ #pause #resume{grid-column:1;grid-row:2/4;align-self:stretch;min-height:96px;gap:12px;text-align:left}
+ #pause .setting-row{grid-column:2;margin:0;min-height:44px;gap:12px}
+ #pause .pause-links{grid-column:1/-1;margin:0}
+}
+
+/* On a short portrait phone, the photograph and the two picture actions fit together. */
+@media(max-height:700px) and (max-aspect-ratio:1/1){
+ #ending .menu-card{padding:17px 18px 18px;width:min(400px,calc(100vw - 24px))}
+ #ending .voyage-photo{max-width:260px;margin-bottom:10px;padding-bottom:10px}
+ #ending .eyebrow{display:none}
+ body:not(.captions) #ending-note{display:none}
+ #ending h2{font-size:24px;line-height:1.1;margin:7px 0 14px}
+ #ending .win-stars{gap:7px;margin:0 0 6px}
+ #ending .win-stars svg{width:29px;height:29px}#ending .win-stars svg:nth-child(2){width:36px;height:36px;margin-top:-5px}
+ #ending .primary{min-height:56px;padding:11px 12px;font-size:16px;gap:8px}
+ #ending .secondary{min-height:44px;margin-top:11px;padding:9px 12px;font-size:13px}
+}
+@media(max-height:570px) and (min-aspect-ratio:3/2){
+ #ending .menu-card{padding:16px;gap:16px}
+ body:not(.captions) #ending-note{display:none}
+ #ending .eyebrow{display:none}
+ #ending h2{font-size:24px;line-height:1.1;margin:5px 0 9px}
+ #ending .win-stars{gap:6px;margin:0 0 6px}
+ #ending .win-stars svg{width:29px;height:29px}#ending .win-stars svg:nth-child(2){width:36px;height:36px;margin-top:-5px}
+ #ending .primary{min-height:56px;padding:9px 12px;font-size:15px;gap:8px}
+ #ending .primary .station-mark{width:38px;height:29px;flex:none}
+ #ending .secondary{min-height:44px;margin-top:10px;padding:9px 12px;font-size:13px}
+}

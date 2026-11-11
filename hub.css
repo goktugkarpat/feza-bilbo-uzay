@@ -357,3 +357,55 @@ img,canvas,svg{-webkit-user-drag:none}
 .orb-planet.orb-picked:not([data-planet="saturn"])::after { width:89%; }
 @media(max-height:520px) and (orientation:portrait) { .orb-planet:not([data-planet="saturn"]) .orb-globe { scale:1.24; } }
 @media(max-height:500px) and (orientation:landscape) { .orb-planet:not([data-planet="saturn"]) .orb-globe { scale:1.32; } }
+
+/* Five small observation consoles: their painted worlds remain the big touch
+   targets; a tiny mission picture makes each destination familiar without text. */
+.orb-planet {
+  isolation:isolate;
+  border-color:#b4e6df38;
+  border-top-color:#d8f4e66b;
+  background:linear-gradient(155deg,#d2f4eb17,transparent 40%),linear-gradient(180deg,#122e4652,#081a2dba);
+  box-shadow:inset 0 1px 0 #ecfbf71c,inset 0 -3px 0 #020f216b,0 5px 9px #030d1d28;
+  transition:border-color .18s,background-color .18s,box-shadow .18s;
+}
+.orb-planet::before {
+  inset:8% 5% 14%;opacity:.22;
+  background:radial-gradient(ellipse at center,color-mix(in srgb,var(--planet-accent) 36%,transparent),transparent 68%);
+}
+.orb-panel-pins {position:absolute;top:9px;left:10px;right:10px;height:5px;pointer-events:none;}
+.orb-panel-pins::before,.orb-panel-pins::after {
+  content:"";position:absolute;top:0;width:5px;height:5px;border:1px solid #152d41;border-radius:50%;
+  background:linear-gradient(145deg,#f3e9ce,#718992);box-shadow:0 1px 0 #e2f5eb1c;
+}
+.orb-panel-pins::before{left:0}.orb-panel-pins::after{right:0}
+.orb-planet>.orb-caption {
+  display:flex;align-items:center;justify-content:center;gap:7px;min-height:36px;margin:1px 4px 0;padding:3px 9px 5px;
+  border-top:1px solid #bcdfd125;border-radius:10px;color:#fff2d8;
+  background:linear-gradient(180deg,#263e491a,#061a2b54);font-weight:650;line-height:1.1;
+}
+.orb-mission-mark{display:block;flex:none;width:34px;height:30px;pointer-events:none;}
+.orb-planet:focus-visible,.orb-planet.orb-picked {
+  border-color:var(--planet-accent);
+  box-shadow:inset 0 1px 0 #fff7dc5c,inset 0 -3px 0 #07162599,0 0 0 2px #f8edcf1a;
+}
+.orb-planet:active{border-color:var(--planet-accent);background-color:#42647255;}
+@media(hover:hover){
+  .orb-planet:hover{border-color:#d8f4e686;background-color:#2d526542;}
+  .orb-planet:hover .orb-caption{color:var(--planet-accent);}
+}
+@media(max-width:470px){
+  .orb-planet>.orb-caption{font-size:14px;gap:4px;margin-left:1px;margin-right:1px;padding:2px 4px 4px;min-height:29px;}
+  .orb-mission-mark{width:24px;height:23px;}
+  .orb-panel-pins{left:7px;right:7px;top:7px;}
+  .orb-panel-pins::before,.orb-panel-pins::after{width:4px;height:4px;}
+}
+@media(max-height:500px) and (orientation:landscape){
+  .orb-planet>.orb-caption{font-size:13px;gap:4px;min-height:27px;padding:1px 5px 3px;}
+  .orb-mission-mark{width:25px;height:23px;}
+}
+@media(max-height:520px) and (orientation:portrait){.orb-planet>.orb-caption{min-height:0;padding:0;border:0;}}
+
+/* The souvenir uses the real family photo and stays in this station visit only. */
+.orb-planet[data-visited="true"] .orb-postcard{width:40%;right:3%;bottom:18%;border-color:#fff3da;border-bottom-width:6px;box-shadow:0 2px 8px #07162799}
+.orb-planet[data-visited="true"] .orb-caption{color:#f3e7bf}
+@media(max-width:450px){.orb-planet[data-visited="true"] .orb-postcard{right:1%;bottom:23%;width:38%;border-bottom-width:4px}}

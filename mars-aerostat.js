@@ -64,6 +64,11 @@
     }
     const tex=new T.CanvasTexture(cv);tex.colorSpace=T.SRGBColorSpace;tex.anisotropy=2;
     const cloth=new T.MeshStandardMaterial({map:tex,roughness:.83});
+    const clothTime={value:0},clothWind={value:.3};
+    // The stitched envelope breathes in the wind. Deform its existing vertices
+    // very slightly in the material; no extra mesh, texture or per-frame buffer.
+    cloth.onBeforeCompile=shader=>{shader.uniforms.uWindMailTime=clothTime;shader.uniforms.uWindMailWind=clothWind;shader.vertexShader='uniform float uWindMailTime,uWindMailWind;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n{float mailU=clamp(position.x/3.25+.5,0.,1.);float mailHem=sin(mailU*3.14159265);mailHem*=mailHem;transformed.y+=sin(mailU*11.+position.z*2.4-uWindMailTime*3.1)*mailHem*.014*uWindMailWind;transformed.z+=sin(mailU*9.+position.y*1.8-uWindMailTime*2.6)*mailHem*.010*uWindMailWind;}');};
+    cloth.customProgramCacheKey=()=> 'wind-mail-stitched-cloth-v1';
     const vertices=[],uv=[],indices=[],rows=36,columns=48;
     for(let i=0;i<=rows;i++)for(let j=0;j<=columns;j++){
       const t=i/rows,a=j*tau/columns,bulge=Math.pow(Math.sin(Math.PI*t),.65)*(.83+.27*t),flute=1-.035*(1+Math.cos(a*12))*.5;
@@ -104,7 +109,7 @@
     const circle=new T.TorusGeometry(.24,.079,8,24);
     const tempA=new T.Vector3(),tempB=new T.Vector3(),tempC=new T.Vector3();
     const y0=world.ground(44)-level+1.55;
-    let clock=0,opened=0,releasedAt=-1,pressAt=-5,bob=0,watching=0;
+    let clock=0,opened=0,releasedAt=-1,pressAt=-5,bob=0,watching=0,motor=4,lean=0;
     for(const [i,x] of [40,44,48].entries()){
       const cap=world.platforms.find(q=>q.x===x);
       const y=cap.y-level,dx=x-centre;
@@ -188,13 +193,13 @@
           if(watching>4.2){player.emote='point';if(Math.abs(suggested.x-player.x)>.7)player.facing=Math.sign(suggested.x-player.x);}
         }
       }
-      const age=releasedAt<0?0:Math.max(0,t-releasedAt),ascent=age?1-Math.exp(-age*.21):0;
+      const age=releasedAt<0?0:Math.max(0,t-releasedAt),flightAge=age-.65*(1-Math.exp(-age/.65)),ascent=age?1-Math.exp(-flightAge*.21):0;
       const free=Math.min(1,age/2.2);bob=M.damp(bob,opened/3,2,dt);
-      const first=fasteners[0],last=fasteners[2],lean=(first.at>=0?1:0)-(last.at>=0?1:0);
+      const first=fasteners[0],last=fasteners[2];lean=M.damp(lean,(first.at>=0?1:0)-(last.at>=0?1:0),7.5,dt);
       craft.position.set(.36*Math.sin(t*.7)+.48*lean*(1-free)+ascent*18,
         y0+.98+bob*.7+.10*Math.sin(t*1.24)+ascent*9.8,-.55-ascent*3.8);
       craft.rotation.z=.035*Math.sin(t*.85)+.13*lean*(1-free)+.04*ascent;
-      craft.visible=age<22;wheel.rotation.x+=dt*(4+opened*2+(world.weather?.intensity||0)*5);
+      craft.visible=age<22;motor=M.damp(motor,4+opened*2+(world.weather?.intensity||0)*5,3.5,dt);wheel.rotation.x+=dt*motor;clothTime.value=t;clothWind.value=.35+(world.weather?.intensity||0)*.65;
       for(let i=0;i<3;i++){
         const q=fasteners[i],r=ropes[i],u=q.at<0?0:Math.min(1,(t-q.at)/.63);
         const call=q===suggested?Math.sin(t*2.8):0;
@@ -216,8 +221,8 @@
       if(near()&&Math.abs(player.vx)<.65&&clock-pressAt<2.6){
         player.emote=opened===3?'point':'curious';player.lookX=Math.sign(centre+craft.position.x-player.x)*.6;player.lookY=.78;dog.emote='curious';dog.lookX=Math.sign(centre+craft.position.x-dog.x)*.55;dog.lookY=.74;
       }
-      if(near()&&releasedAt>=0&&age<1.8&&Math.abs(player.vx)<.6)
-        M.setCameraTarget(centre+1.5+ascent*5,level+3.15+ascent*2.5,.86,.45*(1-age/1.8));
+      if(near()&&releasedAt>=0&&age<2.6&&Math.abs(player.vx)<.6)
+        M.setCameraTarget(centre+1.5+ascent*5,level+3.15+ascent*2.5,.86,.45*(1-age/2.6));
     }
     const lessons=[{id:'mars-wind-mail',x:centre,y:level,goal:'balloon',range:13,demoSources:fasteners.map(q=>q.handle),enabled:()=>!player.locked,completed:()=>opened===3,describe(step){const q=fasteners.find(q=>q.at<0);if(!q)return false;step.action='tap';step.demoObject=q.handle;step.sourceIcon='loop';step.progress=opened;step.total=3;q.handle.localToWorld(step.from.set(0,.28,0));step.to.copy(step.from);return true;}}];
     return {lessons,touch,pointer,dispose:cancelPull,update,state:()=>({released:opened,airborne:releasedAt>=0})};

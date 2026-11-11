@@ -1,6 +1,6 @@
 # Feza ve Bilbo · Uzay Macerası 🚀🐾
 
-Astronot Feza ve çikolata Labrador’u Bilbo ile Dünya yörüngesindeki üsten Mars, Satürn, Neptün, Jüpiter veya Venüs’e uç. Dört–beş yaş için yazı okumadan, gerçek nesnelere dokunarak ve onları sürükleyerek oynanan üç boyutlu bir keşif oyunu. El resimli bayraklar oyun yerlerini gösterir. Dokunulacak nesnenin çevresinde turkuaz bir halka, götürüleceği yerde altın bir halka belirir; küçük el gerçek nesnenin üzerinde dokunmayı, sürüklemeyi ve çevirmeyi örnekler; takılınca oyun 14–18 saniyede yardım eder; süs nesneleri dokunmaya tepki vermez. Robotlar, vanalar, vinçler, örnek kavanozları ve dokuma tezgâhları yaptığın işe görünür ve kalıcı bir sonuç verir. Süre baskısı ve başarısızlık cezası yoktur.
+Astronot Feza ve çikolata Labrador’u Bilbo ile Dünya yörüngesindeki üsten Mars, Satürn, Neptün, Jüpiter veya Venüs’e uç. Dört–beş yaş için yazı okumadan, gerçek nesnelere dokunarak ve onları sürükleyerek oynanan üç boyutlu bir keşif oyunu. El resimli bayraklar oyun yerlerini gösterir. Dokunulacak nesnenin çevresinde turkuaz bir halka, götürüleceği yerde altın bir halka belirir; küçük el gerçek nesnenin üzerinde dokunmayı, sürüklemeyi ve çevirmeyi örnekler; bir süre takılınca oyun yardım eder; süs nesneleri dokunmaya tepki vermez. Robotlar, vanalar, vinçler, örnek kavanozları ve dokuma tezgâhları yaptığın işe görünür ve kalıcı bir sonuç verir. Süre baskısı ve başarısızlık cezası yoktur.
 
 - **Mars.** Araştırma robotunu topla, aracı kur ve yol üzerindeki bilim düzeneklerini kullan. Üç farklı kirişi eş yuvalarına taşıyarak köprüyü tamamla. Yolun devamındaki serada üç tohumu ek, su pompasını kullan ve güneşliği aç. Buz mağarasında kızakla kayarak kar tanesini, prizmayı, su çarkını ve kutup ışığını bul, buz kapısını aç. Helikopter, rüzgâr postası, kristalli taş ve örnek laboratuvarını keşfet; güneş, su ve kaya deneyleriyle Bilbo’nun takımyıldızını bilim kampında bir araya getir. Feza ve Bilbo kampı birlikte canlandırır.
 - **Satürn.** Üç buz yelkenlisiyle yol al; altı durakta gerçek kolları, bağları ve düzenekleri kullan. İki küçük uydunun çekimiyle yön ver, buz çanlarını çal ve sondayla topladığın örnekleri yuvalarına yerleştir. Kraterli ayı küçük Güneş’in önüne kaydırarak tutulmayı oluştur. Fidanlıktaki buz tohumları ve yol boyunca yaptığın keşifler, Feza ile Bilbo’nun birlikte büyüttüğü kristal bahçesine ve aile fotoğrafına bağlanır.
@@ -9,6 +9,8 @@ Astronot Feza ve çikolata Labrador’u Bilbo ile Dünya yörüngesindeki üsten
 - **Venüs.** Cam kubbeli araçla uzun bir rotada dört bilim durağına uğra. Buharı yönlendir, köprü parçalarını taşı, örnek topla, basınç ve filtre düzeneklerini kullan. Gözlem balonlarını hazırla; topladığın örnekler ve bulut görüntüleri son gözlemevini birlikte canlandırır.
 
 ## Oynama
+
+Gezegenlere özgü uzak araştırma yapıları, buz sırtları ve bulut gemileri manzaraya derinlik verir. Küçük keşiflerde Feza ile Bilbo birbirine gülümser; tamamlanan etkinliklerde birlikte sevinirler. Uzay üssündeki resimli gezegen düğmeleri her yolculuğun havasını gösterir.
 
 Rüzgâr vadisinde ve geçitte daha uzun kum cepheleri, yerden savrulan toz ve toz burguları görülür. Sera ve bilim kampı sakin kalır; Feza, Bilbo ve etkinlik parçaları fırtınanın önünde görünür.
 
@@ -19,6 +21,8 @@ Uzay üssünde arkada Dünya döner, istasyonun penceresinden Feza ile Bilbo el 
 Klavyede A/D veya oklarla yürü, Boşluk ile zıpla, E ile yakındaki nesneyi kullan; Esc mola verir.
 
 Sağ üstteki altın çerçeveli uzay istasyonu her gezegenden üsse döndürür. Mola aynı ziyaretteki keşiflerini korur; her yeni gezegen ziyareti baştan başlar. Tamamlanan yolculuğun küçük fotoğrafı, istasyon açık kaldığı sürece o gezegenin yanında görünür. Moladan ses ve yazılı ipuçlarını ayarlayabilirsin.
+
+Bir parçayı tutarken ikinci parmakla mola veya üs düğmesi kullanılabilir. Tamamlanmış bayraklar yürümeyi durdurmaz.
 
 Tamamlanan araç yolculuğuna yeniden binilmez. Mars arabası seranın önünde bırakır; sera bitmeden kızak başlamaz. Bayraklar düzeneği örtmeden zeminde veya gerçek iskelede durur.
 

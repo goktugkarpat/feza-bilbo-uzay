@@ -59,6 +59,18 @@
     [-1,1].forEach(s=>{tube([s*.34,.64,0],[s*.39,.16,0],.14,C.dark,bot);box([s*.39,.15,.12],[.43,.25,.65],C.white,bot);});
     const robotLights=[-.3,0,.3].map(x=>ball([x,.62,.40],[.065,.065,.035],C.dark,bot));
     const robotEyes=[],botArms=[];let botHeart=null,botAntenna=null;
+    const robotArmMaterial=new T.MeshStandardMaterial({vertexColors:true,map:C.silver.map,bumpMap:C.silver.bumpMap,bumpScale:C.silver.bumpScale,metalness:.28,roughness:.47});
+    // Each articulated arm segment is one coloured mesh. The elbow can bend
+    // without adding passes: four segment draws replace six old rigid-part draws.
+    function bakeRobotArm(parent){
+      const positions=[],normals=[],uvs=[],colours=[],indices=[],v=new T.Vector3(),normal=new T.Matrix3();
+      for(const piece of parent.children.slice()){
+        if(!piece.isMesh)continue;piece.updateMatrix();normal.getNormalMatrix(piece.matrix);const a=piece.geometry.attributes,offset=positions.length/3,c=piece.material.color;
+        for(let k=0;k<a.position.count;k++){v.fromBufferAttribute(a.position,k).applyMatrix4(piece.matrix);positions.push(v.x,v.y,v.z);v.fromBufferAttribute(a.normal,k).applyNormalMatrix(normal);normals.push(v.x,v.y,v.z);uvs.push(a.uv.getX(k),a.uv.getY(k));colours.push(c.r,c.g,c.b);}
+        const ix=piece.geometry.index,count=ix?ix.count:a.position.count;for(let k=0;k<count;k++)indices.push(offset+(ix?ix.getX(k):k));piece.removeFromParent();
+      }
+      const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(positions,3));g.setAttribute('normal',new T.Float32BufferAttribute(normals,3));g.setAttribute('uv',new T.Float32BufferAttribute(uvs,2));g.setAttribute('color',new T.Float32BufferAttribute(colours,3));g.setIndex(indices);g.computeBoundingSphere();const m=new T.Mesh(g,robotArmMaterial);m.castShadow=m.receiveShadow=true;parent.add(m);
+    }
     const robotGhostMats=[0x55d8cd,0xffc064,0x9bdff1].map(c=>rimGlow(new T.MeshStandardMaterial({color:c,emissive:c,emissiveIntensity:.2,transparent:true,opacity:.19,roughness:.6,depthWrite:false}),'0.55','1.6','0.14,0.22,0.22','mars-robot-ghost-rim'));
     function makeRobotPiece(i,parent,ghost){const m=ghost?robotGhostMats[i]:null;
       if(i===0){box([0,0,0],[1.45,.9,.77],m||C.teal,parent);ball([0,0,.44],[.60,.31,.075],m||C.dark,parent);
@@ -66,7 +78,10 @@
         if(!ghost){const curve=new T.CatmullRomCurve3([new T.Vector3(-.21,-.13,.53),new T.Vector3(0,-.21,.53),new T.Vector3(.21,-.13,.53)]);mesh(new T.TubeGeometry(curve,12,.025,5,false),C.white,[0,0,0],null,parent);}
         tube([0,.4,0],[0,.8,0],.05,m||C.dark,parent);const a=ball([0,.85,0],[.15,.15,.15],m||C.dark,parent);if(!ghost)botAntenna=a;
       }else if(i===1){box([0,0,0],[.78,.72,.34],m||C.orange,parent);box([0,.36,0],[.78,.11,.36],m||C.silver,parent);cyl([-.21,.48,0],[.10,.17,.10],m||C.gold,parent);cyl([.21,.46,0],[.105,.13,.105],m||C.silver,parent);for(const x of[-.29,.29])box([x,-.03,.19],[.035,.47,.025],m||C.dark,parent);const boltShape=new T.Shape();boltShape.moveTo(.06,.25);boltShape.lineTo(-.17,-.04);boltShape.lineTo(-.03,-.04);boltShape.lineTo(-.10,-.25);boltShape.lineTo(.18,.08);boltShape.lineTo(.04,.08);boltShape.closePath();const boltGeometry=new T.ExtrudeGeometry(boltShape,{depth:.035,bevelEnabled:true,bevelThickness:.01,bevelSize:.008,bevelSegments:1,steps:1});const heart=mesh(boltGeometry,m||C.gold,[0,0,.20],null,parent);if(!ghost)botHeart=heart;
-      }else{tube([-.66,.05,0],[.66,.05,0],.075,m||C.silver,parent);tube([-.28,.05,0],[.28,.05,0],.13,m||C.teal,parent);[-1,1].forEach(s=>{const a=new T.Group();a.position.set(s*.74,.05,0);parent.add(a);ball([0,0,0],[.18,.18,.18],m||C.teal,a);tube([0,0,0],[s*.37,-.45,0],.13,m||C.silver,a);ball([s*.4,-.48,.04],[.22,.22,.19],m||C.white,a);if(!ghost)botArms.push(a);});}
+      }else{tube([-.66,.05,0],[.66,.05,0],.075,m||C.silver,parent);tube([-.28,.05,0],[.28,.05,0],.13,m||C.teal,parent);[-1,1].forEach(s=>{const a=new T.Group();a.position.set(s*.74,.05,0);parent.add(a);ball([0,0,0],[.18,.18,.18],m||C.teal,a);
+        if(ghost){tube([0,0,0],[s*.37,-.45,0],.13,m,a);ball([s*.4,-.48,.04],[.22,.22,.19],m,a);}
+        else{tube([0,0,0],[s*.22,-.27,0],.13,C.silver,a);bakeRobotArm(a);const elbow=new T.Group();elbow.position.set(s*.22,-.27,0);a.add(elbow);ball([0,0,0],[.145,.145,.145],C.teal,elbow);tube([0,0,0],[s*.18,-.21,.025],.12,C.silver,elbow);ball([s*.18,-.21,.04],[.22,.22,.19],C.white,elbow);bakeRobotArm(elbow);botArms.push({shoulder:a,elbow,side:s});}
+      });}
     }
     const robotSlots=[{x:0,y:2,z:0},{x:0,y:1.08,z:.43},{x:0,y:1.38,z:0}];
     const robotPieces=[],mounds=[];
@@ -93,7 +108,7 @@
     for(const side of[-1,1])tube([side*1.7,-.58,-.05],[side*1.7,-2.55,-.05],.055,C.silver,robotSign);
     world.batchStation(robotSign);
     let selectedRobot=-1;
-    const robot={phase:'scan',time:0,digIndex:-1,awake:false,lastTap:-10,cheer:0,nudge:0};
+    const robot={phase:'scan',time:0,digIndex:-1,awake:false,lastTap:-10,cheer:0,nudge:0,wake:0,wave:0,waveAt:-10,awakeAt:-10};
     function robotFocus(){let i=robotPieces.findIndex(q=>q.dug&&!q.attached);return i>=0?i:robotPieces.findIndex(q=>!q.attached);}
     function robotPhase(){if(robot.awake)return'awake';if(robot.phase==='dig')return'dig';const i=robotFocus();return i<0?'assemble':robotPieces[i].dug?(i===1?'wake':'assemble'):'search';}
     function robotFeedback(){robot.nudge=2;idle=7;sound('select');}
@@ -106,8 +121,8 @@
       if(drag?.kind==='robot'&&drag.i===i)drag=null;
       q.attached=true;q.g.getWorldPosition(robotInstallPoint);bot.worldToLocal(robotInstallPoint);root.remove(q.g);bot.add(q.g);q.g.position.copy(robotInstallPoint);q.install={from:robotInstallPoint.clone(),time:0};q.ghost.visible=false;q.g.scale.setScalar(1);selectedRobot=-1;idle=0;sound('snap');burst(robotX+q.slot.x,rg+q.slot.y,C.teal,8);
     }
-    function friendlyRobot(){if(elapsed-robot.lastTap<.65)return;robot.lastTap=elapsed;robot.cheer=2.5;sound('robot');burst(robotX,rg+2.7,C.teal,4);}
-    function finishRobot(){if(robot.awake)return;robot.awake=true;robot.phase='awake';robot.cheer=3.5;task(0);sound('success');call('celebrate',robotX,rg+2.1);burst(robotX,rg+2.2,C.gold,18);}
+    function friendlyRobot(){if(elapsed-robot.lastTap<.65)return;robot.lastTap=elapsed;robot.cheer=2.5;robot.waveAt=elapsed;sound('robot');burst(robotX,rg+2.7,C.teal,4);}
+    function finishRobot(){if(robot.awake)return;robot.awake=true;robot.phase='awake';robot.cheer=3.5;robot.awakeAt=robot.waveAt=elapsed;task(0);sound('success');burst(robotX,rg+2.2,C.gold,10);}
     function robotSlotHit(i,p,dragging=false){if(i===2)return hit(p,robotX-1.05,rg+1.15,dragging?1.05:.8)||hit(p,robotX+1.05,rg+1.15,dragging?1.05:.8)||hit(p,robotX,rg+1.4,1.5);return hit(p,robotX,rg+robotSlots[i].y,dragging?1.3:i===0?1.02:.83);}
     function visibleRobotPiece(event){if(!event||!Number.isFinite(event.clientX)||!M.camera)return-1;const c=M.renderer&&M.renderer.domElement,r=c&&c.getBoundingClientRect();if(!r||!r.width)return-1;pickNdc.set((event.clientX-r.left)/r.width*2-1,-(event.clientY-r.top)/r.height*2+1);pickRay.setFromCamera(pickNdc,M.camera);let result=-1,d=Infinity;robotPieces.forEach((q,i)=>{if(!q.dug||q.attached)return;partHits.length=0;pickRay.intersectObject(q.g,true,partHits);if(partHits.length&&partHits[0].distance<d){d=partHits[0].distance;result=i;}});partHits.length=0;return result;}
     function robotPointer(p,event){if(!nearby(70,18))return false;if(robot.awake)return false;
@@ -135,12 +150,12 @@
         mounds[i].target.visible=!q.dug&&i===focus&&robot.phase!=='dig';mounds[i].g.visible=!q.dug;robotLights[i].material=q.attached?C.green:C.dark;
       });
       if(!robot.awake&&robotPieces.every(q=>q.attached&&!q.install))finishRobot();robot.cheer=Math.max(0,robot.cheer-dt);robot.nudge=Math.max(0,robot.nudge-dt);
-      const cheer=Math.min(1,robot.cheer);bot.position.y=rg+(robot.awake?Math.sin(elapsed*2)*.018:0);bot.rotation.z=robot.awake?Math.sin(elapsed*1.4)*.01:0;
-      botArms.forEach((a,i)=>{a.rotation.z=robot.awake?(i?-.12-cheer*.8+Math.sin(elapsed*4)*.25*cheer:Math.sin(elapsed*2)*.04):0;});
-      const blink=robot.awake&&(elapsed%3.7)<.12;robotEyes.forEach(e=>{e.lid.scale.y=robot.awake&&!blink?.16:.025;e.pupil.visible=robot.awake&&!blink;});
+      const waveAge=Math.max(0,elapsed-robot.waveAt);robot.wake=M.damp(robot.wake,robot.awake?1:0,7,dt);robot.wave=M.damp(robot.wave,robot.awake?Math.min(1,waveAge/.24)*Math.min(1,robot.cheer/.65):0,10,dt);bot.position.y=rg;bot.rotation.z=0;
+      botArms.forEach(a=>{const waving=a.side>0?robot.wave:robot.wave*.16,phase=waveAge*6.8;const shoulder=a.side*(.035*robot.wake+1.22*waving+.12*waving*Math.sin(phase)),elbow=a.side*(.045*robot.wake+.35*waving+.11*waving*Math.sin(phase-.65));a.shoulder.rotation.z=M.damp(a.shoulder.rotation.z,shoulder,12,dt);a.elbow.rotation.z=M.damp(a.elbow.rotation.z,elbow,10,dt);});
+      const blinkPhase=Math.max(0,elapsed-robot.awakeAt)%3.7,blink=blinkPhase<.16?Math.sin(Math.PI*blinkPhase/.16):0,open=robot.wake*(1-blink);robotEyes.forEach(e=>{e.lid.scale.y=.025+.135*open;e.pupil.visible=open>.14;e.pupil.scale.y=.055*Math.max(.1,open);});
       // An awake friend gently blinks and tilts its head; nothing moves before it wakes.
-      const head=robotPieces[0].g;if(robot.awake&&!robotPieces[0].install)head.rotation.z=Math.sin(elapsed*1.5)*.045+cheer*Math.sin(elapsed*6)*.06;if(botHeart){botHeart.material=robot.awake?C.teal:C.gold;botHeart.scale.setScalar(1+Math.sin(elapsed*3)*(robot.awake?.04:.08));}if(botAntenna)botAntenna.material=robot.awake?C.gold:C.dark;
-      if(nearby(70,12)&&!player.locked&&Math.abs(player.vx)<.5&&(!robot.awake||robot.cheer>2))call('frameActivity',Math.min(64,player.x-.8,dog.x-1.15),Math.max(77.8,player.x+.8,dog.x+.9),rg+1.85,.94);
+      const head=robotPieces[0].g;if(robot.awake&&!robotPieces[0].install){head.rotation.z=robot.wake*Math.sin(elapsed*1.5)*.035+robot.wave*Math.sin(waveAge*4.5)*.035;head.rotation.y=robot.wave*Math.sin(waveAge*2.4)*.055;}if(botHeart){botHeart.material=robot.awake?C.teal:C.gold;botHeart.scale.setScalar(1+Math.sin(elapsed*3)*(robot.awake?.04:.08));}if(botAntenna){botAntenna.material=robot.awake?C.gold:C.dark;botAntenna.scale.setScalar(.15*(1+robot.wave*.10*Math.sin(waveAge*4)));}
+      if(nearby(70,12)&&!player.locked&&Math.abs(player.vx)<.5&&(!robot.awake||robot.cheer>.6))call('frameActivity',Math.min(64,player.x-.8,dog.x-1.15),Math.max(77.8,player.x+.8,dog.x+.9),rg+1.85,.94);
     }
 
 

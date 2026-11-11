@@ -75,6 +75,18 @@
     ring(model.body,orange,[s*.19,1.15,-.26],.054,.014,[0,Math.PI/2,0]);
     line(model.body,teal,[[s*.19,1.12,-.26],[s*.28,1.04,-.20],[s*.337,.91,-.12]],.017);
    }
+  }else if(M.planet==='jupiter'){
+   // A matching small specimen pod is clipped close to Bilbo's vest.
+   cyl(model.body,white,[-.245,1.055,-.26],[.073,.29,.073]);
+   cyl(model.body,orange,[-.245,1.205,-.26],[.078,.032,.078]);
+   cyl(model.body,teal,[-.245,.905,-.26],[.077,.025,.077]);
+   line(model.body,silver,[[-.245,1.20,-.26],[-.275,1.19,-.21],[-.275,.94,-.21],[-.245,.91,-.26]],.009);
+  }else if(M.planet==='venus'){
+   // The shallow gold radiator is part of the same protective backpack.
+   box(model.body,silver,[0,1.274,-.31],[.27,.029,.17]);
+   for(let j=0;j<5;j++)box(model.body,orange,[-.104+j*.052,1.296,-.31],[.017,.018,.146]);
+   box(model.body,white,[-.27,.99,-.08],[.042,.15,.095]);
+   box(model.body,teal,[-.295,1.013,-.08],[.009,.048,.061]);
   }
   // Boots retain the original paws and toe grooves, with articulated soles and seals.
   model.legs.forEach(L=>{
@@ -105,13 +117,13 @@
    const mesh=new T.SkinnedMesh(g,mat);mesh.name='Bilbo articulated space suit';mesh.castShadow=mat!==glass&&mat!==glint;mesh.receiveShadow=false;mesh.frustumCulled=false;model.root.add(mesh);mesh.bind(model.skeleton,model.meshes[0].bindMatrix.clone());if(mat===glass||mat===glint)mesh.renderOrder=2;suitMeshes.push(mesh);
   });
   owned.forEach(g=>g.dispose());owned.length=0;pieces.length=0;sphere.dispose();detailSphere.dispose();cylinder.dispose();cube.dispose();
-  let yaw=1.28,walk=0,locomotion=0,air=0,land=0,wind=0,sail=0,deck=0,bank=0,wasGrounded=true,lastVy=0,localTime=0,distance=0,lastX=null,turnVelocity=0,lastMode='idle';
+  let yaw=1.28,walk=0,locomotion=0,air=0,land=0,wind=0,sail=0,deck=0,bank=0,celebrateInput=0,celebratePose=0,wasGrounded=true,lastVy=0,localTime=0,distance=0,lastX=null,turnVelocity=0,lastMode='idle';
   const weights={idle:1,walk:0,jump:0,land:0,dig:0,wave:0,ride:0,slide:0,sniff:0,look:0};
   const weightKeys=Object.keys(weights),telemetry={mode:'idle',walk:0,air:0,land:0,wind:0};
   const poseState={speed:0,stridePhase:0,happy:.22,pounce:0,dig:false,sniff:false,ride:false,merak:false,selam:false,sit:false};
   const anchors={groundPaw:0,rideHip:.362,slideHip:.385,ridePaw:.004,slidePaw:.025,nose:.674,head:.76};
   const noseAnchor=new T.Object3D();noseAnchor.name='Bilbo original nose tip';noseAnchor.position.set(0,-.022,.705);model.head.add(noseAnchor);
-  const bodyInverse=new T.Matrix4(),ikTarget=new T.Vector3(),hindLegs=model.legs.filter(L=>!L.front);
+  const bodyInverse=new T.Matrix4(),ikTarget=new T.Vector3(),hindLegs=model.legs.filter(L=>!L.front),cheerPaw=model.legs.find(L=>L.front&&L.side>0);
   model.legs.forEach(L=>{const a=L.shin.position,b=L.foot.position;L.ik={l1:Math.hypot(a.y,a.z),l2:Math.hypot(b.y,b.z),bias1:Math.atan2(-a.z,-a.y),bias2:Math.atan2(-b.z,-b.y),z:L.b.position.z,x:L.b.position.x};});
   let lookYaw=0,lookPitch=0;
   function plantLeg(L,forward,lift,blend){
@@ -124,7 +136,7 @@
   }
   function update(dt,t,pose={},celebrate=0,buddy=null){
    dt=clamp(dt||0,0,.06);if(!dt)return;localTime+=dt;
-   const mode=pose.mode||'idle',speed=Math.abs(pose.vx||0),grounded=pose.grounded!==false,emote=typeof pose.emote==='string'?pose.emote:pose.emote&&pose.emote.type||'';
+   const mode=pose.mode||'idle',speed=Math.abs(pose.vx||0),grounded=pose.grounded!==false,emote=typeof pose.emote==='string'?pose.emote:pose.emote&&pose.emote.type||'',success=buddy?.success||0,successPhase=buddy?.successPhase||0;
    sail=ease(sail,pose.sailing?1:0,10,dt);
    deck=ease(deck,Number.isFinite(pose.skating)?1:0,10,dt);
    bank=ease(bank,clamp(pose.skating||0,-1,1),5.4,dt);
@@ -133,6 +145,12 @@
    weightKeys.forEach(k=>weights[k]=ease(weights[k],k===mode?1:0,10,dt));
    walk=ease(walk,grounded&&mode==='walk'?clamp(speed/5.2,0,1):0,11,dt);air=ease(air,grounded?0:1,10,dt);
    locomotion=ease(locomotion,grounded&&mode==='walk'&&speed>.07?1:0,10,dt);
+   // Keep a quick happy reaction, without snapping into the old salute or
+   // carrying that pose into walking, jumping, riding or an activity.
+   const cheerTarget=grounded&&(mode==='idle'||mode==='look')&&!pose.locked&&!pose.sailing&&!Number.isFinite(pose.skating)?clamp(celebrate||0,0,1):0,cheerDecay=Math.exp(-22*dt);
+   celebratePose=cheerTarget+(celebratePose-cheerTarget+22*dt*(celebrateInput-cheerTarget))*cheerDecay;
+   celebrateInput=cheerTarget+(celebrateInput-cheerTarget)*cheerDecay;
+   celebrate=celebratePose*(1-locomotion)*(1-air)*(1-sail)*(1-deck)*(1-weights.dig)*(1-weights.sniff)*(1-weights.ride)*(1-weights.slide);
    // A tall, springy trot: shorter reach keeps the legs long and straight under the
    // body, and a brief float between steps suits the low gravity. Paws stay planted.
    const run=clamp(speed/4.4,0,1),stance=.56-.34*run,lead=.085+.07*run,strideLength=2*lead/stance;
@@ -196,6 +214,17 @@
     });
    }
    model.tail.rotation.x-=air*.17;model.jaw.rotation.x+=weights.slide*.055;
+   // A discovery earns a delighted head tilt, ear follow-through and one paw
+   // offered to Feza. Only the spare front paw lifts: no root hop or forced sit.
+   const joyFree=grounded&&(mode==='idle'||mode==='look')&&!pose.locked&&pose.activityMode!=='dig'&&pose.activityMode!=='sniff'?(1-locomotion)*(1-air)*(1-sail)*(1-deck)*(1-weights.dig)*(1-weights.sniff):0;
+   const joy=success*joyFree,paw=joy*(buddy?.successComplete?1:0);
+   if(joy>.001){
+    const nod=Math.sin(successPhase*Math.PI*2),spring=Math.sin(successPhase*Math.PI*3);
+    model.head.rotation.z+=joy*.105;model.head.rotation.x+=joy*.055*nod;
+    model.neck.rotation.x-=joy*.025;model.tail.rotation.x+=joy*.055;
+    model.ears.forEach(e=>{e.b.rotation.x-=joy*(.055+.035*spring);e.b.rotation.z+=e.side*joy*.028*spring;});
+    if(paw>.001){cheerPaw.b.rotation.x+=(-.90-cheerPaw.b.rotation.x)*paw;cheerPaw.shin.rotation.x+=(.95-cheerPaw.shin.rotation.x)*paw;cheerPaw.foot.rotation.x+=(-.07-cheerPaw.foot.rotation.x)*paw;}
+   }
    // A closed helmet limits the pant to a small happy tongue curl.
    if(mode==='ride'||model.tongue.scale.x>.8){model.jaw.rotation.x*=.86;model.tongue.rotation.x*=.78;}
    if(mode==='idle'&&lastMode==='dig')model.head.rotation.z+=.06*Math.sin(localTime*16)*Math.exp(-weights.dig*6);

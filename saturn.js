@@ -1001,6 +1001,10 @@
       const packetColors=new Float32Array(positions.length);
       const potGeometry=new T.LatheGeometry([[.21,0],[.30,.10],[.35,.42],[.39,.45],[.39,.51],[.30,.51],[.27,.12],[.18,.06]].map(v=>new T.Vector2(...v)),20);
       const leafPaint=metal(0x669a7b,.76,.02),soilPaint=metal(0x58454b,.95,.01),petalPose=new T.Object3D();
+      // Etched fissures follow the actual frozen shell rather than standing
+      // above it as two straight white rods. Their two draws replace the old two.
+      const etchPaths=[[[ -.34,-.62],[-.28,-.43],[-.37,-.23],[-.23,-.02],[-.27,.17],[-.10,.36]],[[.27,-.50],[.19,-.28],[.30,-.10],[.17,.13],[.25,.33],[.12,.53]]];
+      const etchGeometries=etchPaths.map(points=>new T.TubeGeometry(new T.CatmullRomCurve3(points.map(([x,y])=>new T.Vector3(x,y,Math.sqrt(Math.max(.02,1-x*x-y*y))+.012))),18,.012,4,false));
       xs.forEach((x,i)=>{
         const y=ground(x),z=-1.4;
         piece(potGeometry,mats.coral,x,y+.10,z,1,1,1);
@@ -1014,8 +1018,9 @@
         const heart=mesh(flower,shapes.sphere,mats.brass,0,.03,.16);heart.scale.set(.17,.17,.10);
         const icePaint=new T.MeshStandardMaterial({color:0xc8f4ff,transparent:true,opacity:.42,roughness:.15,metalness:.08,depthWrite:false});
         const ice=mesh(root,shapes.sphere,icePaint,x,y+1.55,z+.015);ice.scale.set(.47,.72,.36);ice.name='Dokununca çözülen çiçek buzu '+i;
-        const seams=group(ice);for(const a of [-.42,.38]){const seam=mesh(seams,shapes.rod,mats.porcelain,Math.sin(a)*.25,.04,.91);seam.scale.set(.012,.72,.012);seam.rotation.z=a;}
-        blooms.push({x,y,flower,petals,heart,ice,icePaint,tint:new T.Color(hues[i]),opened:false,openness:0,age:3,wave:0,receiver:i,melt:0});
+        const etchPaint=new T.MeshBasicMaterial({color:0xe6fbff,transparent:true,opacity:.18,depthWrite:false});
+        for(const geometry of etchGeometries){const vein=mesh(ice,geometry,etchPaint);vein.raycast=()=>{};}
+        blooms.push({x,y,flower,petals,heart,ice,icePaint,etchPaint,tint:new T.Color(hues[i]),opened:false,openness:0,lastPetalOpen:-1,age:3,wave:0,receiver:i,melt:0});
       });
       const g=new T.BufferGeometry(),attr=new T.BufferAttribute(positions,3).setUsage(T.DynamicDrawUsage);
       g.setAttribute('position',attr);
@@ -1047,6 +1052,9 @@
         return false;
       }
       function rub(type,p,id){
+        // Pause, rotation and focus loss cancel every held input without a
+        // pointer id. Keep the melt already earned, but release the warm finger.
+        if(type==='cancel'&&id===undefined){melting=null;return;}
         if(!melting||melting.id!==id)return;
         if(type==='move'&&p){const b=blooms[melting.i];b.melt=Math.min(1,b.melt+Math.hypot(p.x-melting.x,p.y-melting.y)*.16);melting.x=p.x;melting.y=p.y;}
         else if(type==='up'||type==='cancel')melting=null;
@@ -1067,9 +1075,25 @@
           const open=b.openness,sway=Math.sin(time*1.7+i),head=b.flower;
           head.position.y=b.y+1.35+.12*open+.025*sway+b.wave*.07;
           head.rotation.set(.035*sway,.04*Math.sin(time*.86+i),.045*Math.sin(time*.69+i));
-          for(let j=0;j<7;j++){const angle=M.lerp(.16*Math.sin(j*2.4),j*TAU/7,open);petalPose.position.set(-Math.sin(angle)*.34,Math.cos(angle)*.34-.08,.045*Math.cos(j*2.4)*(1-open));petalPose.rotation.set(0,0,angle);petalPose.scale.set(.21,.47,.105);petalPose.updateMatrix();b.petals.setMatrixAt(j,petalPose.matrix);}b.petals.instanceMatrix.needsUpdate=true;
-          b.heart.scale.setScalar(.10+.07*open);b.heart.position.y=.30*(1-open);
-          const m=b.opened?0:b.melt,quiver=m>0&&!b.opened?.025*Math.sin(time*30):0;b.ice.visible=open<.93;b.icePaint.opacity=.42*(1-open)*(1-.55*m);b.ice.scale.set((.47+open*.16)*(1-.38*m)+quiver,(.72+open*.10)*(1-.42*m),(.36+open*.10)*(1-.38*m));b.ice.position.y=b.y+1.55-.18*m;
+          // Each petal unfolds from the little bud into its own radial place;
+          // staggered easing and a brief settling motion keep the blossom soft.
+          const petalOpen=b.opened&&b.age>2.5&&open>.9998?1:open;
+          if(b.lastPetalOpen!==petalOpen||b.age<2.5){
+            const settling=b.opened&&b.age<2.5?Math.exp(-b.age*4.2)*.032:0;
+            for(let j=0;j<7;j++){
+              const p=ease(clamp((petalOpen-j*.028)/(1-j*.028),0,1)),angle=j*TAU/7;
+              const settle=Math.sin(b.age*9.5-j*.31)*settling*p,r=M.lerp(.045,.34,p)+settle;
+              petalPose.position.set(-Math.sin(angle)*r,.19*(1-p)+Math.cos(angle)*r-.045*p,.035+.04*Math.cos(j*2.4)*(1-p));
+              petalPose.rotation.set(.10*Math.cos(angle)*(1-p),.10*Math.sin(angle)*(1-p),angle*p);petalPose.scale.set(.18+.035*p,.35+.12*p,.105);
+              petalPose.updateMatrix();b.petals.setMatrixAt(j,petalPose.matrix);
+            }b.petals.instanceMatrix.needsUpdate=true;b.lastPetalOpen=petalOpen;
+          }
+          const heart=.10+.07*open;b.heart.scale.set(heart,heart,.075+.025*open);b.heart.position.y=.30*(1-open);
+          // Keep the achieved melt after opening: resetting it made the shell
+          // abruptly expand again just as the flower began to unfurl.
+          const m=b.melt,quiver=m>0&&!b.opened?.012*Math.sin(time*11+i):0;
+          b.ice.visible=open<.97;b.icePaint.opacity=.42*(1-open)*(1-.55*m);b.etchPaint.opacity=(.18+.16*m)*(1-open);
+          b.ice.scale.set(.47*(1-.38*m)*(1-.15*open)+quiver,.72*(1-.42*m)*(1-.18*open),.36*(1-.38*m)*(1-.15*open));b.ice.position.y=b.y+1.55-.18*m-.09*open;
           if(b.age>=1.55)continue;
           const receiver=blooms[b.receiver];
           if(previous<1.07&&b.age>=1.07)receiver.wave=.72;

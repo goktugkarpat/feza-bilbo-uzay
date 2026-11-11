@@ -48,7 +48,7 @@
     function station(x,name){
       const g=group(scene);g.position.set(x,world.ground(x),-.7);g.name=name;return g;
     }
-    function frameStation(minX,maxX,y,zoom){if(Math.abs(player.vx)>=.6)return;M.frameActivity(Math.min(minX,player.x-1.1,dog.x-1.3),Math.max(maxX,player.x+1.1,dog.x+1.3),y,zoom);}
+    function frameStation(minX,maxX,y,zoom,includeMarker=true){if(Math.abs(player.vx)>=.6)return;M.frameActivity(Math.min(minX,player.x-1.1,dog.x-1.3),Math.max(maxX,player.x+1.1,dog.x+1.3),y,zoom,includeMarker);}
     function lampBase(g,r=1.4){
       mesh(g,geometry.tube,strut,0,.15,0,r,.29,r*.63);
       mesh(g,geometry.tube,enamel,0,.31,0,r*.94,.09,r*.61);
@@ -297,7 +297,7 @@
       g.setAttribute('position',new T.Float32BufferAttribute(pos,3));g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.setAttribute('color',new T.Float32BufferAttribute(shades,3));
       g.setIndex(idx);g.computeVertexNormals();return g;
     };
-    const leafG=botany(.112,.58,.12,0x6dba68),petalG=botany(.084,.39,.044,0xffce53);
+    const leafG=botany(.112,.58,.12,0x6dba68),petalGs=[0xffce63,0xed9d80,0xc9e5cd].map(c=>botany(.084,.39,.044,c));
     const plantMat=new T.MeshStandardMaterial({vertexColors:true,side:T.DoubleSide,roughness:.76});
     // Bake only four rigid leaves under each still-animated plant. Vertex colours,
     // UVs and mirrored-face winding remain equivalent to the original meshes.
@@ -344,7 +344,7 @@
       batchGardenLeaves(plant,fixedLeaves);
       const bloom=group(plant);bloom.position.set(.06,height,.04);const bloomFixed=group(bloom);bloomFixed.name='Çiçeğin sabit merkezi ve poleni';
       const flower=[];
-      for(let j=0;j<11;j++){const angle=j*tau/11,o=group(bloom);o.rotation.z=angle;const petal=mesh(o,petalG,plantMat,.046,0,.02);petal.scale.x=j%2?.88:1;flower.push(petal);}
+      for(let j=0;j<11;j++){const angle=j*tau/11,o=group(bloom);o.rotation.z=angle;const petal=mesh(o,petalGs[i],plantMat,.046,0,.02);petal.scale.x=j%2?.88:1;flower.push(petal);}
       blossoms.push(flower);body(bloomFixed,copper,0,0,.13,.115,.115,.065);
       for(let j=0;j<6;j++){const a=j*tau/6;body(bloomFixed,amber,.073*Math.cos(a),.073*Math.sin(a),.176,.027,.027,.018);}
       if(world.batchStation)world.batchStation(bloomFixed);
@@ -391,7 +391,7 @@ stemGroups.push(plant);flowerGroups.push(bloom);
     let selectedSeed=-1,hintedSeed=-1,seedHint=0,shadeOpen=false,shadeAmount=0;
     const seedGesture={owner:null,index:-1,startX:0,startY:0,x:0,y:0,moved:false};
     const seedReturns=seedObjects.map(()=>({x:0,y:0,age:1}));
-    let watered=0,growth=0,pumpedAt=-10;
+    let watered=0,growth=0,pumpedAt=-10,gardenDoneAt=-10;
     function plantSeed(i){
       if(seedsPlanted[i])return;
       seedsPlanted[i]=true;if(seedGesture.index===i&&seedGesture.moved)seedFlight[i]=1;selectedSeed=-1;hintedSeed=-1;seedHint=0;seedReturns[i].age=1;M.sfx('snap');
@@ -424,7 +424,10 @@ stemGroups.push(plant);flowerGroups.push(bloom);
     function grow(dt){
       seedHint=Math.max(0,seedHint-dt);if(watered===3&&!shadeOpen&&clock-pumpedAt>.6)shadeOpen=true;
       growth=M.damp(growth,shadeOpen?watered/3:watered/9,2.7,dt);shadeAmount=M.damp(shadeAmount,shadeOpen?1:0,3,dt);shade.rotation.z=0;awning.scale.y=Math.max(.035,1-shadeAmount*.97);awning.position.z=-.82*shadeAmount;crank.rotation.z=shadeAmount*3.6;gardenSun.scale.setScalar(1+shadeAmount*.06);
-      if(seedsPlanted.every(Boolean)&&watered===3&&shadeOpen)complete('garden',gardenX);
+      if(seedsPlanted.every(Boolean)&&watered===3&&shadeOpen&&!mission.garden){complete('garden',gardenX);gardenDoneAt=clock;}
+      // Let an idle child actually see the three blooms finish opening. Starting
+      // to walk immediately returns control to the usual following camera.
+      if(mission.garden&&clock-gardenDoneAt<6&&player.grounded&&!player.locked&&Math.abs(player.vx)<.35&&Math.abs(player.x-gardenX)<11)frameStation(gardenX-5.8,gardenX+4.8,garden.position.y+1.88,1.12,false);
       const since=clock-pumpedAt,stroke=since<.45?Math.sin(Math.PI*since/.45):0;
       bellows.scale.y=1-stroke*.55;handle.position.y=.94-stroke*.32+(!watered?.035*Math.sin(clock*2.5):0);
       for(let i=0;i<3;i++){
@@ -437,13 +440,15 @@ stemGroups.push(plant);flowerGroups.push(bloom);
         const invite=seedHint>0&&hintedSeed===i?1+.17*(.5+.5*Math.sin(clock*5)):1;seed.scale.set(.23*invite,.34*invite,.19*invite);
         potRims[i].material=seedsPlanted[i]?lamp:seedColours[i];stemGroups[i].visible=seedsPlanted[i];
         stemGroups[i].scale.set(.52+.48*g,.19+.81*g,.52+.48*g);stemGroups[i].rotation.z=Math.sin(clock*1.7+i)*.043*g;
-        flowerGroups[i].scale.setScalar(.12+.88*g);
-        for(const petal of blossoms[i])petal.rotation.y=-1.38*(1-g)-.10;
+        flowerGroups[i].scale.setScalar(.12+.88*g);flowerGroups[i].rotation.z=Math.sin(clock*.95+i*.9)*.025*g;
+        // Petals open in a small spiral, easing out of the bud and settling
+        // into a soft cup. All original meshes and the same draw calls remain.
+        for(let j=0;j<blossoms[i].length;j++){const petal=blossoms[i][j],delay=.035*(j%4)+.014*Math.floor(j/4),u=M.clamp((g-.055-delay)/(.80-delay),0,1),open=u*u*(3-2*u),settle=Math.sin(Math.PI*open)*.075;petal.rotation.y=-1.48*(1-open)-.08-settle;petal.rotation.z=.025*Math.sin(clock*1.35+j*.56)*open*g;}
       }
       seedGhost.visible=!M.playGuideActive&&selectedSeed>=0&&!seedsPlanted[selectedSeed]&&!seedGesture.moved;if(seedGhost.visible){const i=selectedSeed,u=(clock*.45)%1,v=u*u*(3-2*u);seedGhost.position.set((-4.7+i*.8)*(1-v)+(1.25+(i-1)*.87)*v,.7+.55*Math.sin(u*Math.PI),.65);}
       for(let i=0;i<drops.length;i++){
         const u=(since-i*.042)/.82,drop=drops[i];drop.visible=u>=0&&u<=1;
-        if(drop.visible)drop.position.set(-1.48+u*(2.8+.7*Math.sin(i)),.62+u*.34+1.8*Math.sin(Math.PI*u),.44);
+        if(drop.visible){const target=1.25+(i%3-1)*.87,dx=target+1.48,dy=.02+6.2*(1-2*u);drop.position.set(-1.48+u*dx,.62+.02*u+6.2*u*(1-u),.44);drop.rotation.z=-Math.atan2(dx,dy);}
       }
     }
     // A constellation Feza and Bilbo light together from a pair of boot and paw plates.
