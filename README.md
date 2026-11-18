@@ -1,51 +1,70 @@
 # Feza ve Bilbo · Uzay Macerası 🚀🐾
 
-Astronot Feza ve çikolata Labrador’u Bilbo ile Dünya yörüngesindeki üsten Mars, Satürn, Neptün, Jüpiter veya Venüs’e uç. Dört–beş yaş için yazı okumadan, gerçek nesnelere dokunarak ve onları sürükleyerek oynanan üç boyutlu bir keşif oyunu. El resimli bayraklar oyun yerlerini gösterir. Dokunulacak nesnenin çevresinde turkuaz bir halka, götürüleceği yerde altın bir halka belirir; küçük el gerçek nesnenin üzerinde dokunmayı, sürüklemeyi ve çevirmeyi örnekler; bir süre takılınca oyun yardım eder; süs nesneleri dokunmaya tepki vermez. Robotlar, vanalar, vinçler, örnek kavanozları ve dokuma tezgâhları yaptığın işe görünür ve kalıcı bir sonuç verir. Süre baskısı ve başarısızlık cezası yoktur.
+Astronot Feza ve çikolata Labrador'u Bilbo, Dünya yörüngesindeki üsten beş gezegene uçar.
+Dört–beş yaş için yapılmış, üç boyutlu bir keşif oyunudur. Yazı okumak gerekmez.
+Gerçek nesnelere dokunarak, onları sürükleyip çevirerek oynanır. Süre baskısı ve ceza yoktur.
 
-- **Mars.** Araştırma robotunu topla, aracı kur ve yol üzerindeki bilim düzeneklerini kullan. Üç farklı kirişi eş yuvalarına taşıyarak köprüyü tamamla. Yolun devamındaki serada üç tohumu ek, su pompasını kullan ve güneşliği aç. Buz mağarasında kızakla kayarak kar tanesini, prizmayı, su çarkını ve kutup ışığını bul, buz kapısını aç. Helikopter, rüzgâr postası, kristalli taş ve örnek laboratuvarını keşfet; güneş, su ve kaya deneyleriyle Bilbo’nun takımyıldızını bilim kampında bir araya getir. Feza ve Bilbo kampı birlikte canlandırır.
-- **Satürn.** Üç buz yelkenlisiyle yol al; altı durakta gerçek kolları, bağları ve düzenekleri kullan. İki küçük uydunun çekimiyle yön ver, buz çanlarını çal ve sondayla topladığın örnekleri yuvalarına yerleştir. Kraterli ayı küçük Güneş’in önüne kaydırarak tutulmayı oluştur. Fidanlıktaki buz tohumları ve yol boyunca yaptığın keşifler, Feza ile Bilbo’nun birlikte büyüttüğü kristal bahçesine ve aile fotoğrafına bağlanır.
-- **Neptün.** Renkli çarkları parmağınla çevir, uçurtmayı rüzgâra taşı, çanları salla; bulut gemisiyle üst ya da alt hava akımını seç. Her rotada dört durak vardır. İki rotadaki duraklar toplam altı farklı düzenek sunar; son iki durak ortaktır. Ayna, çiğ kabuğu, uçurtma örme, balinaya yol gösterme, ipek kapı ve rüzgâr aktarma hareketlerini keşfet. Çiy topla, kumaş ör ve birlikte pompaladığın havayla keşif balonunu göğe taşı.
-- **Jüpiter.** Korunaklı yörünge istasyonundan iki gemi yolculuğuyla Io ve Europa’ya git. Robot koluyla gerçek taşları örnek kaplarına taşı, lav kanallarını gözle, buz kapağını aç ve küçük su altı aracını buz oluşumlarına yönlendir. Topladıkların, Feza ve Bilbo’nun birlikte açtığı keşif müzesinde sergilenir.
-- **Venüs.** Cam kubbeli araçla uzun bir rotada dört bilim durağına uğra. Buharı yönlendir, köprü parçalarını taşı, örnek topla, basınç ve filtre düzeneklerini kullan. Gözlem balonlarını hazırla; topladığın örnekler ve bulut görüntüleri son gözlemevini birlikte canlandırır.
+**Oyna:** https://goktugkarpat.github.io/feza-bilbo-uzay/
 
-## Oynama
+![Uzay üssü ve gezegen düğmeleri](ekran/us.jpg)
 
-Gezegenlere özgü uzak araştırma yapıları, buz sırtları ve bulut gemileri manzaraya derinlik verir. Küçük keşiflerde Feza ile Bilbo birbirine gülümser; tamamlanan etkinliklerde birlikte sevinirler. Uzay üssündeki resimli gezegen düğmeleri her yolculuğun havasını gösterir.
+## Gezegenler
 
-Rüzgâr vadisinde ve geçitte daha uzun kum cepheleri, yerden savrulan toz ve toz burguları görülür. Sera ve bilim kampı sakin kalır; Feza, Bilbo ve etkinlik parçaları fırtınanın önünde görünür.
+Uzay üssünde arkada Dünya döner; istasyonun penceresinden Feza ile Bilbo el sallar. Gezegen resmine dokununca roket uçar.
 
-Fişi prize takınca ampuller yanar; ip makaraları perdeyi açar. Hareketli parçaların saydam örnekleri elin izlediği yolu gösterir; bu gösterimler oyunu kendiliğinden tamamlamaz.
+| | |
+|---|---|
+| ![Mars](ekran/mars.jpg) | ![Satürn](ekran/saturn.jpg) |
+| **Mars.** Robotu topla, aracı kur, köprüyü tamamla. Serada tohum ek, buz mağarasında kızakla kay; sonunda bilim kampını canlandır. | **Satürn.** Buz yelkenlileriyle halkalarda yol al. Buz çanlarını çal, örnek topla, küçük ayı Güneş'in önüne kaydırıp tutulma yap; kristal bahçesini büyüt. |
+| ![Neptün](ekran/neptun.jpg) | ![Jüpiter](ekran/jupiter.jpg) |
+| **Neptün.** Bulut gemisiyle üst ya da alt hava akımını seç. Çarkları çevir, uçurtmayı uçur, kumaş ör; keşif balonunu göğe taşı. | **Jüpiter.** Yörünge istasyonundan Io ve Europa'ya git. Robot koluyla taş topla, küçük su altı aracını buzlara yönlendir; keşif müzesini aç. |
 
-Uzay üssünde arkada Dünya döner, istasyonun penceresinden Feza ile Bilbo el sallar. Gezegen resmine dokunarak uç; her gezegenin göğünde parıldayan yıldızlar, uydular ve ara sıra kayan yıldız vardır. Ekranın iki yanına basılı tutarak yürü, büyük okla zıpla. Düzeneklerde nesnenin kendisini tut; gösterilen yöne kaydır, çevir veya eş yuvasına bırak. Yanlış yere bırakmanın cezası yoktur; nesneyi yeniden tutup devam edebilirsin. Bazı eşleştirmelerde önce parçaya, sonra yuvasına dokunmak da desteklenir. Jüpiter ve Venüs’te düzenekleri sürükleyip çevirerek kullan. Büyük ok görevleri otomatik çözmez. Dokunulan oyun nesnesi parmağı izler; kısa temas işareti ve sahnede kalan sonuç yapılan işi gösterir; anlatıcıyı veya yazılı ipuçlarını açmak zorunlu değildir.
+![Venüs](ekran/venus.jpg)
 
-Klavyede A/D veya oklarla yürü, Boşluk ile zıpla, E ile yakındaki nesneyi kullan; Esc mola verir.
+**Venüs.** Cam kubbeli araçla dört bilim durağına uğra. Buharı yönlendir, köprü parçalarını taşı, örnek topla.
+Gözlem balonlarını hazırla; topladıkların son gözlemevini canlandırır.
 
-Sağ üstteki altın çerçeveli uzay istasyonu her gezegenden üsse döndürür. Mola aynı ziyaretteki keşiflerini korur; her yeni gezegen ziyareti baştan başlar. Tamamlanan yolculuğun küçük fotoğrafı, istasyon açık kaldığı sürece o gezegenin yanında görünür. Moladan ses ve yazılı ipuçlarını ayarlayabilirsin.
+## Nasıl açılır
 
-Bir parçayı tutarken ikinci parmakla mola veya üs düğmesi kullanılabilir. Tamamlanmış bayraklar yürümeyi durdurmaz.
+- **İnternette:** https://goktugkarpat.github.io/feza-bilbo-uzay/
+- **iPad'de uygulama gibi:** Safari'de adresi aç → **Paylaş** → **Ana Ekrana Ekle**.
+  İlk açılıştan sonra internetsiz de oynanır.
+- **Bilgisayarda:** `index.html` dosyasını tarayıcıyla aç.
+  Mac'te Python 3 varsa `oyunu-ac.command` yerel sunucuyu açar; oynarken penceresi açık kalsın.
+- **Sessiz açma:** adresin sonuna `?sessiz` ekle.
 
-Tamamlanan araç yolculuğuna yeniden binilmez. Mars arabası seranın önünde bırakır; sera bitmeden kızak başlamaz. Bayraklar düzeneği örtmeden zeminde veya gerçek iskelede durur.
+## Nasıl oynanır
 
-## Yerelde ve çevrimdışı açma
+- Ekranın sol ya da sağ yanına basılı tut: Feza yürür. Büyük okla zıplar.
+- Turkuaz halka dokunulacak nesneyi, altın halka götürüleceği yeri gösterir.
+- Küçük el dokunmayı, sürüklemeyi ve çevirmeyi örnekler. Takılınca oyun yardım eder.
+- Nesneyi yanlış yere bırakmanın cezası yok; yeniden tutup devam edilir.
+- Büyük ok görevleri kendisi çözmez; işi çocuk yapar ve sonucu sahnede kalır.
+- Sağ üstteki **Uzay üssü** düğmesi üsse döndürür; ‖ düğmesi mola verir.
+- Klavye (yedek): A/D veya oklar yürür, Boşluk zıplar, E kullanır, Esc mola.
 
-`index.html` dosyasını tarayıcıyla aç. Mac’te Python 3 varsa `oyunu-ac.command` dosyası yerel sunucuyu açar; oynarken onun penceresi açık kalsın. Oyun Three.js, modelleri, sesleri ve görselleri kendi klasöründen yükler. Roket uçarken seçtiğin gezegen hazırlanır. HTTPS veya localhost üzerinden ilk başarılı yüklemeden sonra çevrimdışı oynanabilir.
+## Ebeveyn için notlar
 
-iPad’de hedef 60 FPS’dir. Bilgisayarda ekranın yenileme hızı takip edilir. Oyun tek bir görüntü düzeni kullanır. Tablette art arda kare kaçırılırsa yalnız sahnenin çizim çözünürlüğü o ziyaret için biraz azalabilir; yazılar ve düğmeler ekran çözünürlüğünde kalır. Ölçüm göstergesi için istasyon adresine `?fps` ekle; bilgisayarda nokta tuşu da göstergeyi açıp kapatır.
+- **Kayıt yok:** her gezegen ziyareti baştan başlar. Mola, aynı ziyaretteki keşifleri korur.
+- Tamamlanan yolculuğun küçük fotoğrafı, istasyon açık kaldıkça gezegenin yanında görünür.
+- Moladan ses ve yazılı ipuçları açılıp kapatılabilir. Yalnız ses tercihi hatırlanır.
+- iPad'de hedef 60 FPS'dir. Ölçüm göstergesi için adrese `?fps` ekle.
+- **GitHub'a göndermek:** klasördeki `yayinla.command` dosyasına çift tıkla.
 
 ## Gizlilik ve kaynaklar
 
-Aile fotoğrafları oyundaki özgün 3B Feza ve Bilbo modellerinden oluşturulur; kamera veya kişisel fotoğraf dosyası kullanılmaz. Konum ve görevler kalıcı oyun kaydı olarak saklanmaz. Yalnız ebeveynin ses tercihi sonraki ziyarette otomatik hatırlanır. Her ziyaret yazısız rehberle başlar; ebeveyn moladan yazılı ipuçlarını ayrıca açabilir.
-
-Gezegen ortamları bilimden esinlenen hayalî, sıkıştırılmış güvenli keşif alanlarıdır. Satürn gezisi halkalarda, Neptün gezisi bulut istasyonlarında geçer. Jüpiter’in katı yüzeyi olduğu veya Europa’da yaşam bulunduğu iddiası taşımaz.
-
-Mars kaplamalarının kaynakları `assets/textures` içinde, Satürn görsellerinin kaynakları `assets/orbit/saturn-credits.txt` dosyasındadır. Türkçe anlatıcı kayıtları Microsoft Emel sesiyle üretilmiştir. Uzay üssündeki gezegen ve uçuş çizimleri oyun için hazırlanmıştır; görsel başvuru kaynakları NASA’nın [Mars](https://science.nasa.gov/mars/facts/), [Satürn](https://science.nasa.gov/saturn/facts/) ve [Neptün](https://science.nasa.gov/neptune/neptune-facts/) sayfalarıdır.
-
-Jüpiter ve Venüs’ün üs resimleri bu oyun için ImageGen ile üretilip oyunun çizim tarzına uyarlandı. Yeni yüzeyler, gezegen bulutları ve bilim düzenekleri yerel geometri ve üretilen dokulardır; uzak bir görsel servisine ihtiyaç duymaz.
-
-Venüs’ün volkanik panoraması ve bazalt yüzeyleri bu oyun için ImageGen ile üretildi. Yerel görsel paketi `assets/venus/scene-art.js` içindedir.
+- Aile fotoğrafları oyundaki 3B Feza ve Bilbo modellerinden yapılır; kamera ya da gerçek fotoğraf kullanılmaz.
+- Gezegenler bilimden esinlenen hayalî, güvenli keşif alanlarıdır. Satürn gezisi halkalarda, Neptün gezisi bulut istasyonlarında geçer.
+  Oyun, Jüpiter'in katı yüzeyi olduğunu ya da Europa'da yaşam bulunduğunu iddia etmez.
+- Mars kaplamalarının kaynakları `assets/textures` içinde, Satürn görsellerininki `assets/orbit/saturn-credits.txt` dosyasındadır.
+- Türkçe anlatıcı kayıtları Microsoft Emel sesiyle üretildi.
+- Üs ve uçuş çizimleri oyun için hazırlandı. Görsel başvuru: NASA'nın [Mars](https://science.nasa.gov/mars/facts/),
+  [Satürn](https://science.nasa.gov/saturn/facts/) ve [Neptün](https://science.nasa.gov/neptune/neptune-facts/) sayfaları.
+- Jüpiter ve Venüs'ün üs resimleri ile Venüs'ün volkanik panoraması ve bazalt yüzeyleri ImageGen ile üretildi
+  (Venüs görsel paketi: `assets/venus/scene-art.js`). Oyun uzak bir görsel servisine ihtiyaç duymaz.
 
 ## Yapım
 
-Bu oyun, Feza'nın babası **Göktuğ Karpat** (@goktugkarpat) ile yapay zekâ yardımcıları **Codex** (OpenAI) ve **Claude** (Anthropic) birlikte çalışarak yapılmıştır.
-Fikirler, gezegenler ve kararlar ailenindir; kod, 3B sahneler, bilim düzenekleri ve düzenlemeler Codex ve Claude ile birlikte yazılmıştır.
+Bu oyun, Feza'nın babası **Göktuğ Karpat** (@goktugkarpat) ile yapay zekâ yardımcıları **Claude Code** (Anthropic), **Codex** (OpenAI) ve **Antigravity** (Google) birlikte çalışarak yapılmıştır.
+Fikirler, gezegenler ve kararlar ailenindir; kod, 3B sahneler, bilim düzenekleri ve düzenlemeler bu yardımcılarla birlikte yazılmıştır.
 Oyun yalnızca Feza için, kâr amacı olmadan yapılmış bir aile projesidir.
