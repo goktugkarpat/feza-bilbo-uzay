@@ -62,7 +62,7 @@
 
   M.createHub = function ({container, onDepart, onLaunch, initialArrival}) {
     container.classList.add('orbit-home');
-    container.innerHTML = '<div class="orb-station" aria-hidden="true"></div><div class="orb-shade" aria-hidden="true"></div><div class="orb-deep" aria-hidden="true"></div><div class="orb-target" aria-hidden="true"></div><div class="orb-ship" aria-hidden="true">' + rocketDrawing + '</div><div class="orb-title"><span>Feza <i>ve</i> Bilbo</span><h1>Uzay Üssü</h1></div><nav class="orb-dock" aria-label="Gezegen seç"><div class="orb-grid"></div></nav><div class="orb-announcement" aria-live="polite"></div>';
+    container.innerHTML = '<div class="orb-station" aria-hidden="true"></div><div class="orb-shade" aria-hidden="true"></div><div class="orb-deep" aria-hidden="true"></div><div class="orb-target" aria-hidden="true"></div><div class="orb-ship" aria-hidden="true">' + rocketDrawing + '</div><div class="orb-title"><span>Feza <i>ve</i> Bilbo’nun</span><h1>Uzay Macerası</h1></div><nav class="orb-dock" aria-label="Gezegen seç"><div class="orb-grid"></div></nav><div class="orb-announcement" aria-live="polite"></div>';
     const grid = container.querySelector('.orb-grid'), ship = container.querySelector('.orb-ship');
     const target = container.querySelector('.orb-target'), status = container.querySelector('.orb-announcement');
     const buttons = [];
