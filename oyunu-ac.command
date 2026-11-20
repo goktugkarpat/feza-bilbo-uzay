@@ -7,7 +7,7 @@ import threading, webbrowser
 root = Path.cwd()
 server = ThreadingHTTPServer(('127.0.0.1', 0), SimpleHTTPRequestHandler)
 url = 'http://127.0.0.1:%d/' % server.server_port
-print('Feza ve Bilbo: Uzay Macerası açılıyor. Oynarken bu pencere açık kalsın.')
+print('Feza ve Bilbo’nun Uzay Macerası açılıyor. Oynarken bu pencere açık kalsın.')
 threading.Timer(0.7, lambda: webbrowser.open(url)).start()
 try:
     server.serve_forever()

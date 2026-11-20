@@ -1,10 +1,10 @@
-# Feza ve Bilbo · Uzay Macerası 🚀🐾
+# Feza ve Bilbo’nun Uzay Macerası 🚀🐾
 
 Astronot Feza ve çikolata Labrador'u Bilbo, Dünya yörüngesindeki üsten beş gezegene uçar.
 Dört–beş yaş için yapılmış, üç boyutlu bir keşif oyunudur. Yazı okumak gerekmez.
 Gerçek nesnelere dokunarak, onları sürükleyip çevirerek oynanır. Süre baskısı ve ceza yoktur.
 
-**Oyna:** https://goktugkarpat.github.io/feza-bilbo-uzay/
+**Oyna:** https://goktugkarpat.github.io/feza-bilbo-uzay-macerasi/
 
 ![Uzay üssü ve gezegen düğmeleri](ekran/us.jpg)
 
@@ -26,7 +26,7 @@ Gözlem balonlarını hazırla; topladıkların son gözlemevini canlandırır.
 
 ## Nasıl açılır
 
-- **İnternette:** https://goktugkarpat.github.io/feza-bilbo-uzay/
+- **İnternette:** https://goktugkarpat.github.io/feza-bilbo-uzay-macerasi/
 - **iPad'de uygulama gibi:** Safari'de adresi aç → **Paylaş** → **Ana Ekrana Ekle**.
   İlk açılıştan sonra internetsiz de oynanır.
 - **Bilgisayarda:** `index.html` dosyasını tarayıcıyla aç.

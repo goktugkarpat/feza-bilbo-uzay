@@ -1,4 +1,4 @@
-# Feza ve Bilbo · Uzay Macerası
+# Feza ve Bilbo’nun Uzay Macerası
 
 Dört yaş için Türkçe, yazı okumadan oynanan ayrı bir oyun. Mevcut Feza/Pırıl ve Kabir Azabı projelerine dokunma. Ebeveyn açıkça istemeden GitHub'a gönderme.
 
@@ -13,4 +13,4 @@ Dört yaş için Türkçe, yazı okumadan oynanan ayrı bir oyun. Mevcut Feza/P�
 - Etkinliğin önünden yürümek oyuncuyu geri çekmemeli. `parkForActivity` en çok 3,8 metre yakındaki küçük yana geçişi kabul eder; normal yürüme/zıplama her zaman önceliklidir. Tamamlanan araç yolculuğu aynı ziyarette tekrar başlatılamaz. Mars sera bitmeden kızağa bindiremez.
 - Tek bir görsel düzen kullan. iPad/Android tablette 60 FPS hedefle ve çizim çözünürlüğünü ekran alanına göre sınırla. Bilgisayarda ekran yenileme hızını takip et. Animasyonlar her çizilen karede ilerler. Kare başına yeni geometri, kaplama veya sınırsız parçacık oluşturma.
 - `?sessiz` ile test et. `?test` veya `?atla` yalnız geliştirme konum atlamasını açar. Normal oynanışı ayrıca dokunmatik girişle, yatay/dikey kadrajda ve en az bir baştan sona turda kontrol et. Testleri ve ekran görüntülerini oyunun dışında tut.
-- Yeni çalışma zamanı kaynaklarını `sw.js` dosyasına ekle ve her teslimde önbellek sürümünü yükselt. Yalnız bu oyunun `feza-bilbo-mars-` ön ekli önbellekleri güncellenebilir. `file://` üzerinden de oynamak desteklenir.
+- Yeni çalışma zamanı kaynaklarını `sw.js` dosyasına ekle ve her teslimde önbellek sürümünü yükselt. Yalnız bu oyunun `feza-bilbo-uzay-macerasi-` ön ekli önbellekleri güncellenebilir. `file://` üzerinden de oynamak desteklenir.
